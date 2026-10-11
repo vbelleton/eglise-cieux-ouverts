@@ -126,6 +126,8 @@ function defaultPages() {
       { id: 'tb-stats', type: 'stats', props: {} },
       { id: 'tb-iconGrid', type: 'iconGrid', props: {} },
       { id: 'tb-quote', type: 'quote', props: {} },
+      { id: 'tb-bandeau', type: 'bandeau', props: {} },
+      { id: 'tb-evenements', type: 'evenements', props: {} },
       { id: 'tb-footer', type: 'footer', props: {} },
     ],
   },

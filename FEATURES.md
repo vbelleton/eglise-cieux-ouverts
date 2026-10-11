@@ -13,20 +13,22 @@ Chaque page est composée de blocs (voir « Système de blocs »). Le contenu r�
 - **Accueil** (`/`, `pages/index.vue`) — fetch `pages/accueil`. Structure réelle actuelle : 8 blocs dans cet ordre — `hero`, `bienvenue`, `rejoins`, `aspirations`, `vision`, `activities`, `nousRejoindre`, `contact`. **Incident passé** : ce document Firestore a été écrasé accidentellement à deux reprises pendant une session (contenu perdu, restauré depuis l'historique git + recette). Voir « Pièges de sauvegarde » ci-dessous pour la cause racine corrigée.
 - **Contact** (`/contact`, `pages/contact.vue`) — bloc `contact` en mode page complète (formulaire + adresse + carte Google Maps intégrée).
 - **Agenda** (`/agenda`, `pages/agenda.vue`) — calendrier public des événements (voir « Événements »).
-- **Billetterie/Événements** (`/event-list`, `pages/event-list.vue`) — liste des événements avec fallback SSR/SPA si vide. `/billetterie` redirige vers `/event-list` (`routeRules` dans `nuxt.config.ts`).
+- **Billetterie/Événements** (`/event-list`, `pages/event-list.vue`) — par défaut : en-tête, bloc `evenements` (prochains événements du Worker) et présentation du **parcours Alpha** (`textImage`, `PARCOURS_ALPHA_PROPS`). La page jamais éditée (ancien bloc unique « Aucun événement pour le moment », sauvegardé tel quel en Firestore) est remplacée à l'affichage par ce contenu par défaut — `upgradeLegacyBilletterie()` ; tout contenu réellement édité est laissé intact. `/billetterie` redirige vers `/event-list` (`routeRules` dans `nuxt.config.ts`).
 - **Messages** (`/messages`, `pages/messages.vue`) — messages/prédications, bloc `textImage` + `youtube`.
-- **Photos** (`/photos`, `pages/photos.vue`) — galerie.
+- **Photos** (`/photos`, `pages/photos.vue`) — page supprimée volontairement : redirection 301 vers l'accueil. Les galeries passent par le bloc `gallery` sur n'importe quelle page.
 - **Admin** (`/admin`, `pages/admin.vue`) — page de connexion dédiée, redirige vers `/?admin=true` après authentification. Ce n'est pas un dashboard séparé — toute l'édition se fait en admin mode sur les pages publiques elles-mêmes.
 - **Espace membre** (`/membre`, `pages/membre.vue`) — voir « Espace membre » ci-dessous.
 - **Pages custom** — un admin peut créer des pages additionnelles (slug libre) via le menu ; route catch-all `pages/[slug].vue`.
 
 ## Système de blocs (schema-driven)
 
-19 types de blocs (`utils/blockTypes.js` = source de vérité, vérifié) : `hero`, `bienvenue`, `activities`, `textImage`, `rejoins`, `aspirations`, `contact`, `nousRejoindre`, `richText`, `gallery`, `spacer`, `youtube`, `vision`, `fullWidthImage`, `equipe`, `faq`, `stats`, `quote`, `footer`.
+23 types de blocs (`utils/blockTypes.js` = source de vérité, vérifié) : `hero`, `bienvenue`, `activities`, `textImage`, `rejoins`, `aspirations`, `contact`, `nousRejoindre`, `richText`, `gallery`, `spacer`, `youtube`, `vision`, `fullWidthImage`, `equipe`, `louange`, `faq`, `iconGrid`, `stats`, `quote`, `bandeau`, `evenements`, `footer`.
 
 Chaque type déclare `label`, `icon`, `category`, `animations` (stratégie), `defaults`, `schema` (champs auto-générés dans la sidebar : `text`, `textarea`, `richtext`, `number`, `color`, `boolean`, `select`, `animation`, `image`, `array`, `images`).
 
 - **Espace vide** (`spacer`) : simple espacement OU zone de contenu (texte + image) avec alignement horizontal/vertical réglable. Pas de glisser-déposer libre du contenu à l'intérieur — décision volontaire, contrôles d'alignement seulement. Rétrocompatible : un bloc vide sans texte/image reste une div nue (0 enfant DOM).
+- **Bandeau défilant** (`bandeau`) : texte qui défile en boucle (un message par ligne), cliquable vers un lien (par défaut `/event-list`), pause au survol, immobile si l'utilisateur a demandé moins d'animations (`prefers-reduced-motion`). En admin le clic sélectionne le bloc au lieu de naviguer.
+- **Prochains événements** (`evenements`) : cartes des prochains événements du Worker (via `useChurchEvents`, côté client), une seule carte par événement récurrent (sa prochaine date), filtre tous/ponctuels/réguliers, nombre maximum, lien vers l'agenda. Squelette au rendu serveur, message distinct en cas d'erreur de chargement.
 - **Visibilité par device** : chaque bloc peut être masqué indépendamment sur desktop/tablette/mobile (`block.visibility`).
 - **Templates génériques** : les blocs ont des defaults neutres (pas de contenu church-specific codé en dur) pour rester réutilisables sur d'autres sites. Certains types (`textImage`, `richText`) proposent des modèles pré-remplis (`BLOCK_TYPES[type].templates`) au moment de l'ajout.
 
@@ -51,6 +53,7 @@ Firebase Auth (email + mot de passe — connexion Google retirée), projet Fireb
 **Backend séparé** : les événements viennent du Worker Cloudflare `eglise-app` (`/Users/vic/Projects/eglise-app`, base D1) exposé sur `https://eglise-app.belletonv.workers.dev/api/church-events` — **pas de Firestore ici**. `composables/useChurchEvents.js` centralise le fetch public (SiteHeader, agenda). Le Worker vérifie les tokens Firebase de son propre projet OU du projet `eglise-cieux-ouverts` (les deux sites partagent l'auth admin mais utilisent des projets Firebase distincts).
 
 - **Gestion admin** (bouton "📅 Événements" → `components/admin/EventManager.vue`) : CRUD complet (création/édition/suppression), récurrence (hebdo, bimensuel, mensuel même date, mensuel même jour de semaine), exceptions (annulation ou déplacement d'une occurrence), upload d'images.
+- **Date de fin** (`end_date`, moteur unique `utils/churchEvents.js`, partagé par le site public et l'aperçu « prochaines dates » de l'admin) : un événement ponctuel disparaît des listes « à venir » le lendemain de sa date de fin ; pour un événement récurrent, `end_date` est la **fin de la série** — aucune occurrence générée après. Une `end_date` antérieure ou égale à `start_date` sur un récurrent est ignorée (valeur pré-remplie du formulaire, pas une fin de série). L'agenda garde l'historique des mois passés.
 - **Recherche/tri/filtre** dans la modale de gestion : barre de recherche (titre, lieu, description), tri (date ↑/↓, titre A→Z), filtre par statut (tous/actifs/annulés).
 - Ne jamais créer de collection/endpoint Firestore parallèle pour les événements — un système parallèle non connecté au site public a déjà été tenté et annulé.
 

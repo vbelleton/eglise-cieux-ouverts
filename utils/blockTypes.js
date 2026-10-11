@@ -768,6 +768,65 @@ export const BLOCK_TYPES = {
     ],
   },
 
+  bandeau: {
+    label: "Bandeau défilant",
+    icon: "📢",
+    category: "layout",
+    animations: "none",
+    defaults: {
+      text: "Découvrez nos prochains événements\nParcours Alpha : inscriptions ouvertes",
+      link: "/event-list",
+      separator: "✦",
+      speed: 30,
+      pauseOnHover: true,
+      backgroundColor: "#064886",
+      textColor: "#ffffff",
+    },
+    schema: [
+      { key: "text", label: "Messages (un par ligne)", type: "textarea" },
+      { key: "link", label: "Lien au clic (ex : /event-list)", type: "text" },
+      { key: "separator", label: "Séparateur", type: "text" },
+      { key: "speed", label: "Durée d'un tour (secondes)", type: "number", min: 5, max: 120 },
+      { key: "pauseOnHover", label: "Pause au survol", type: "boolean" },
+      { key: "backgroundColor", label: "Fond", type: "color" },
+      { key: "textColor", label: "Couleur texte", type: "color" },
+    ],
+  },
+
+  evenements: {
+    label: "Prochains événements",
+    icon: "📅",
+    category: "content",
+    animations: "wrapper",
+    defaults: {
+      title: "Prochains événements",
+      subtitle: "",
+      filter: "tous",
+      maxItems: 6,
+      emptyText: "Aucun événement à venir pour le moment. Revenez bientôt !",
+      showAgendaLink: true,
+      backgroundColor: "#ffffff",
+      textColor: "#064886",
+      animation: "fadeIn",
+    },
+    schema: [
+      { key: "title", label: "Titre", type: "text" },
+      { key: "subtitle", label: "Sous-titre", type: "text" },
+      {
+        key: "filter",
+        label: "Événements affichés (tous / ponctuels / reguliers)",
+        type: "select",
+        options: ["tous", "ponctuels", "reguliers"],
+      },
+      { key: "maxItems", label: "Nombre maximum", type: "number", min: 1, max: 12 },
+      { key: "emptyText", label: "Texte si aucun événement", type: "text" },
+      { key: "showAgendaLink", label: "Lien vers l'agenda", type: "boolean" },
+      { key: "backgroundColor", label: "Fond", type: "color" },
+      { key: "textColor", label: "Couleur texte", type: "color" },
+      { key: "animation", label: "Animation", type: "animation" },
+    ],
+  },
+
   footer: {
     label: "Footer",
     icon: "📋",
@@ -838,6 +897,7 @@ export function createBlock(type, props = {}) {
 export function getDefaultHomePage() {
   return [
     createBlock("hero"),
+    createBlock("bandeau"),
     createBlock("bienvenue"),
     createBlock("rejoins"),
     createBlock("aspirations"),
@@ -896,19 +956,56 @@ export function getDefaultPhotosPage() {
     .map((block, i) => ({ ...block, id: `default-photos-${i}` }));
 }
 
+// Contenu historique de la page Événements tant que personne ne l'a éditée :
+// un seul bloc, sauvegardé tel quel en Firestore avec son id par défaut.
+// Il affirmait « Aucun événement pour le moment » même quand l'agenda en
+// contenait — voir upgradeLegacyBilletterie().
+const LEGACY_BILLETTERIE_MARKER = "Aucun événement pour le moment.";
+
+export const PARCOURS_ALPHA_PROPS = {
+  title: "Parcours Alpha",
+  subtitle: "Des soirées pour explorer le sens de la vie et la foi chrétienne",
+  body: "<p>Alpha, c'est une série de rencontres conviviales : un repas partagé, un court exposé, puis un temps d'échange en petit groupe où toutes les questions sont les bienvenues, sans tabou et sans engagement.</p><p>Ouvert à tous, que tu sois croyant, curieux ou sceptique. C'est gratuit, il suffit de s'inscrire !</p>",
+  image: "/images/activites-repas.jpg",
+  reverse: false,
+  ctaText: "Je m'inscris au parcours Alpha",
+  ctaLink: "/contact",
+  backgroundColor: "#f6f8fc",
+  textColor: "#1a1a2e",
+  animation: "slideLeft",
+};
+
 export function getDefaultBilletteriePage() {
   return [
     createBlock("richText", {
-      content: `<div style="max-width:820px;margin:0 auto;text-align:center;"><h1 style="font-family:'Playfair Display',Georgia,serif;font-style:italic;color:#064886;">Billetterie Événements</h1><p>Découvrez et réservez vos places pour nos prochains événements.</p><p><strong>Aucun événement pour le moment.</strong></p><p>Revenez bientôt pour de nouvelles dates.</p></div>`,
+      content: `<div style="max-width:820px;margin:0 auto;text-align:center;"><h1 style="font-family:'Playfair Display',Georgia,serif;font-style:italic;color:#064886;">Billetterie Événements</h1><p>Découvrez nos prochains rendez-vous et réservez vos places.</p></div>`,
       backgroundColor: "#ffffff",
       textColor: "#1a1a2e",
       textAlign: "left",
-      padding: 70,
+      padding: 50,
       animation: "fadeIn",
     }),
+    createBlock("evenements", { title: "", maxItems: 6 }),
+    createBlock("textImage", PARCOURS_ALPHA_PROPS),
   ]
     .filter(Boolean)
     .map((block, i) => ({ ...block, id: `default-billetterie-${i}` }));
+}
+
+/**
+ * Page Événements jamais retouchée depuis l'admin (le bloc par défaut
+ * d'origine, intact) → remplacée par la page par défaut actuelle (liste des
+ * prochains événements + parcours Alpha). Tout contenu réellement édité est
+ * renvoyé tel quel : on ne touche jamais au travail de l'admin.
+ */
+export function upgradeLegacyBilletterie(blocks) {
+  const seul = Array.isArray(blocks) && blocks.length === 1 ? blocks[0] : null;
+  const intact =
+    seul?.id === "default-billetterie-0" &&
+    seul?.type === "richText" &&
+    typeof seul?.props?.content === "string" &&
+    seul.props.content.includes(LEGACY_BILLETTERIE_MARKER);
+  return intact ? getDefaultBilletteriePage() : blocks;
 }
 
 export function getDefaultContactPage() {
@@ -1052,6 +1149,7 @@ export function normalizePageBlocks(slug, blocks) {
     return getDefaultPageBySlug(slug);
   if (slug === "messages") return normalizeMessagesBlocks(blocks);
   if (slug === "contact") return normalizeContactBlocks(blocks);
+  if (slug === "event-list") return upgradeLegacyBilletterie(blocks);
   return blocks;
 }
 

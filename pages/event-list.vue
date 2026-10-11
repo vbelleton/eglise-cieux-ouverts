@@ -4,7 +4,7 @@
 
 <script setup>
 import { computed, watch } from 'vue'
-import { getDefaultBilletteriePage } from '~/utils/blockTypes.js'
+import { getDefaultBilletteriePage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
 useSeoMeta({
   title: 'Événements — Église Cieux Ouverts Morlaix',
@@ -48,12 +48,19 @@ watch([isAdminMode, hideIfEmpty, hasEvenements, eventsLoading, eventsErreur], ()
 // `contenuNonCharge` dans useAdmin.js.
 const { data: pageData, error: pageError } = await useFetch('/api/pages/event-list')
 
+// normalizePageBlocks : la page jamais éditée (ancien bloc par défaut,
+// sauvegardé tel quel) passe sur le contenu par défaut actuel — voir
+// upgradeLegacyBilletterie() dans utils/blockTypes.js.
+const savedBlocks = computed(() =>
+  pageData.value?.blocks?.length ? normalizePageBlocks('event-list', pageData.value.blocks) : [],
+)
+
 const blocks = computed(() => {
   if (isAdminMode.value && localBlocks.value.length && localBlocksPage.value === 'event-list') {
     return localBlocks.value
   }
-  if (pageData.value?.blocks?.length) {
-    return pageData.value.blocks
+  if (savedBlocks.value.length) {
+    return savedBlocks.value
   }
   return getDefaultBilletteriePage()
 })
@@ -61,8 +68,8 @@ const blocks = computed(() => {
 function initAdminBlocks() {
   if (!isAdminMode.value) return
   const contenuCharge = !pageError.value
-  if (pageData.value?.blocks?.length) {
-    enterAdmin(pageData.value.blocks, 'event-list', contenuCharge)
+  if (savedBlocks.value.length) {
+    enterAdmin(savedBlocks.value, 'event-list', contenuCharge)
   } else {
     enterAdmin(getDefaultBilletteriePage(), 'event-list', contenuCharge)
   }

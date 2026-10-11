@@ -56,7 +56,7 @@
             <label>Description <textarea v-model="form.description" rows="3"></textarea></label>
             <div class="event-form-row">
               <label>Date début * <input v-model="form.start_date" type="date" /></label>
-              <label>Date fin <input v-model="form.end_date" type="date" /></label>
+              <label :title="form.repeat_period ? 'Dernière date de la série : aucune occurrence ne sera affichée après.' : 'Dernier jour de l\'événement : il disparaît de l\'agenda le lendemain.'">{{ form.repeat_period ? 'Fin de la série' : 'Date fin' }} <input v-model="form.end_date" type="date" :min="form.start_date || undefined" /></label>
             </div>
             <div class="event-form-row">
               <label>Heure <input v-model="form.start_time" type="time" /></label>
@@ -128,7 +128,7 @@
               <div class="event-image-controls">
                 <input v-model="form.image_url" type="url" placeholder="https://..." />
                 <input ref="eventFileInput" type="file" accept="image/*" class="file-input-hidden" @change="onFileSelected" />
-                <button class="event-btn-sec" type="button" @click="eventFileInput?.click()">Téléverser</button>
+                <button class="event-btn-sec" type="button" :disabled="uploadSaving" @click="eventFileInput?.click()">{{ uploadSaving ? 'Envoi…' : 'Téléverser' }}</button>
                 <button v-if="uploadedImages.length" class="event-btn-sec" type="button" @click="toggleUploadedList">Uploadées ({{ uploadedImages.length }})</button>
               </div>
               <img v-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
@@ -191,6 +191,8 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { expandRecurring, isoDay } from '~/utils/churchEvents.js'
+import { uploadImage, listUploadedImages } from '~/utils/imageUpload.js'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -254,33 +256,6 @@ const DAY_PILL_LABELS   = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const DAY_PILL_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]  // JS weekday for each display position
 const ORDINAL_FR = { 1: '1er', 2: '2e', 3: '3e', 4: '4e', '-1': 'dernier' }
 const DAY_FR_SHORT = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
-
-function parseRepeatPeriod(rp) {
-  if (!rp) return null
-  if (rp === 'week')    return { type: 'weekly', days: null, interval: 1 }
-  if (rp === 'biweek')  return { type: 'weekly', days: null, interval: 2 }
-  if (rp === 'month')   return { type: 'month' }
-  if (rp.startsWith('weekly:'))   return { type: 'weekly',  days: rp.split(':')[1].split(',').map(Number), interval: 1 }
-  if (rp.startsWith('biweekly:')) return { type: 'weekly',  days: rp.split(':')[1].split(',').map(Number), interval: 2 }
-  if (rp.startsWith('monthly_weekday:')) {
-    const p = rp.split(':')
-    return { type: 'monthly_weekday', ordinal: parseInt(p[1]) || 1, weekday: parseInt(p[2]) ?? 1 }
-  }
-  return null
-}
-
-function getNthWeekdayOfMonth(year, month, weekday, ordinal) {
-  if (ordinal === -1) {
-    const last = new Date(year, month + 1, 0)
-    const diff = (last.getDay() - weekday + 7) % 7
-    return new Date(year, month, last.getDate() - diff)
-  }
-  const first = new Date(year, month, 1)
-  const diff  = (weekday - first.getDay() + 7) % 7
-  const date  = 1 + diff + (ordinal - 1) * 7
-  if (date > new Date(year, month + 1, 0).getDate()) return null
-  return new Date(year, month, date)
-}
 
 function formatRepeatPeriod(rp) {
   if (!rp) return ''
@@ -424,68 +399,13 @@ function setRuleWeekday(index, val) {
   setRulesArray(arr)
 }
 
-function getOccurrencesForRule(ruleStr, start, now, isCancelled) {
-  const rule = parseRepeatPeriod(ruleStr)
-  if (!rule) return []
-  const results = []
-  let safety = 0
-  if (rule.type === 'weekly') {
-    const days = (rule.days ?? [start.getDay()]).slice().sort((a, b) => a - b)
-    const interval = rule.interval || 1
-    const dow = start.getDay()
-    const startMon = new Date(start)
-    startMon.setDate(start.getDate() - (dow === 0 ? 6 : dow - 1))
-    let curMon = new Date(startMon)
-    while (results.length < 10 && safety++ < 300) {
-      for (const day of days) {
-        const offset = day === 0 ? 6 : day - 1
-        const date = new Date(curMon)
-        date.setDate(curMon.getDate() + offset)
-        if (date >= now && date >= start && !isCancelled(date))
-          results.push(new Date(date))
-      }
-      curMon.setDate(curMon.getDate() + 7 * interval)
-    }
-    results.sort((a, b) => a - b)
-    results.splice(10)
-  } else if (rule.type === 'month') {
-    let d = new Date(start)
-    while (d < now) d.setMonth(d.getMonth() + 1)
-    while (results.length < 10 && safety++ < 200) {
-      if (!isCancelled(d)) results.push(new Date(d))
-      d.setMonth(d.getMonth() + 1)
-    }
-  } else if (rule.type === 'monthly_weekday') {
-    let year = start.getFullYear(), month = start.getMonth()
-    while (results.length < 10 && safety++ < 200) {
-      const occ = getNthWeekdayOfMonth(year, month, rule.weekday, rule.ordinal)
-      if (occ && occ >= now && !isCancelled(occ)) results.push(occ)
-      if (++month > 11) { month = 0; year++ }
-    }
-  }
-  return results
-}
-
+// Même moteur que le site public (utils/churchEvents.js) : l'aperçu montre
+// exactement les dates que verront les visiteurs — exceptions (annulation,
+// déplacement) et fin de série (`end_date`) comprises.
 const nextOccurrences = computed(() => {
   if (!form.value.repeat_period || !form.value.start_date) return []
-  const ruleStrings = form.value.repeat_period.split('|').filter(Boolean)
-  if (!ruleStrings.length) return []
   const now = new Date(); now.setHours(0, 0, 0, 0)
-  const start = new Date(form.value.start_date + 'T00:00:00')
-  const excs = form.value.exceptions || []
-  const isCancelled = (d) => excs.some(ex => ex.exception_date === d.toISOString().slice(0, 10) && ex.type === 'cancelled')
-  const allDates = []
-  for (const ruleStr of ruleStrings) {
-    allDates.push(...getOccurrencesForRule(ruleStr, start, now, isCancelled))
-  }
-  allDates.sort((a, b) => a - b)
-  const seen = new Set()
-  const unique = []
-  for (const d of allDates) {
-    const key = d.toISOString().slice(0, 10)
-    if (!seen.has(key)) { seen.add(key); unique.push(d) }
-  }
-  return unique.slice(0, 8)
+  return expandRecurring({ ...form.value, id: editing.value }, now, 8).map(o => o.date)
 })
 
 const form = ref({
@@ -540,7 +460,7 @@ function startEdit(evt) {
   const d = evt.date instanceof Date ? evt.date : new Date(evt.date + 'T00:00:00')
   form.value = {
     title: evt.titre || '', description: evt.description || '',
-    start_date: d.toISOString().slice(0, 10), end_date: evt.end_date || '',
+    start_date: isoDay(d), end_date: evt.end_date || '',
     start_time: evt.heure || '', end_time: evt.fin || '', location: evt.lieu || '',
     repeat_period: evt.repeat_period || '', emoji: evt.emoji || '',
     image_url: evt.image_url || '', link: evt.lien || '',
@@ -679,22 +599,19 @@ function formatDateShort(d) {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
-// Image upload
+// Image upload — compression + envoi partagés avec l'éditeur de blocs
+// (utils/imageUpload.js) : une photo de téléphone de plusieurs Mo est
+// redimensionnée avant l'envoi au lieu d'être servie telle quelle.
 async function onFileSelected(e) {
   const file = e.target.files && e.target.files[0]
   if (!file) return
   uploadSaving.value = true
   try {
-    const { getStorage, ref: storageRef, uploadBytes, getDownloadURL } = await import('firebase/storage')
-    const storage = getStorage()
-    const path = `uploads/${Date.now()}_${file.name}`
-    const r = storageRef(storage, path)
-    await uploadBytes(r, file)
-    form.value.image_url = await getDownloadURL(r)
+    form.value.image_url = await uploadImage(file)
     await loadUploadedImages()
   } catch (err) {
     console.error('Upload error', err)
-    formError.value = 'Erreur de téléversement'
+    formError.value = err?.message || 'Erreur de téléversement'
   } finally {
     uploadSaving.value = false
     if (e.target) e.target.value = ''
@@ -704,11 +621,7 @@ async function onFileSelected(e) {
 async function loadUploadedImages() {
   imagesLoading.value = true
   try {
-    const { getStorage, ref: storageRef, listAll, getDownloadURL } = await import('firebase/storage')
-    const storage = getStorage()
-    const listRef = storageRef(storage, 'uploads')
-    const res = await listAll(listRef)
-    uploadedImages.value = await Promise.all(res.items.map(i => getDownloadURL(i)))
+    uploadedImages.value = (await listUploadedImages()).map(i => i.url)
   } catch (err) {
     console.error('Load images error', err)
     uploadedImages.value = []

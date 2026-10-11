@@ -185,7 +185,8 @@
       <div class="event-modal-info">
         <div class="event-modal-meta">
           <span v-if="eventModal.event.date">📅 {{ formatDate(eventModal.event.date) }}</span>
-          <span v-if="eventModal.event.heure">🕙 {{ eventModal.event.heure }}</span>
+          <span v-if="eventModal.event.dateFin">→ {{ formatDate(eventModal.event.dateFin) }}</span>
+          <span v-if="eventModal.event.heure">🕙 {{ eventModal.event.heure }}<template v-if="eventModal.event.fin"> – {{ eventModal.event.fin }}</template></span>
           <span v-if="eventModal.event.lieu">📍 {{ eventModal.event.lieu }}</span>
         </div>
         <div class="event-modal-desc" v-if="eventModal.event.description" v-html="sanitizeHtml(eventModal.event.description)"></div>
@@ -250,6 +251,7 @@ import { ref, watch, onMounted } from 'vue'
 import EventModal from '~/components/EventModal.vue'
 import EventImageSlider from '~/components/EventImageSlider.vue'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
+import { isPast } from '~/utils/churchEvents.js'
 
 
 useSeoMeta({
@@ -436,7 +438,8 @@ const nextEvents = computed(() => {
   const groups = {}
   for (const evt of evenements.value) {
     if (seen.has(evt.id)) continue
-    if (toDate(evt.date) < today) continue
+    // Un événement sur plusieurs jours reste « à venir » jusqu'à son dernier jour.
+    if (isPast(evt, today)) continue
     seen.add(evt.id)
     const dateKey = toDate(evt.date).toDateString()
     if (!groups[dateKey]) groups[dateKey] = { date: toDate(evt.date), events: [] }

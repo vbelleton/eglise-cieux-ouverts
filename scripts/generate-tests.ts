@@ -234,12 +234,16 @@ lines.push(`    expect(title).not.toContain('500')`)
 lines.push(`    await context.close()`)
 lines.push(`  })`)
 lines.push(``)
+// Bloc absent de la page : ignoré tout de suite. Avant, chaque bloc absent
+// attendait 5 s puis l'échec était avalé (.catch) — avec 13 blocs absents le
+// test dépassait son délai de 60 s, et un bloc présent mais invisible
+// passait inaperçu.
 lines.push(`  test('home page SSR renders wrapper blocks', async ({ browser }) => {`)
 lines.push(`    const context = await browser.newContext({ javaScriptEnabled: false })`)
 lines.push(`    const page = await context.newPage()`)
 lines.push(`    await page.goto('/')`)
 for (const t of wrapperTypes) {
-  lines.push(`    await expect(page.locator('.${cssSelector(t)}').first()).toBeVisible({ timeout: 5000 }).catch(() => {}) // ${t}`)
+  lines.push(`    { const el = page.locator('.${cssSelector(t)}').first(); if (await el.count()) await expect(el).toBeVisible({ timeout: 5000 }) } // ${t}`)
 }
 lines.push(`    await context.close()`)
 lines.push(`  })`)
@@ -252,7 +256,7 @@ if (internalTypes.length > 0) {
   lines.push(`    const page = await context.newPage()`)
   lines.push(`    await page.goto('/')`)
   for (const t of internalTypes) {
-    lines.push(`    await expect(page.locator('.${cssSelector(t)}').first()).toBeVisible({ timeout: 5000 }).catch(() => {}) // ${t}`)
+    lines.push(`    { const el = page.locator('.${cssSelector(t)}').first(); if (await el.count()) await expect(el).toBeVisible({ timeout: 5000 }) } // ${t}`)
   }
   lines.push(`    await context.close()`)
   lines.push(`  })`)
@@ -442,7 +446,7 @@ lines.push(`    await page.setViewportSize({ width: 1440, height: 900 })`)
 lines.push(`    await page.goto('/')`)
 lines.push(`    await page.waitForTimeout(2000)`)
 for (const t of types.slice(0, 8)) {
-  lines.push(`    await expect(page.locator('.${cssSelector(t)}').first()).toBeVisible({ timeout: 5000 }).catch(() => {}) // ${t}`)
+  lines.push(`    { const el = page.locator('.${cssSelector(t)}').first(); if (await el.count()) await expect(el).toBeVisible({ timeout: 5000 }) } // ${t}`)
 }
 lines.push(`  })`)
 lines.push(``)
@@ -451,7 +455,7 @@ lines.push(`    await page.setViewportSize({ width: 375, height: 667 })`)
 lines.push(`    await page.goto('/')`)
 lines.push(`    await page.waitForTimeout(2000)`)
 for (const t of types.slice(0, 5)) {
-  lines.push(`    await expect(page.locator('.${cssSelector(t)}').first()).toBeVisible({ timeout: 5000 }).catch(() => {}) // ${t}`)
+  lines.push(`    { const el = page.locator('.${cssSelector(t)}').first(); if (await el.count()) await expect(el).toBeVisible({ timeout: 5000 }) } // ${t}`)
 }
 lines.push(`  })`)
 lines.push(`})`)

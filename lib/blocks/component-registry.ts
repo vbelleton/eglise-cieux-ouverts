@@ -51,6 +51,8 @@ export const BLOCK_MAP: Record<string, () => Promise<any>> = {
   stats: () => import('../../components/blocks/BlockStats.vue'),
   iconGrid: () => import('../../components/blocks/BlockIconGrid.vue'),
   quote: () => import('../../components/blocks/BlockQuote.vue'),
+  bandeau: () => import('../../components/blocks/BlockBandeau.vue'),
+  evenements: () => import('../../components/blocks/BlockEvenements.vue'),
   footer: () => import('../../components/blocks/BlockFooter.vue'),
 }
 

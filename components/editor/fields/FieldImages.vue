@@ -1,5 +1,11 @@
 <template>
-  <div class="field-array">
+  <div
+    class="field-array"
+    :class="{ 'is-dragover': dragover }"
+    @dragover.prevent="dragover = true"
+    @dragleave.prevent="dragover = false"
+    @drop.prevent="onDrop"
+  >
     <VueDraggable
       v-model="localEntries"
       handle=".array-drag-handle"
@@ -21,7 +27,7 @@
           <button
             class="array-item-del"
             @click="removeItem(idx)"
-            aria-label="Supprimer l'image {{ idx + 1 }}"
+            :aria-label="`Supprimer l'image ${idx + 1}`"
           >✕</button>
         </div>
         <input
@@ -31,15 +37,31 @@
           :value="entry.url"
           @input="updateItem(idx, ($event.target as HTMLInputElement).value)"
         />
-        <img v-if="entry.url" :src="entry.url" class="field-image-preview" alt="Aperçu image {{ idx + 1 }}" />
+        <img v-if="entry.url" :src="entry.url" class="field-image-preview" :alt="`Aperçu image ${idx + 1}`" />
       </div>
     </VueDraggable>
+    <div class="array-actions">
+      <input ref="fileInput" type="file" accept="image/*" multiple class="field-file-hidden" @change="onFiles" />
+      <button
+        class="array-add-btn"
+        :disabled="uploading"
+        @click="fileInput?.click()"
+        aria-label="Téléverser des photos depuis l'ordinateur"
+      >{{ uploading ? `Envoi… ${progress}` : '📤 Téléverser des photos' }}</button>
+      <button
+        class="array-add-btn"
+        @click="libraryOpen = true"
+        aria-label="Choisir dans la médiathèque"
+      >🖼️ Médiathèque</button>
+    </div>
+    <p class="field-images-hint">Plusieurs photos à la fois possible, ou glisser-déposer ici. Elles sont allégées automatiquement.</p>
+    <p v-if="error" class="field-images-error">{{ error }}</p>
     <div class="array-actions">
       <button
         class="array-add-btn"
         @click="addItem"
-        aria-label="Ajouter une image"
-      >+ Ajouter une image</button>
+        aria-label="Ajouter une image par URL"
+      >+ Ajouter une image par URL</button>
       <button
         v-if="localEntries.length > 0"
         class="array-clear-btn"
@@ -47,12 +69,15 @@
         aria-label="Tout supprimer"
       >🗑️ Tout supprimer</button>
     </div>
+    <ImageLibrary v-if="libraryOpen" multiple @select="onLibrarySelect" @close="libraryOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import ImageLibrary from '~/components/editor/ImageLibrary.vue'
+import { uploadImage } from '~/utils/imageUpload.js'
 
 const props = defineProps<{ value: any; field: any }>()
 const emit = defineEmits<{ change: [value: string[]] }>()
@@ -93,13 +118,73 @@ function addItem() {
 }
 
 function clearAll() {
+  if (typeof window !== 'undefined' && !window.confirm('Retirer toutes les images de ce bloc ?')) return
   localEntries.value = []
   emitChange()
+}
+
+// ── Téléversement / médiathèque ─────────────────────────────────────
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const progress = ref('')
+const error = ref('')
+const dragover = ref(false)
+const libraryOpen = ref(false)
+
+function appendUrls(urls: string[]) {
+  // Une ligne vide laissée par « + Ajouter par URL » est remplacée plutôt
+  // que de rester en tête de liste.
+  const existantes = localEntries.value.filter((e) => e.url)
+  localEntries.value = [...existantes, ...urls.map((url) => ({ id: nextId++, url }))]
+  emitChange()
+}
+
+async function sendFiles(files: File[]) {
+  const images = files.filter((f) => f.type?.startsWith('image/'))
+  if (!images.length) return
+  uploading.value = true
+  error.value = ''
+  const urls: string[] = []
+  const echecs: string[] = []
+  for (const [i, file] of images.entries()) {
+    progress.value = `${i + 1}/${images.length}`
+    try {
+      urls.push(await uploadImage(file))
+    } catch (err: any) {
+      console.error('FieldImages: envoi impossible', err)
+      echecs.push(err?.message || file.name)
+    }
+  }
+  uploading.value = false
+  progress.value = ''
+  if (echecs.length) error.value = `Échec : ${echecs.join(', ')}`
+  if (urls.length) appendUrls(urls)
+}
+
+function onFiles(e: Event) {
+  const input = e.target as HTMLInputElement
+  sendFiles(Array.from(input.files || []))
+  input.value = ''
+}
+
+function onDrop(e: DragEvent) {
+  dragover.value = false
+  sendFiles(Array.from(e.dataTransfer?.files || []))
+}
+
+function onLibrarySelect(urls: string[]) {
+  libraryOpen.value = false
+  appendUrls(urls)
 }
 </script>
 
 <style scoped>
-.field-array { display: flex; flex-direction: column; gap: 10px; }
+.field-array { display: flex; flex-direction: column; gap: 10px; border-radius: 8px; }
+.field-array.is-dragover { background: #eef4fa; outline: 2px dashed #064886; outline-offset: 2px; }
+.field-file-hidden { display: none; }
+.array-add-btn:disabled { opacity: 0.6; cursor: default; }
+.field-images-hint { margin: -4px 0 0; font-size: 0.72em; color: #6b7280; }
+.field-images-error { margin: 0; color: #b91c1c; font-size: 0.78em; }
 .field-array-list { display: flex; flex-direction: column; gap: 10px; min-height: 4px; }
 .array-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
 .array-item-ghost { opacity: 0.4; outline: 2px dashed #064886; outline-offset: -2px; }

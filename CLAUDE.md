@@ -47,6 +47,7 @@ git config core.hooksPath .githooks        # une fois par clone : active le pre-
 - **Tout listener `onAuthStateChanged` doit être désabonné (`onUnmounted`)** — `pages/admin.vue` en avait un jamais désabonné, resté actif après navigation, corrompant l'état interne de Vue (`Cannot destructure property of null` en cascade, plus aucune interaction possible jusqu'à hard refresh). Non reproductible avec l'auth mock habituelle (`?admin=true` + `enterAdmin([])` direct) — seulement en passant réellement par `/admin` (connexion Google réelle, ou `plugins/auth-mock.client.ts` en test). Corrigé, mais si un futur composant ajoute son propre listener d'auth, vérifier le cleanup.
 - **`layouts/default.vue` est persistant** (ne remonte pas entre navigations de page) et réagit à `route.query.admin` via son propre watcher, indépendamment de toute page enfant qui naviguerait suite à sa propre résolution d'auth — après une connexion réussie, préférer `window.location.href` (rechargement complet) à `navigateTo()` pour éviter une course entre le swap de page et les `v-if` du layout qui basculent en parallèle (déjà arrivé, cause du bug ci-dessus).
 - **Événements = backend séparé** (Worker `eglise-app` + D1, pas Firestore). Ne jamais créer d'endpoint/collection Firestore parallèle pour les événements — un système parallèle non connecté au site public a déjà été tenté et annulé.
+- **Jamais `toISOString().slice(0, 10)` pour un jour calendaire** : sur une date construite à minuit local (`new Date('AAAA-MM-JJT00:00:00')`), la France étant en avance sur UTC, on obtient la **veille**. Les exceptions d'événements (annulé/déplacé) ne correspondaient jamais à leur occurrence, et ouvrir puis enregistrer un événement dans l'admin reculait sa date d'un jour. Utiliser `isoDay()` (`utils/churchEvents.js`). Couvert par `tests/unit/church-events.spec.ts` (exécuté en fuseau Europe/Paris).
 - **`d1 migrations apply` sur `eglise-db`** (repo `eglise-app`) : ne jamais lancer, la table de suivi est désynchronisée. Toujours `d1 execute --file` ciblé.
 - **`routes/index.js` du repo `eglise-app`** doit utiliser `import` (pas `export … from`) pour les routes qu'il combine en `routes0`/`routes2`/`routes3` — un réexport ne crée pas de liaison locale, ça a bloqué le déploiement du Worker pendant un moment sans erreur visible avant `wrangler deploy`.
 - **`<component :is>` pour les blocs** : cassait l'hydratation SSR — `BlockRenderer.vue` utilise une chaîne `v-if`/`v-else-if` explicite à la place.
@@ -76,6 +77,10 @@ git config core.hooksPath .githooks        # une fois par clone : active le pre-
 - `tests/playwright/` (config `playwright.config.ts`) : E2E, parcours admin, auth, navigation
 - `PW_TEST=1` : toutes les I/O Firestore passent par `server/utils/firestore-mock.js` (RAM). `resetMock(request)` dans `beforeEach` — le mock est partagé entre workers parallèles.
 - Helpers : `tests/playwright/helpers/{admin,blocks,reset}.ts`
+
+## Images téléversées
+
+`utils/imageUpload.js` : compression dans le navigateur (≤ 2000 px, JPEG 82 %, PNG gardé en PNG pour la transparence, GIF/SVG intacts) puis envoi dans Firebase Storage `uploads/` — utilisé par `FieldImage`, `FieldImages`, la médiathèque `components/editor/ImageLibrary.vue` et `EventManager.vue`. Ne pas réintroduire d'appel direct à `firebase/storage` ailleurs : la compression serait contournée.
 
 ## Ajouter un bloc
 

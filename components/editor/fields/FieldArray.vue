@@ -21,7 +21,7 @@
           <button
             class="array-item-del"
             @click="removeItem(idx)"
-            aria-label="Supprimer l'élément {{ idx + 1 }}"
+            :aria-label="`Supprimer l'élément ${idx + 1}`"
           >✕</button>
         </div>
         <template v-if="isPrimitiveMode">

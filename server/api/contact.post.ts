@@ -2,6 +2,7 @@ import { getFirestoreConfig, getAccessToken, getFirestoreDoc, setFirestoreDoc, p
 import { getEmailQuotaLimit } from '../utils/email-quota'
 import { sendEmail, escapeHtml, nettoyerSujet } from '../utils/send-email'
 import { fetchWithTimeout } from '../utils/http'
+import { placesAlpha } from '../utils/alpha-places'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 // Note: in-memory rate limiting is best-effort on serverless (Cloudflare Pages).
@@ -103,6 +104,14 @@ export default defineEventHandler(async (event) => {
   }
   if (website) {
     throw createError({ statusCode: 400, message: 'Envoi bloqué.' })
+  }
+
+  if (estInscription) {
+    // Parcours complet : refusé côté serveur, le formulaire ne fait que l'afficher.
+    const places = await placesAlpha(event, parcours).catch(() => null)
+    if (places && places.remaining === 0) {
+      throw createError({ statusCode: 409, message: 'Désolé, ce parcours est complet.' })
+    }
   }
 
   if (isTest) {

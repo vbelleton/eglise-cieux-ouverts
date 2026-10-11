@@ -9,7 +9,13 @@
       <p v-if="intro" class="ia-intro" data-field-key="intro" :style="fieldFontStyle(fieldFonts, 'intro', fieldFontSizes)">{{ intro }}</p>
       <p v-if="parcours" class="ia-parcours"><strong>{{ parcours }}</strong></p>
 
+      <p v-if="places && places.remaining !== null && !submitted" class="ia-places" :class="{ 'ia-places-full': places.remaining === 0 }">
+        {{ places.remaining === 0 ? 'Complet' : `Plus que ${places.remaining} place${places.remaining > 1 ? 's' : ''} sur ${places.capacity}` }}
+      </p>
+
       <p v-if="submitted" class="ia-success" role="status">{{ successText }}</p>
+
+      <p v-else-if="places && places.remaining === 0" class="ia-full" role="status">{{ fullText }}</p>
 
       <form v-else class="ia-form" @submit.prevent="submitForm">
         <div class="ia-row">
@@ -58,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
 const props = defineProps({
@@ -69,6 +75,7 @@ const props = defineProps({
   consentText: { type: String, default: '' },
   submitText: { type: String, default: "Je m'inscris" },
   successText: { type: String, default: '' },
+  fullText: { type: String, default: 'Ce parcours est complet.' },
   backgroundColor: { type: String, default: '#ffffff' },
   textColor: { type: String, default: '#1a1a2e' },
   visibility: { type: Object, default: () => ({}) },
@@ -91,6 +98,16 @@ const sending = ref(false)
 const submitted = ref(false)
 const errorMessage = ref('')
 const mountedAt = Date.now()
+const places = ref(null)
+
+async function chargerPlaces() {
+  try {
+    places.value = await $fetch('/api/alpha-places', { query: { parcours: props.parcours || 'Parcours Alpha' } })
+  } catch (e) {
+    places.value = null // compteur indisponible : le formulaire reste ouvert
+  }
+}
+onMounted(chargerPlaces)
 
 async function submitForm() {
   if (isEditor === true) return
@@ -133,8 +150,10 @@ async function submitForm() {
     })
     submitted.value = true
     form.value = vide()
+    chargerPlaces()
   } catch (e) {
     console.error(e)
+    if (e?.statusCode === 409 || e?.status === 409) chargerPlaces()
     errorMessage.value = e?.data?.message || "L'envoi a échoué. Vérifie la connexion ou réessaie dans un instant."
   } finally {
     sending.value = false
@@ -157,6 +176,9 @@ async function submitForm() {
 .ia-consent input { margin-top: 3px; }
 .ia-btn { align-self: center; padding: 12px 32px; border: none; border-radius: 999px; background: #064886; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .ia-btn:disabled { opacity: 0.6; cursor: default; }
+.ia-places { text-align: center; font-weight: 600; margin: 0 0 16px; color: #064886; }
+.ia-places-full { color: #b91c1c; }
+.ia-full { text-align: center; font-weight: 600; background: #fef3c7; padding: 16px; border-radius: 10px; }
 .ia-success { text-align: center; font-weight: 600; color: #166534; background: #dcfce7; padding: 16px; border-radius: 10px; }
 .ia-error { color: #b91c1c; margin: 0; text-align: center; }
 .ia-editor { font-size: 0.85em; opacity: 0.7; margin: 0; text-align: center; }

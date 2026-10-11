@@ -48,7 +48,12 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
     await page.goto('/event-list')
     await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('Aucun événement pour le moment.')).toHaveCount(0)
-    await expect(page.getByRole('link', { name: /inscris au parcours Alpha/ })).toHaveAttribute('href', '/contact')
+    await expect(page.getByRole('link', { name: /inscris au parcours Alpha/ })).toHaveAttribute('href', '#inscription-alpha')
+
+    await expect(page.getByText('Qui est Jésus ?')).toBeVisible()
+    await expect(page.getByText('Comment se passe une rencontre')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Où nous trouver ?' })).toBeVisible()
+    await expect(page.locator('iframe[title^="Carte"]')).toHaveCount(1)
 
     const liste = page.locator('.block-evenements')
     await expect(liste.getByText('Soirée louange test')).toBeVisible({ timeout: 10000 })
@@ -125,7 +130,7 @@ test.describe('Inscription au Parcours Alpha', () => {
     await page.goto('/event-list')
     const bloc = page.locator('.block-inscription-alpha')
     await expect(bloc.getByRole('heading', { name: /S'inscrire au Parcours Alpha/ })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText('Comment ça se passe ?')).toBeVisible()
+    await expect(page.getByText('Comment se passe une rencontre')).toBeVisible()
 
     await bloc.getByLabel('Prénom *').fill('Marie')
     await bloc.getByLabel('Nom *', { exact: true }).fill('Test')

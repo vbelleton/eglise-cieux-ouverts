@@ -1,5 +1,6 @@
 <template>
   <section
+    id="inscription-alpha"
     class="block-inscription-alpha"
     :class="visibilityClasses"
     :style="{ background: backgroundColor, color: textColor }"

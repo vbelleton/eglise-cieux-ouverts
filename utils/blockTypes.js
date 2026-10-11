@@ -1000,24 +1000,44 @@ const LEGACY_BILLETTERIE_MARKER = "Aucun événement pour le moment.";
 export const PARCOURS_ALPHA_PROPS = {
   title: "Parcours Alpha",
   subtitle: "Des soirées pour explorer le sens de la vie et la foi chrétienne",
-  body: "<p>Alpha, c'est une série de rencontres conviviales : un repas partagé, un court exposé, puis un temps d'échange en petit groupe où toutes les questions sont les bienvenues, sans tabou et sans engagement.</p><p>Ouvert à tous, que tu sois croyant, curieux ou sceptique. C'est gratuit, il suffit de s'inscrire !</p>",
+  body: "<p>Alpha est une série de rencontres qui permet d'explorer librement, en petits groupes, les bases de la foi chrétienne. Que tu sois croyant, curieux ou sceptique, tu es bienvenu : chacun peut dire ce qu'il pense, ou ne rien dire du tout.</p><p><strong>Des questions pour y réfléchir</strong></p><ul><li>Qui est Jésus ?</li><li>Comment pouvons-nous avoir la foi ?</li><li>Comment Dieu nous guide-t-il ?</li></ul><div style=\"background:#fff;border-left:4px solid #064886;border-radius:8px;padding:14px 18px;margin:14px 0;\"><p style=\"margin:0;\"><strong>Prochain parcours</strong> : [à compléter : date de début]<br><strong>Lieu</strong> : 2 rue Jean Monnet, 29600 Morlaix</p></div><p><strong>Gratuit, sans engagement, sans aucune pression.</strong></p>",
   image: "/images/activites-repas.jpg",
   reverse: false,
   ctaText: "Je m'inscris au parcours Alpha",
-  ctaLink: "/contact",
+  ctaLink: "#inscription-alpha",
   backgroundColor: "#f6f8fc",
   textColor: "#1a1a2e",
   animation: "slideLeft",
 };
 
+const carte = (n, t, d) => `<div style="flex:1 1 260px;background:#fff;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(6,72,134,.08);text-align:left;"><div style="width:34px;height:34px;border-radius:50%;background:#064886;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">${n}</div><h3 style="margin:0 0 8px;color:#064886;">${t}</h3><p style="margin:0;line-height:1.6;">${d}</p></div>`;
+
+export const PARCOURS_ALPHA_DEROULEMENT = {
+  content: `<div style="max-width:900px;margin:0 auto;text-align:center;"><h2 style="color:#064886;margin:0 0 24px;">Comment se passe une rencontre</h2><div style="display:flex;flex-wrap:wrap;gap:18px;">${carte(1, "Un exposé", "Un temps pour présenter les bases de la foi chrétienne, à l'oral ou en vidéo.")}${carte(2, "Un échange en petits groupes", "Chacun partage ses idées et ses questions. Tu peux dire tout ce que tu veux, ou rien du tout. Un animateur aide à guider la conversation.")}</div></div>`,
+  backgroundColor: "#ffffff",
+  textColor: "#1a1a2e",
+  textAlign: "left",
+  padding: 60,
+  animation: "fadeIn",
+};
+
+export const PARCOURS_ALPHA_TROUVER = {
+  content: `<div style="max-width:900px;margin:0 auto;text-align:center;"><h2 style="color:#064886;margin:0 0 18px;">Où nous trouver ?</h2><p style="line-height:2;margin:0 0 18px;">📍 <strong>Localisation</strong> : 2 rue Jean Monnet, 29600 Morlaix<br>📞 <strong>Téléphone</strong> : <a href="tel:+33620705496">06 20 70 54 96</a><br>🅿️ <strong>Parking</strong> : disponible sur place</p><iframe title="Carte : 2 rue Jean Monnet, Morlaix" src="https://www.google.com/maps?q=2+Rue+Jean+Monnet,+29600+Morlaix,+France&output=embed" width="100%" height="320" style="border:0;border-radius:12px;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><p style="margin:16px 0 0;"><a href="https://www.google.com/maps/dir/?api=1&destination=2+Rue+Jean+Monnet,+29600+Morlaix,+France" target="_blank" rel="noopener" style="display:inline-block;background:#064886;color:#fff;padding:10px 24px;border-radius:999px;text-decoration:none;font-weight:600;">Ouvrir l'itinéraire</a></p></div>`,
+  backgroundColor: "#f6f8fc",
+  textColor: "#1a1a2e",
+  textAlign: "left",
+  padding: 60,
+  animation: "fadeIn",
+};
+
 export const PARCOURS_ALPHA_FAQ = {
-  title: "Alpha : comment ça se passe ?",
-  subtitle: "Une rencontre : un exposé (à l'oral ou en vidéo), puis un échange en petits groupes guidé par un animateur.",
+  title: "Questions fréquentes",
+  subtitle: "Pour en savoir plus sur Alpha : parcoursalpha.fr",
   items: [
     { question: "À qui s'adresse le parcours ?", answer: "À tous, quelles que soient tes croyances ou tes expériences." },
     { question: "Combien ça coûte ?", answer: "Rien : c'est offert." },
     { question: "Suis-je obligé de revenir ?", answer: "Non. Il n'y a ni suivi ni pression : si tu ne souhaites pas revenir, ce n'est pas un problème." },
-    { question: "Que se passe-t-il après mon inscription ?", answer: "Nous te contactons avec les informations pratiques avant la première rencontre. Pour en savoir plus sur Alpha : parcoursalpha.fr." },
+    { question: "Que se passe-t-il après mon inscription ?", answer: "Nous te contactons avec les informations pratiques avant la première rencontre. Plus d'infos sur parcoursalpha.fr." },
   ],
   openFirst: false,
   backgroundColor: "#f6f8fc",
@@ -1037,8 +1057,10 @@ export function getDefaultBilletteriePage() {
     }),
     createBlock("evenements", { title: "", maxItems: 6 }),
     createBlock("textImage", PARCOURS_ALPHA_PROPS),
+    createBlock("richText", PARCOURS_ALPHA_DEROULEMENT),
     createBlock("inscriptionAlpha"),
     createBlock("faq", PARCOURS_ALPHA_FAQ),
+    createBlock("richText", PARCOURS_ALPHA_TROUVER),
   ]
     .filter(Boolean)
     .map((block, i) => ({ ...block, id: `default-billetterie-${i}` }));

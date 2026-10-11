@@ -793,6 +793,37 @@ export const BLOCK_TYPES = {
     ],
   },
 
+  inscriptionAlpha: {
+    label: "Inscription Parcours Alpha",
+    icon: "📝",
+    category: "content",
+    animations: "wrapper",
+    defaults: {
+      title: "S'inscrire au Parcours Alpha",
+      intro: "Gratuit, sans engagement, sans aucune pression. Laisse-nous tes coordonnées : nous te recontactons avec les informations pratiques avant la première soirée.",
+      parcours: "Prochain parcours Alpha",
+      showAddress: true,
+      consentText: "J'accepte que mes coordonnées soient utilisées pour organiser le parcours. Elles sont conservées jusqu'à la fin du parcours, puis supprimées sous trois mois.",
+      submitText: "Je m'inscris",
+      successText: "Merci, ton inscription est bien enregistrée. Nous te recontactons très vite.",
+      backgroundColor: "#ffffff",
+      textColor: "#1a1a2e",
+      animation: "fadeIn",
+    },
+    schema: [
+      { key: "title", label: "Titre", type: "text" },
+      { key: "intro", label: "Introduction", type: "textarea" },
+      { key: "parcours", label: "Nom du parcours (ex : Parcours d'automne, le mardi soir)", type: "text" },
+      { key: "showAddress", label: "Demander l'adresse postale", type: "boolean" },
+      { key: "consentText", label: "Texte de consentement", type: "textarea" },
+      { key: "submitText", label: "Texte du bouton", type: "text" },
+      { key: "successText", label: "Message de confirmation", type: "textarea" },
+      { key: "backgroundColor", label: "Fond", type: "color" },
+      { key: "textColor", label: "Couleur texte", type: "color" },
+      { key: "animation", label: "Animation", type: "animation" },
+    ],
+  },
+
   evenements: {
     label: "Prochains événements",
     icon: "📅",
@@ -975,6 +1006,21 @@ export const PARCOURS_ALPHA_PROPS = {
   animation: "slideLeft",
 };
 
+export const PARCOURS_ALPHA_FAQ = {
+  title: "Alpha : comment ça se passe ?",
+  subtitle: "Une rencontre : un exposé (à l'oral ou en vidéo), puis un échange en petits groupes guidé par un animateur.",
+  items: [
+    { question: "À qui s'adresse le parcours ?", answer: "À tous, quelles que soient tes croyances ou tes expériences." },
+    { question: "Combien ça coûte ?", answer: "Rien : c'est offert." },
+    { question: "Suis-je obligé de revenir ?", answer: "Non. Il n'y a ni suivi ni pression : si tu ne souhaites pas revenir, ce n'est pas un problème." },
+    { question: "Que se passe-t-il après mon inscription ?", answer: "Nous te contactons avec les informations pratiques avant la première rencontre. Pour en savoir plus sur Alpha : parcoursalpha.fr." },
+  ],
+  openFirst: false,
+  backgroundColor: "#f6f8fc",
+  textColor: "#064886",
+  animation: "fadeIn",
+};
+
 export function getDefaultBilletteriePage() {
   return [
     createBlock("richText", {
@@ -987,6 +1033,8 @@ export function getDefaultBilletteriePage() {
     }),
     createBlock("evenements", { title: "", maxItems: 6 }),
     createBlock("textImage", PARCOURS_ALPHA_PROPS),
+    createBlock("inscriptionAlpha"),
+    createBlock("faq", PARCOURS_ALPHA_FAQ),
   ]
     .filter(Boolean)
     .map((block, i) => ({ ...block, id: `default-billetterie-${i}` }));

@@ -18,7 +18,7 @@ test.describe('Fallback Billetterie sur /event-list', () => {
   test('SSR : le fallback s\'affiche sur chargement direct de /event-list', async ({ page }) => {
     await page.goto('/event-list', { waitUntil: 'networkidle' })
     await expect(page.getByText('Billetterie Événements')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 5000 })
     await expect(page.locator('.block-evenements').getByText('Concert de test')).toBeVisible({ timeout: 10000 })
   })
 
@@ -29,7 +29,7 @@ test.describe('Fallback Billetterie sur /event-list', () => {
     await page.goto('/event-list', { waitUntil: 'networkidle' })
 
     await expect(page.getByText('Billetterie Événements')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 5000 })
   })
 
   test('SPA : le fallback s\'affiche via clic lien navigation', async ({ page }) => {
@@ -39,7 +39,7 @@ test.describe('Fallback Billetterie sur /event-list', () => {
     await page.waitForURL('**/event-list')
 
     await expect(page.getByText('Billetterie Événements')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 5000 })
   })
 
 })

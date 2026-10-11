@@ -46,7 +46,7 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
     await simulerWorker(page)
 
     await page.goto('/event-list')
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('Aucun événement pour le moment.')).toHaveCount(0)
     await expect(page.getByRole('link', { name: /inscris au parcours Alpha/ })).toHaveAttribute('href', '/contact')
 
@@ -64,7 +64,7 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
 
     await page.goto('/event-list')
     await expect(page.getByRole('heading', { name: 'Mon contenu à moi' })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toHaveCount(0)
   })
 })
 
@@ -111,5 +111,51 @@ test.describe('Bloc Bandeau défilant', () => {
     await page.waitForTimeout(500)
     await expect(page).toHaveURL(/test-blocks/)
     await expect(page.locator('.admin-sidebar')).toContainText('Messages (un par ligne)')
+  })
+})
+
+test.describe('Inscription au Parcours Alpha', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+  })
+
+  test('le formulaire enregistre l\'inscrit dans les messages', async ({ page, request }) => {
+    await request.put('/api/pages/event-list', { data: { blocks: PAGE_HISTORIQUE } })
+    await simulerWorker(page)
+    await page.goto('/event-list')
+    const bloc = page.locator('.block-inscription-alpha')
+    await expect(bloc.getByRole('heading', { name: /S'inscrire au Parcours Alpha/ })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Comment ça se passe ?')).toBeVisible()
+
+    await bloc.getByLabel('Prénom *').fill('Marie')
+    await bloc.getByLabel('Nom *', { exact: true }).fill('Test')
+    await bloc.getByLabel('E-mail *').fill('marie@example.com')
+    await bloc.getByLabel('Téléphone *').fill('06 12 34 56 78')
+    await bloc.getByRole('checkbox').check()
+    await page.waitForTimeout(2600)
+    await bloc.getByRole('button', { name: "Je m'inscris" }).click()
+    await expect(bloc.getByRole('status')).toContainText('inscription est bien enregistrée')
+
+    const res = await request.get('/api/contacts')
+    const { contacts } = await res.json()
+    const c = contacts.find((x: any) => x.email === 'marie@example.com')
+    expect(c.telephone).toBe('06 12 34 56 78')
+    expect(c.parcours).toBeTruthy()
+  })
+
+  test('sans consentement, rien n\'est envoyé', async ({ page, request }) => {
+    await request.put('/api/pages/event-list', { data: { blocks: PAGE_HISTORIQUE } })
+    await simulerWorker(page)
+    await page.goto('/event-list')
+    const bloc = page.locator('.block-inscription-alpha')
+    await expect(bloc).toBeVisible({ timeout: 15000 })
+    await bloc.getByLabel('Prénom *').fill('Marie')
+    await bloc.getByLabel('Nom *', { exact: true }).fill('Test')
+    await bloc.getByLabel('E-mail *').fill('marie@example.com')
+    await bloc.getByLabel('Téléphone *').fill('0612345678')
+    await page.waitForTimeout(2600)
+    await bloc.getByRole('button', { name: "Je m'inscris" }).click()
+    const { contacts } = await (await request.get('/api/contacts')).json()
+    expect(contacts.length).toBe(0)
   })
 })

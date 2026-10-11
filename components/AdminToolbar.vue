@@ -777,7 +777,7 @@
                             <div class="version-item-row">
                                 <div class="version-info">
                                     <span class="version-date">{{ new Date(m.createdAt).toLocaleString('fr-FR') }}</span>
-                                    <span class="version-author">{{ m.prenom }} {{ m.nom }} — <a :href="`mailto:${m.email}`">{{ m.email }}</a>{{ m.ville ? ' — ' + m.ville : '' }}{{ m.newsletter ? ' — 📧 Newsletter' : '' }}</span>
+                                    <span class="version-author">{{ m.prenom }} {{ m.nom }} — <a :href="`mailto:${m.email}`">{{ m.email }}</a>{{ m.ville ? ' — ' + m.ville : '' }}{{ m.parcours ? ' — 📝 Inscription Alpha : ' + m.parcours : '' }}{{ m.telephone ? ' — 📞 ' + m.telephone : '' }}{{ m.adresse ? ' — 🏠 ' + m.adresse : '' }}{{ m.newsletter ? ' — 📧 Newsletter' : '' }}</span>
                                     <div class="version-meta">{{ m.message }}</div>
                                 </div>
                                 <div class="version-actions">

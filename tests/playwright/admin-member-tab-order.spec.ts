@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
 import { loginAsAdmin } from './helpers/admin'
 import { resetMock } from './helpers/reset'
 
@@ -16,9 +16,17 @@ async function loginAsMember(page: Page) {
   })
 }
 
+// L'espace membre est désactivé par défaut (réglage ⚙️ Config) : ces tests
+// l'activent explicitement.
+async function activerEspaceMembre(request: APIRequestContext) {
+  const res = await request.put('/api/settings', { data: { contactEmails: ['belletonv@gmail.com'], espaceMembre: true } })
+  if (!res.ok()) throw new Error(`activation espace membre : HTTP ${res.status()}`)
+}
+
 test.describe('Configuration admin — ordre des onglets espace membre', () => {
   test.beforeEach(async ({ request }) => {
     await resetMock(request)
+    await activerEspaceMembre(request)
   })
 
   test('ordre par défaut : Ressources, Demandes, Mes événements', async ({ page }) => {

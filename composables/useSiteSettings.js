@@ -20,6 +20,10 @@ const socialLinks = ref([
 // réglable depuis la modale Configuration admin — même valeur de repli que
 // normalizeMemberTabOrder() côté serveur (server/api/settings/index.get.ts).
 const memberTabOrder = ref(["ressources", "demandes", "evenements"]);
+// Espace membre (comptes) : masqué par défaut, comme côté serveur.
+const espaceMembre = ref(false);
+// « Masquer la page Événements si aucun événement à venir » (⚙️ Config).
+const hideEventsPageIfEmpty = ref(false);
 let _loaded = false;
 let _loadPromise = null;
 
@@ -33,6 +37,8 @@ async function loadSiteSettings() {
       const data = await res.json();
       if (Array.isArray(data.socialLinks)) socialLinks.value = data.socialLinks;
       if (Array.isArray(data.memberTabOrder)) memberTabOrder.value = data.memberTabOrder;
+      espaceMembre.value = data.espaceMembre === true;
+      hideEventsPageIfEmpty.value = data.hideEventsPageIfEmpty === true;
     } catch (e) {
       console.warn("useSiteSettings: could not load settings", e);
     } finally {
@@ -46,6 +52,8 @@ export function useSiteSettings() {
   return {
     socialLinks,
     memberTabOrder,
+    espaceMembre,
+    hideEventsPageIfEmpty,
     loadSiteSettings,
   };
 }

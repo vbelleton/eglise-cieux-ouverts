@@ -55,7 +55,7 @@
   "rejoins": {
     "title": "Rejoins-nous",
     "subtitle": "Chaque dimanche",
-    "location": "dans votre ville",
+    "location": "à Morlaix",
     "horaires": [
       {
         "heure": "9h30",
@@ -66,6 +66,7 @@
         "label": "Célébration"
       }
     ],
+    "horairesPosition": "dessous",
     "backgroundGradient": "linear-gradient(to bottom, #064886 0%, #e58b8b 100%)"
   },
   "aspirations": {
@@ -244,6 +245,40 @@
     "quote": "Une citation inspirante à mettre en avant.",
     "author": "",
     "backgroundColor": "#f8f9fa",
+    "textColor": "#064886",
+    "animation": "fadeIn"
+  },
+  "bandeau": {
+    "text": "Découvrez nos prochains événements\nParcours Alpha : inscriptions ouvertes",
+    "link": "/event-list",
+    "separator": "✦",
+    "speed": 30,
+    "pauseOnHover": true,
+    "backgroundColor": "#064886",
+    "textColor": "#ffffff"
+  },
+  "inscriptionAlpha": {
+    "title": "S'inscrire au Parcours Alpha",
+    "intro": "Gratuit, sans engagement, sans aucune pression. Laisse-nous tes coordonnées : nous te recontactons avec les informations pratiques avant la première soirée.",
+    "parcours": "Prochain parcours Alpha",
+    "capacity": 0,
+    "fullText": "Désolé, ce parcours est complet. Contacte-nous pour être prévenu du prochain.",
+    "showAddress": true,
+    "consentText": "J'accepte que mes coordonnées soient utilisées pour organiser le parcours. Elles sont conservées jusqu'à la fin du parcours, puis supprimées sous trois mois.",
+    "submitText": "Je m'inscris",
+    "successText": "Merci, ton inscription est bien enregistrée. Nous te recontactons très vite.",
+    "backgroundColor": "#ffffff",
+    "textColor": "#1a1a2e",
+    "animation": "fadeIn"
+  },
+  "evenements": {
+    "title": "Prochains événements",
+    "subtitle": "",
+    "filter": "tous",
+    "maxItems": 6,
+    "emptyText": "Aucun événement à venir pour le moment. Revenez bientôt !",
+    "showAgendaLink": true,
+    "backgroundColor": "#ffffff",
     "textColor": "#064886",
     "animation": "fadeIn"
   },

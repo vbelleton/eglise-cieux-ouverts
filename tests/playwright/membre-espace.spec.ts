@@ -36,9 +36,17 @@ async function logoutAll(page: Page) {
   })
 }
 
+// L'espace membre est désactivé par défaut (réglage ⚙️ Config) : ces tests
+// l'activent explicitement.
+async function activerEspaceMembre(request: APIRequestContext) {
+  const res = await request.put('/api/settings', { data: { contactEmails: ['belletonv@gmail.com'], espaceMembre: true } })
+  if (!res.ok()) throw new Error(`activation espace membre : HTTP ${res.status()}`)
+}
+
 test.describe('Espace membre — /membre', () => {
   test.beforeEach(async ({ request }) => {
     await resetMock(request)
+    await activerEspaceMembre(request)
     await resetMemberMock(request)
   })
 
@@ -157,6 +165,7 @@ const MOCK_EVENTS = [
 test.describe('Agenda personnel du membre', () => {
   test.beforeEach(async ({ page, request }) => {
     await resetMock(request)
+    await activerEspaceMembre(request)
     await resetMemberMock(request)
     await page.route('**/api/church-events*', (route) => route.fulfill({ json: MOCK_EVENTS }))
   })
@@ -214,6 +223,7 @@ test.describe('Agenda personnel du membre', () => {
 test.describe('Bloc Louange', () => {
   test.beforeEach(async ({ request }) => {
     await resetMock(request)
+    await activerEspaceMembre(request)
     await resetMemberMock(request)
   })
 
@@ -258,5 +268,43 @@ test.describe('Bloc Louange', () => {
     await page.reload()
     await page.getByRole('button', { name: 'Je postule !' }).first().click()
     await expect(page.locator('.louange-toast')).toHaveText(/déjà une candidature|déjà postulé/, { timeout: 5000 })
+  })
+})
+
+test.describe('Espace membre désactivé (réglage par défaut)', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+    await resetMemberMock(request)
+  })
+
+  test('le réglage public vaut false par défaut', async ({ request }) => {
+    const data = await (await request.get('/api/settings')).json()
+    expect(data.espaceMembre).toBe(false)
+  })
+
+  test('aucun lien « Espace membre » et /membre renvoie vers l\'accueil', async ({ page }) => {
+    await logoutAll(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('.nav-membre-link')).toHaveCount(0)
+    await page.goto('/membre')
+    await expect(page).toHaveURL(/\/$/)
+  })
+
+  test('un membre encore connecté ne voit plus son agenda personnel', async ({ page }) => {
+    await page.route('**/api/church-events*', (route) => route.fulfill({ json: MOCK_EVENTS }))
+    await loginAsMember(page)
+    await page.goto('/agenda')
+    await page.evaluate(() => localStorage.setItem('agenda_view', 'cards'))
+    await page.reload()
+    await expect(page.locator('.event-card', { hasText: 'Culte du dimanche' })).toBeVisible({ timeout: 8000 })
+    await expect(page.locator('.event-mine')).toHaveCount(0)
+  })
+
+  test('Louange : « Je postule ! » mène au formulaire de contact', async ({ page }) => {
+    await logoutAll(page)
+    await page.goto('/louange-test', { waitUntil: 'networkidle' })
+    await page.getByRole('button', { name: 'Je postule !' }).first().click()
+    await page.waitForURL('**/contact', { timeout: 8000 })
   })
 })

@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
 const props = defineProps({
@@ -56,6 +56,10 @@ const visibilityClasses = computed(() => ({
 }))
 
 const { isLoggedIn, authedFetch } = useMemberAuth()
+// Espace membre désactivé (⚙️ Config) : les candidatures passent par le
+// formulaire de contact.
+const { espaceMembre, loadSiteSettings } = useSiteSettings()
+onMounted(() => loadSiteSettings())
 const route = useRoute()
 const pendingKeys = ref(new Set())
 const sentKeys = ref(new Set())
@@ -67,6 +71,10 @@ function posKey(pos) {
 
 async function apply(pos) {
   // Non connecté → redirection vers l'espace membre (retour ici après login)
+  if (!espaceMembre.value) {
+    navigateTo('/contact')
+    return
+  }
   if (!isLoggedIn.value) {
     navigateTo(`/membre?redirect=${encodeURIComponent(route.fullPath)}`)
     return

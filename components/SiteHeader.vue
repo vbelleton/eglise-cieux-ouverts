@@ -58,7 +58,7 @@
                         </template>
                     </template>
                 </template>
-                <NuxtLink to="/membre" class="nav-membre-link" active-class="active">
+                <NuxtLink v-if="espaceMembre" to="/membre" class="nav-membre-link" active-class="active">
                     {{ membreLinkLabel }}
                 </NuxtLink>
                 <div class="nav-desktop-socials">
@@ -109,7 +109,7 @@
                         >
                     </template>
                 </template>
-                <NuxtLink to="/membre" class="nav-membre-link">{{ membreLinkLabel }}</NuxtLink>
+                <NuxtLink v-if="espaceMembre" to="/membre" class="nav-membre-link">{{ membreLinkLabel }}</NuxtLink>
             </div>
             <div class="nav-mobile-socials">
                 <SocialLinks :links="socialLinks" :size="26" />
@@ -150,13 +150,24 @@ const headerStyle = computed(() => ({
     top: isMounted.value && adminMode.value ? "48px" : "0px",
 }));
 const { hasEvenements, erreur: evenementsErreur } = useChurchEvents();
-const { socialLinks, loadSiteSettings } = useSiteSettings();
+// espaceMembre : réglage ⚙️ Config, faux par défaut (lien masqué).
+const { socialLinks, espaceMembre, hideEventsPageIfEmpty, loadSiteSettings } = useSiteSettings();
 // `erreur` inclus volontairement : si le Worker événements ne répond pas, la
 // liste est vide sans que cela veuille dire « aucun événement ». Sans ça, une
 // panne de l'amont retirait le lien Événements de la navigation de TOUTES les
 // pages. En cas de doute on garde le lien : la page saura expliquer.
+// Le lien n'est masqué que si l'admin l'a demandé (⚙️ Config « Masquer la
+// page Événements si aucun événement ») — même règle que pages/event-list.vue.
+// Sans ce réglage, la page reste utile sans événement (Parcours Alpha,
+// formulaire d'inscription) : la masquer d'office coupait l'accès aux
+// inscriptions, et le lien manquait au rendu serveur (événements chargés au client).
 const showBilletterie = computed(
-    () => adminMode.value || isAdminRoute.value || hasEvenements.value || evenementsErreur.value,
+    () =>
+        adminMode.value ||
+        isAdminRoute.value ||
+        !hideEventsPageIfEmpty.value ||
+        hasEvenements.value ||
+        evenementsErreur.value,
 );
 
 // Menu editor integration — intercept clicks in admin mode

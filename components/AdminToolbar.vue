@@ -978,6 +978,7 @@ import {
 } from "firebase/auth";
 import { BLOCK_TYPES, ANIMATIONS, HARDCODED_SLUGS } from "~/utils/blockTypes.js";
 import { SOCIAL_ICONS } from "~/utils/socialIcons.js";
+import { uploadImage, listUploadedImages } from "~/utils/imageUpload.js";
 import { useToast } from '~/composables/useToast'
 
 const { socialLinks: liveSocialLinks, memberTabOrder: liveMemberTabOrder, espaceMembre: liveEspaceMembre, hideEventsPageIfEmpty: liveHideEventsPageIfEmpty } = useSiteSettings()
@@ -2195,17 +2196,9 @@ async function onAdminFileSelected(e) {
     if (!file || !import.meta.client) return;
     imagesLoading.value = true;
     try {
-        const {
-            getStorage,
-            ref: storageRef,
-            uploadBytes,
-            getDownloadURL,
-        } = await import("firebase/storage");
-        const storage = getStorage();
-        const path = `uploads/${Date.now()}_${file.name}`;
-        const r = storageRef(storage, path);
-        await uploadBytes(r, file);
-        const url = await getDownloadURL(r);
+        // Même chemin que la médiathèque : photo redimensionnée avant l'envoi
+        // (avant, le fichier partait tel quel, plusieurs Mo par photo).
+        const url = await uploadImage(file);
         if (sidebarBlock.value) {
             const key = fieldKeysWithImages.value[0];
             if (!key) return;
@@ -2250,16 +2243,7 @@ async function loadAdminUploadedImages() {
     if (!import.meta.client) return;
     imagesLoading.value = true;
     try {
-        const {
-            getStorage,
-            ref: storageRef,
-            listAll,
-            getDownloadURL,
-        } = await import("firebase/storage");
-        const storage = getStorage();
-        const listRef = storageRef(storage, "uploads");
-        const res = await listAll(listRef);
-        const urls = await Promise.all(res.items.map((i) => getDownloadURL(i)));
+        const urls = (await listUploadedImages()).map((i) => i.url);
         uploadedImages.value = urls;
     } catch (err) {
         console.error("Error loading images", err);

@@ -66,15 +66,7 @@
             </div>
 
             <div class="contact-page-map-col">
-              <iframe
-                :src="mapEmbedUrl"
-                title="Carte — Eglise Cieux Ouverts Morlaix"
-                width="100%"
-                height="100%"
-                style="border:0;min-height:420px;"
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-              ></iframe>
+              <MapFacade :src="mapEmbedUrl" title="Carte — Eglise Cieux Ouverts Morlaix" min-height="420px" />
             </div>
           </div>
         </div>
@@ -395,6 +387,7 @@ async function submitForm() {
   display: flex;
   flex-direction: column;
 }
+.contact-page-map-col .map-facade { flex: 1; border-radius: 0; }
 .contact-inner { max-width: 1000px; margin: 0 auto; }
 
 /* ── Title ── */
@@ -541,7 +534,7 @@ async function submitForm() {
   .contact-page-card { margin: 0 16px 60px; padding: 24px 20px 40px; }
   .contact-page-card-inner { grid-template-columns: 1fr; }
   .contact-page-row { grid-template-columns: 1fr; }
-  .contact-page-map-col iframe { min-height: 280px !important; }
+  .contact-page-map-col .map-facade { min-height: 280px !important; }
   .contact-wrap { grid-template-columns: 1fr; gap: 40px; }
   .contact-phone { max-width: 200px; margin: 0 auto; }
   .form-row { grid-template-columns: 1fr; }

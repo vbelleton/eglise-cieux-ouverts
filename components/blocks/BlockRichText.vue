@@ -11,12 +11,13 @@
     :class="[visibilityClasses, animClass]"
     ref="sectionRef"
   >
-    <div class="richtext-inner" data-field-key="content" :style="fieldFontStyle(fieldFonts, 'content', fieldFontSizes)" v-html="sanitizedContent"></div>
+    <div class="richtext-inner" data-field-key="content" :style="fieldFontStyle(fieldFonts, 'content', fieldFontSizes)" v-html="sanitizedContent" @click="activateMapFromEvent"></div>
   </section>
 </template>
 
 <script setup>
 import { sanitizeHtml } from '~/utils/sanitize.js'
+import { facadeMaps, activateMapFromEvent } from '~/utils/mapFacade.js'
 import { fieldFontStyle } from '~/utils/fonts.js'
 const {
   backgroundGradient = '',
@@ -44,7 +45,7 @@ const {
   fieldFontSizes: { type: Object, default: () => ({}) },
 })
 const sectionRef = ref(null)
-const sanitizedContent = computed(() => content ? sanitizeHtml(content) : '')
+const sanitizedContent = computed(() => content ? facadeMaps(sanitizeHtml(content)) : '')
 
 const animClass = computed(() => {
   if (!animation || animation === 'none') return ''

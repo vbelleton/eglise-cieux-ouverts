@@ -23,7 +23,7 @@
                             'nav-admin-link': isMounted && adminMode,
                             dimmed: isMounted && adminMode && !item.visible,
                         }"
-                        @click="!adminMode && closeMenu"
+                        @click="!adminMode && closeMenu()"
                         >{{ item.label }}</NuxtLink
                     >
                     <a
@@ -88,6 +88,7 @@
                     <NuxtLink
                         v-if="!isMounted || (!adminMode && item.visible !== false)"
                         :to="item.to"
+                        @click="closeMenu"
                         >{{ item.label }}</NuxtLink
                     >
                     <a
@@ -103,6 +104,7 @@
                             v-if="!adminMode && sub.visible !== false"
                             :to="sub.to"
                             class="sub-link"
+                            @click="closeMenu"
                             >— {{ sub.label }}</NuxtLink
                         >
                         <a
@@ -114,7 +116,7 @@
                         >
                     </template>
                 </template>
-                <NuxtLink v-if="espaceMembre" to="/membre" class="nav-membre-link">{{ membreLinkLabel }}</NuxtLink>
+                <NuxtLink v-if="espaceMembre" to="/membre" class="nav-membre-link" @click="closeMenu">{{ membreLinkLabel }}</NuxtLink>
             </div>
             <div class="nav-mobile-socials">
                 <SocialLinks :links="socialLinks" :size="26" />
@@ -626,7 +628,7 @@ onUnmounted(() => {
         flex-shrink: 0;
         align-self: stretch;
     }
-    .nav-mobile-socials a {
+    .nav-mobile-socials :deep(a) {
         color: #064886;
         padding: 0;
         font-size: 0;
@@ -639,7 +641,7 @@ onUnmounted(() => {
         align-items: center;
         justify-content: center;
     }
-    .nav-mobile-socials a:hover {
+    .nav-mobile-socials :deep(a:hover) {
         background: rgba(255, 255, 255, 1);
         text-decoration: none;
     }

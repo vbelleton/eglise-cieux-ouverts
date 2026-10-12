@@ -11,7 +11,7 @@
         />
 
         <div class="bienvenue-content">
-            <div class="hero-bienvenue-portal" data-field-key="title" :aria-label="props.title" :style="{ color: props.textColor, fontSize: props.fontSize + 'em', ...fieldFontStyle(props.fieldFonts, 'title', props.fieldFontSizes) }">
+            <div class="hero-bienvenue-portal" data-field-key="title" :aria-label="props.title" :style="{ color: props.textColor, '--bienvenue-taille': props.fontSize + 'em', ...fieldFontStyle(props.fieldFonts, 'title', props.fieldFontSizes) }">
                 <span
                     v-for="(char, i) in wordArr"
                     :key="i"
@@ -115,7 +115,10 @@ function getLetterVars(i) {
     justify-content: center;
     align-items: center;
     font-family: var(--font-heading);
-    font-size: clamp(40px, 8vw, 80px);
+    /* Taille réglée dans l'admin (« Taille police », en em). Passée par une
+       variable et non en style direct : un font-size en ligne écrasait les
+       règles téléphone ci-dessous, et « BIENVENUE » débordait de l'écran. */
+    font-size: var(--bienvenue-taille, clamp(40px, 8vw, 80px));
     line-height: 1.3;
     margin-bottom: 20px;
     position: relative;
@@ -270,7 +273,8 @@ function getLetterVars(i) {
         min-height: 400px;
     }
     .hero-bienvenue-portal {
-        font-size: clamp(18px, 7vw, 36px);
+        /* Jamais plus que la taille réglée, jamais plus large que l'écran */
+        font-size: min(var(--bienvenue-taille, 36px), 9vw);
         letter-spacing: 0.01em;
     }
     .hero-bienvenue-char {
@@ -292,7 +296,7 @@ function getLetterVars(i) {
         min-height: 320px;
     }
     .hero-bienvenue-portal {
-        font-size: clamp(14px, 6.5vw, 28px);
+        font-size: min(var(--bienvenue-taille, 28px), 10vw);
         letter-spacing: 0;
     }
     .hero-subtitle {

@@ -12,7 +12,7 @@ test.describe('BlockHero — Schema-driven tests', () => {
   validateSchema('hero', HERO_SCHEMA, HERO_DEFAULTS)
 
   test('schema has correct field count', () => {
-    expect(HERO_SCHEMA.length).toBe(8)
+    expect(HERO_SCHEMA.length).toBe(7) // « Afficher bouton » retiré : aucun bouton n'est rendu par le Hero
   })
 
   test('height field has min/max constraints', () => {

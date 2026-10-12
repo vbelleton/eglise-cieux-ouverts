@@ -1061,9 +1061,15 @@ const orderedPageOptions = computed(() => {
     const seen = new Set()
     function walk(items) {
         for (const item of items || []) {
+            const depuisLien = item.to === '/' ? 'accueil' : String(item.to || '').replace(/^\//, '')
             const slug = item.pageSlug || (HARDCODED_SLUGS.includes(item.id) ? item.id : null)
+                || (bySlug.has(depuisLien) ? depuisLien : null)
             if (slug && bySlug.has(slug) && !seen.has(slug)) {
-                ordered.push(bySlug.get(slug))
+                // Pages système : le libellé suit celui du menu (renommé dans
+                // l'éditeur de menu), pas le nom figé dans le code.
+                const page = bySlug.get(slug)
+                const libelle = HARDCODED_SLUGS.includes(slug) && item.label ? item.label : page.label
+                ordered.push({ ...page, label: libelle })
                 seen.add(slug)
             }
             if (item.children?.length) walk(item.children)
@@ -2233,7 +2239,12 @@ async function onAdminFileSelected(e) {
 const fieldKeysWithImages = computed(() => {
     if (!sidebarBlock.value) return [];
     const schema = sidebarSchema.value;
-    return schema.filter((f) => f.type === "image" || f.type === "images").map((f) => f.key);
+    // Un champ masqué (sans effet avec les réglages actuels) ne doit pas
+    // recevoir l'image téléversée.
+    const valeurs = sidebarBlock.value.props || {};
+    return schema
+        .filter((f) => (f.type === "image" || f.type === "images") && !f.hiddenWhen?.(valeurs))
+        .map((f) => f.key);
 });
 
 const fieldKeysImagesArray = computed(() => {

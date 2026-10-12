@@ -5,7 +5,7 @@
     :style="{ background: backgroundColor }"
   >
     <div class="block-icon-grid-inner">
-      <h2 v-if="title" class="block-icon-grid-title" data-field-key="title" :style="{ color: titleColor }">{{ title }}</h2>
+      <h2 v-if="title" class="block-icon-grid-title" data-field-key="title" :style="{ color: titleColor, ...fieldFontStyle(fieldFonts, 'title', fieldFontSizes) }">{{ title }}</h2>
       <div class="block-icon-grid-list" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
         <div
           v-for="(item, i) in items"
@@ -26,6 +26,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { fieldFontStyle } from '~/utils/fonts.js'
 
 const props = defineProps({
   blockId: { type: String, default: '' },
@@ -41,6 +42,8 @@ const props = defineProps({
   titleColor: { type: String, default: '#1A4C8B' },
   textColor: { type: String, default: '#4A4A4A' },
   animation: { type: String, default: 'fadeIn' },
+  fieldFonts: { type: Object, default: () => ({}) },
+  fieldFontSizes: { type: Object, default: () => ({}) },
 })
 
 const visibilityClasses = computed(() => ({

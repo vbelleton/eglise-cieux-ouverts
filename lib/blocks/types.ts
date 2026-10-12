@@ -8,6 +8,12 @@ export interface FieldSchema {
   options?: string[]
   placeholder?: string
   subFields?: FieldSchema[]
+  // Masque le champ dans l'éditeur quand il n'aurait aucun effet avec les
+  // réglages actuels du bloc (ex. : champ propre à l'autre mise en page).
+  hiddenWhen?: (props: Record<string, any>) => boolean
+  // Texte affiché sans police/taille réglable ni « Déplacer ».
+  noStyle?: boolean
+  group?: string
 }
 
 export type FieldType =

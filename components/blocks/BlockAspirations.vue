@@ -20,6 +20,7 @@
                         :style="getItemStyle(i)"
                     >
                         <span class="circle" :style="getCircleStyle(i)"></span>
+                        <span class="badge" aria-hidden="true">{{ i + 1 }}</span>
                         <span class="text">{{ item }}</span>
                     </li>
                 </ol>
@@ -166,6 +167,9 @@ function getCircleStyle(index) {
     z-index: 1;
     display: block;
 }
+.badge {
+    display: none;
+}
 @media (max-width: 768px) {
     .aspirations-viewport {
         height: auto;
@@ -182,16 +186,52 @@ function getCircleStyle(index) {
     .aspirations-title {
         font-size: clamp(32px, 8vw, 48px);
     }
+    .aspirations-divider {
+        width: 64px;
+        height: 3px;
+        border-radius: 3px;
+        margin: 0 auto 1.75rem;
+        background: #1a96df;
+    }
+    .aspirations-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
     .aspirations-list li {
-        font-size: 1.2rem;
-        padding: 0.8rem 0 0.8rem 3rem;
-        text-align: left;
-        border-bottom: 1px solid;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 1.05rem;
+        line-height: 1.35;
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.07);
+        background: color-mix(in srgb, currentColor 7%, transparent);
+        text-shadow: none;
+    }
+    .aspirations-list li:last-child {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+        border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
     }
     .circle {
-        width: 8vh;
-        height: 8vh;
-        left: -1rem;
+        display: none;
+    }
+    .badge {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #1a96df;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
 }
 

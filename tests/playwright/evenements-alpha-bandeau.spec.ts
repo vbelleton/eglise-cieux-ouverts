@@ -53,7 +53,7 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
     await expect(page.getByText('Qui est Jésus ?')).toBeVisible()
     await expect(page.getByText('Comment se passe une rencontre')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Où nous trouver ?' })).toBeVisible()
-    await expect(page.locator('iframe[title^="Carte"]')).toHaveCount(1)
+    await expect(page.locator('.map-facade[data-map-title^="Carte"]')).toHaveCount(1)
 
     const liste = page.locator('.block-evenements')
     await expect(liste.getByText('Soirée louange test')).toBeVisible({ timeout: 10000 })

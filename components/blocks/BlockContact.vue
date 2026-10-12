@@ -22,44 +22,44 @@
               <form class="contact-page-form" @submit.prevent="submitForm">
                 <div class="contact-page-row">
                   <label class="contact-page-field">
-                    <span>Prénom *</span>
+                    <span>{{ labelPrenom }} *</span>
                     <input v-model="form.prenom" type="text" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                   <label class="contact-page-field">
-                    <span>Nom de famille *</span>
+                    <span>{{ labelNom }} *</span>
                     <input v-model="form.nom" type="text" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                 </div>
 
-                <label class="contact-page-field">
-                  <span>Ville</span>
+                <label v-if="showVille" class="contact-page-field">
+                  <span>{{ labelVille }}</span>
                   <input v-model="form.ville" type="text" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
                 </label>
 
                 <label class="contact-page-field">
-                  <span>Email *</span>
+                  <span>{{ labelEmail }} *</span>
                   <input v-model="form.email" type="email" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
                 </label>
 
                 <label class="contact-page-field">
-                  <span>Ton message *</span>
+                  <span>{{ labelMessage }} *</span>
                   <textarea v-model="form.message" maxlength="4000" :disabled="isFormDisabled" required rows="6"></textarea>
                 </label>
 
                 <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
 
-                <label class="contact-page-checkbox">
+                <label v-if="showNewsletter" class="contact-page-checkbox">
                   <input type="checkbox" v-model="form.newsletter" :disabled="isFormDisabled" />
-                  <span>Oui, je souhaite m'abonner à la newsletter.</span>
+                  <span>{{ newsletterText }}</span>
                 </label>
 
                 <p class="editor-msg" v-if="isEditor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
-                <p class="success-msg" v-if="submitted">Message envoyé, à bientôt !</p>
-                <p class="error-msg" v-if="errorMessage">{{ errorMessage }}</p>
+                <p class="success-msg" v-if="submitted" role="status">{{ successText }}</p>
+                <p class="error-msg" v-if="errorMessage" role="alert">{{ errorMessage }}</p>
 
                 <div class="contact-page-submit">
                   <button type="submit" class="contact-page-btn" :disabled="isFormDisabled">
-                    {{ sending ? 'Envoi...' : "C'est parti !" }}
+                    {{ sending ? 'Envoi...' : submitText }}
                   </button>
                 </div>
               </form>
@@ -94,22 +94,22 @@
           </div>
           <form class="contact-form" @submit.prevent="submitForm">
             <div class="form-row">
-              <input v-model="form.prenom" type="text" placeholder="Prénom *" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
-              <input v-model="form.nom" type="text" placeholder="Nom de famille *" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.prenom" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.nom" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
             </div>
-            <input v-model="form.ville" type="text" placeholder="Ville" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
-            <input v-model="form.email" type="email" placeholder="Email *" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
-            <textarea v-model="form.message" placeholder="Ton Message *" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
+            <input v-if="showVille" v-model="form.ville" type="text" :placeholder="labelVille" :aria-label="labelVille" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
+            <input v-model="form.email" type="email" :placeholder="`${labelEmail} *`" :aria-label="labelEmail" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
+            <textarea v-model="form.message" :placeholder="`${labelMessage} *`" :aria-label="labelMessage" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
             <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
-            <label class="checkbox-label">
+            <label v-if="showNewsletter" class="checkbox-label">
               <input type="checkbox" v-model="form.newsletter" :disabled="isFormDisabled" />
-              Oui, je souhaite m'abonner à la Newsletter.
+              {{ newsletterText }}
             </label>
             <p class="editor-msg" v-if="isEditor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
-            <p class="success-msg" v-if="submitted">Message envoyé, à bientôt !</p>
-            <p class="error-msg" v-if="errorMessage">{{ errorMessage }}</p>
+            <p class="success-msg" v-if="submitted" role="status">{{ successText }}</p>
+            <p class="error-msg" v-if="errorMessage" role="alert">{{ errorMessage }}</p>
             <button type="submit" class="btn-submit" :disabled="isFormDisabled">
-              {{ sending ? 'Envoi...' : "C'est parti !" }}
+              {{ sending ? 'Envoi...' : submitText }}
             </button>
           </form>
         </div>
@@ -135,6 +135,16 @@ const {
   image = '',
   showSocials = false,
   showQuestions = false,
+  labelPrenom = 'Prénom',
+  labelNom = 'Nom de famille',
+  labelVille = 'Ville',
+  labelEmail = 'Email',
+  labelMessage = 'Ton message',
+  showVille = true,
+  showNewsletter = true,
+  newsletterText = "Oui, je souhaite m'abonner à la newsletter.",
+  submitText = "C'est parti !",
+  successText = 'Message envoyé, à bientôt !',
   visibility = {},
   fieldFonts = {},
   fieldFontSizes = {},
@@ -149,6 +159,16 @@ const {
   image: { type: String, default: '' },
   showSocials: { type: Boolean, default: false },
   showQuestions: { type: Boolean, default: false },
+  labelPrenom: { type: String, default: 'Prénom' },
+  labelNom: { type: String, default: 'Nom de famille' },
+  labelVille: { type: String, default: 'Ville' },
+  labelEmail: { type: String, default: 'Email' },
+  labelMessage: { type: String, default: 'Ton message' },
+  showVille: { type: Boolean, default: true },
+  showNewsletter: { type: Boolean, default: true },
+  newsletterText: { type: String, default: "Oui, je souhaite m'abonner à la newsletter." },
+  submitText: { type: String, default: "C'est parti !" },
+  successText: { type: String, default: 'Message envoyé, à bientôt !' },
   visibility: { type: Object, default: () => ({}) },
   fieldFonts: { type: Object, default: () => ({}) },
   fieldFontSizes: { type: Object, default: () => ({}) },

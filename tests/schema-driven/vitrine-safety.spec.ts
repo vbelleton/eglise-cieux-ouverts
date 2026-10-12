@@ -25,7 +25,7 @@ const golden = JSON.parse(
   readFileSync(join(process.cwd(), 'tests/schema-driven/fixtures-vitrine-defaults.json'), 'utf8'),
 ) as Record<string, Record<string, unknown>>
 
-const ALLOWED_GROUPS = ['contenu', 'mise-en-page', 'couleurs', 'medias', 'avance', 'scripts']
+const ALLOWED_GROUPS = ['contenu', 'formulaire', 'mise-en-page', 'couleurs', 'medias', 'avance', 'scripts']
 
 test.describe('Garde-fou vitrines — defaults de blocs figés', () => {
   test('aucun type de bloc n\'a disparu du golden', () => {

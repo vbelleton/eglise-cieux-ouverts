@@ -21,30 +21,30 @@
       <form v-else class="ia-form" @submit.prevent="submitForm">
         <div class="ia-row">
           <label class="ia-field">
-            <span>Prénom *</span>
+            <span>{{ labelPrenom }} *</span>
             <input v-model="form.prenom" type="text" autocomplete="given-name" maxlength="80" :disabled="sending" required />
           </label>
           <label class="ia-field">
-            <span>Nom *</span>
+            <span>{{ labelNom }} *</span>
             <input v-model="form.nom" type="text" autocomplete="family-name" maxlength="80" :disabled="sending" required />
           </label>
         </div>
         <div class="ia-row">
           <label class="ia-field">
-            <span>E-mail *</span>
+            <span>{{ labelEmail }} *</span>
             <input v-model="form.email" type="email" autocomplete="email" maxlength="180" :disabled="sending" required />
           </label>
           <label class="ia-field">
-            <span>Téléphone *</span>
+            <span>{{ labelTelephone }} *</span>
             <input v-model="form.telephone" type="tel" autocomplete="tel" maxlength="40" :disabled="sending" required />
           </label>
         </div>
         <label v-if="showAddress" class="ia-field">
-          <span>Adresse postale (facultatif)</span>
+          <span>{{ labelAdresse }}</span>
           <input v-model="form.adresse" type="text" autocomplete="street-address" maxlength="300" :disabled="sending" />
         </label>
-        <label class="ia-field">
-          <span>Un mot pour nous (facultatif)</span>
+        <label v-if="showMessage" class="ia-field">
+          <span>{{ labelMessage }}</span>
           <textarea v-model="form.message" rows="3" maxlength="2000" :disabled="sending"></textarea>
         </label>
 
@@ -73,6 +73,13 @@ const props = defineProps({
   intro: { type: String, default: '' },
   parcours: { type: String, default: '' },
   showAddress: { type: Boolean, default: true },
+  labelPrenom: { type: String, default: 'Prénom' },
+  labelNom: { type: String, default: 'Nom' },
+  labelEmail: { type: String, default: 'E-mail' },
+  labelTelephone: { type: String, default: 'Téléphone' },
+  labelAdresse: { type: String, default: 'Adresse postale (facultatif)' },
+  showMessage: { type: Boolean, default: true },
+  labelMessage: { type: String, default: 'Un mot pour nous (facultatif)' },
   consentText: { type: String, default: '' },
   submitText: { type: String, default: "Je m'inscris" },
   successText: { type: String, default: '' },

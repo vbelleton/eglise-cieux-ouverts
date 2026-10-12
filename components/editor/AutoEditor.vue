@@ -57,7 +57,9 @@
                 @change="onFontChange(field.key, ($event.target as HTMLSelectElement).value)"
               >
                 <option value="">Police par défaut</option>
-                <option v-for="f in availableFonts" :key="f.value" :value="f.value">{{ f.label }}</option>
+                <optgroup v-for="g in fontGroups" :key="g.id" :label="g.label">
+                  <option v-for="f in g.fonts" :key="f.value" :value="f.value">{{ f.label }}</option>
+                </optgroup>
               </select>
             </div>
             <p v-if="isPromoted(field)" class="field-promoted-note">
@@ -97,8 +99,10 @@ import FieldArray from './fields/FieldArray.vue'
 import FieldImages from './fields/FieldImages.vue'
 import EditorFieldError from './EditorFieldError.vue'
 import FieldDesign from './FieldDesign.vue'
-import { AVAILABLE_FONTS as availableFonts, fontStack } from '~/utils/fonts.js'
+import { AVAILABLE_FONTS as availableFonts, FONT_GROUPS, fontStack } from '~/utils/fonts.js'
 import { watch, nextTick, computed, reactive, provide } from 'vue'
+
+const fontGroups = FONT_GROUPS.map((g) => ({ ...g, fonts: availableFonts.filter((f) => f.groupe === g.id) })).filter((g) => g.fonts.length)
 
 const props = defineProps<{
   schema: FieldSchema[]
@@ -117,6 +121,7 @@ provide('blockType', computed(() => props.modelValue?.type || ''))
 // n'est pas rendu (groupedFields filtre les groupes vides).
 const GROUP_DEFS: { id: string; label: string; icon: string }[] = [
   { id: 'contenu', label: 'Contenu', icon: '📝' },
+  { id: 'formulaire', label: 'Formulaire (champs et textes)', icon: '✏️' },
   { id: 'medias', label: 'Icônes / médias', icon: '🖼️' },
   { id: 'mise-en-page', label: 'Mise en page', icon: '📐' },
   { id: 'couleurs', label: 'Couleurs / thème', icon: '🎨' },

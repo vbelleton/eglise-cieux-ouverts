@@ -135,4 +135,20 @@ test.describe("Aspirations animation", () => {
 
     expect(errors).toEqual([]);
   });
+  test("smartphone : aspirations en cartes numérotées, badges masqués sur ordi", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const badges = page.locator(".aspirations-viewport .badge");
+    await expect(badges).toHaveCount(4);
+    await expect(badges.nth(0)).toBeVisible();
+    await expect(badges.nth(0)).toHaveText("1");
+    await expect(badges.nth(3)).toHaveText("4");
+    await expect(page.locator(".aspirations-viewport .circle").first()).toBeHidden();
+    const li = page.locator(".aspirations-list li").first();
+    expect(await li.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("14px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(badges.nth(0)).toBeHidden();
+  });
 });

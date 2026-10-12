@@ -46,9 +46,14 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
     await simulerWorker(page)
 
     await page.goto('/event-list')
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('Aucun événement pour le moment.')).toHaveCount(0)
-    await expect(page.getByRole('link', { name: /inscris au parcours Alpha/ })).toHaveAttribute('href', '/contact')
+    await expect(page.getByRole('link', { name: /inscris au parcours Alpha/ })).toHaveAttribute('href', '#inscription-alpha')
+
+    await expect(page.getByText('Qui est Jésus ?')).toBeVisible()
+    await expect(page.getByText('Comment se passe une rencontre')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Où nous trouver ?' })).toBeVisible()
+    await expect(page.locator('iframe[title^="Carte"]')).toHaveCount(1)
 
     const liste = page.locator('.block-evenements')
     await expect(liste.getByText('Soirée louange test')).toBeVisible({ timeout: 10000 })
@@ -64,7 +69,7 @@ test.describe('Page Événements : parcours Alpha et prochains événements', ()
 
     await page.goto('/event-list')
     await expect(page.getByRole('heading', { name: 'Mon contenu à moi' })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: 'Parcours Alpha' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Parcours Alpha', exact: true })).toHaveCount(0)
   })
 })
 
@@ -111,5 +116,96 @@ test.describe('Bloc Bandeau défilant', () => {
     await page.waitForTimeout(500)
     await expect(page).toHaveURL(/test-blocks/)
     await expect(page.locator('.admin-sidebar')).toContainText('Messages (un par ligne)')
+  })
+})
+
+test.describe('Inscription au Parcours Alpha', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+  })
+
+  test('le formulaire enregistre l\'inscrit dans les messages', async ({ page, request }) => {
+    await request.put('/api/pages/event-list', { data: { blocks: PAGE_HISTORIQUE } })
+    await simulerWorker(page)
+    await page.goto('/event-list')
+    const bloc = page.locator('.block-inscription-alpha')
+    await expect(bloc.getByRole('heading', { name: /S'inscrire au Parcours Alpha/ })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Comment se passe une rencontre')).toBeVisible()
+
+    await bloc.getByLabel('Prénom *').fill('Marie')
+    await bloc.getByLabel('Nom *', { exact: true }).fill('Test')
+    await bloc.getByLabel('E-mail *').fill('marie@example.com')
+    await bloc.getByLabel('Téléphone *').fill('06 12 34 56 78')
+    await bloc.getByRole('checkbox').check()
+    await page.waitForTimeout(2600)
+    await bloc.getByRole('button', { name: "Je m'inscris" }).click()
+    await expect(bloc.getByRole('status')).toContainText('inscription est bien enregistrée')
+
+    const res = await request.get('/api/contacts')
+    const { contacts } = await res.json()
+    const c = contacts.find((x: any) => x.email === 'marie@example.com')
+    expect(c.telephone).toBe('06 12 34 56 78')
+    expect(c.parcours).toBeTruthy()
+  })
+
+  test('sans consentement, rien n\'est envoyé', async ({ page, request }) => {
+    await request.put('/api/pages/event-list', { data: { blocks: PAGE_HISTORIQUE } })
+    await simulerWorker(page)
+    await page.goto('/event-list')
+    const bloc = page.locator('.block-inscription-alpha')
+    await expect(bloc).toBeVisible({ timeout: 15000 })
+    await bloc.getByLabel('Prénom *').fill('Marie')
+    await bloc.getByLabel('Nom *', { exact: true }).fill('Test')
+    await bloc.getByLabel('E-mail *').fill('marie@example.com')
+    await bloc.getByLabel('Téléphone *').fill('0612345678')
+    await page.waitForTimeout(2600)
+    await bloc.getByRole('button', { name: "Je m'inscris" }).click()
+    const { contacts } = await (await request.get('/api/contacts')).json()
+    expect(contacts.length).toBe(0)
+  })
+})
+
+test.describe('Places du Parcours Alpha', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+  })
+
+  async function pageAvecCapacite(request: any, capacity: number) {
+    const bloc = { id: 'ia-1', type: 'inscriptionAlpha', props: { parcours: 'Parcours test', capacity }, visibility: { desktop: true, tablet: true, mobile: true } }
+    await request.put('/api/pages/event-list', { data: { blocks: [bloc] } })
+  }
+  const inscription = (n: number) => ({ prenom: 'A', nom: 'B', email: `p${n}@example.com`, telephone: '0612345678', parcours: 'Parcours test' })
+
+  test('compte les places restantes et refuse quand c\'est complet', async ({ request }) => {
+    await pageAvecCapacite(request, 2)
+    let places = await (await request.get('/api/alpha-places?parcours=Parcours%20test')).json()
+    expect(places).toMatchObject({ capacity: 2, taken: 0, remaining: 2 })
+
+    expect((await request.post('/api/contact', { data: inscription(1) })).ok()).toBe(true)
+    expect((await request.post('/api/contact', { data: inscription(2) })).ok()).toBe(true)
+    places = await (await request.get('/api/alpha-places?parcours=Parcours%20test')).json()
+    expect(places.remaining).toBe(0)
+
+    const refus = await request.post('/api/contact', { data: inscription(3) })
+    expect(refus.status()).toBe(409)
+  })
+
+  test('capacité 0 : illimité', async ({ request }) => {
+    await pageAvecCapacite(request, 0)
+    for (let i = 0; i < 4; i++) expect((await request.post('/api/contact', { data: inscription(i) })).ok()).toBe(true)
+    const places = await (await request.get('/api/alpha-places?parcours=Parcours%20test')).json()
+    expect(places.remaining).toBeNull()
+  })
+
+  test('le formulaire affiche les places restantes, puis « complet »', async ({ page, request }) => {
+    await pageAvecCapacite(request, 1)
+    await page.route('**/api/church-events*', (route) => route.fulfill({ json: [] }))
+    await page.goto('/event-list')
+    const bloc = page.locator('.block-inscription-alpha')
+    await expect(bloc.getByText(/Plus que 1 place sur 1/)).toBeVisible({ timeout: 15000 })
+    await request.post('/api/contact', { data: inscription(1) })
+    await page.reload()
+    await expect(bloc.getByText('Complet', { exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(bloc.getByRole('button', { name: "Je m'inscris" })).toHaveCount(0)
   })
 })

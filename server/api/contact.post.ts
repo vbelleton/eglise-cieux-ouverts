@@ -2,6 +2,7 @@ import { getFirestoreConfig, getAccessToken, getFirestoreDoc, setFirestoreDoc, p
 import { getEmailQuotaLimit } from '../utils/email-quota'
 import { sendEmail, escapeHtml, nettoyerSujet } from '../utils/send-email'
 import { fetchWithTimeout } from '../utils/http'
+import { placesAlpha } from '../utils/alpha-places'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 // Note: in-memory rate limiting is best-effort on serverless (Cloudflare Pages).
@@ -82,18 +83,35 @@ export default defineEventHandler(async (event) => {
   const website = assertString(body?.website, 200)
   const source = assertString(body?.source, 200) || '/contact'
   const newsletter = Boolean(body?.newsletter)
+  // Inscription au Parcours Alpha : mêmes destinataires et même liste admin
+  // (📬 Messages) que le formulaire de contact, avec ces champs en plus.
+  const parcours = assertString(body?.parcours, 120)
+  const telephone = assertString(body?.telephone, 40)
+  const adresse = assertString(body?.adresse, 300)
+  const estInscription = Boolean(parcours)
   
-  if (!prenom || !nom || !email || !message) {
+  if (!prenom || !nom || !email || (!message && !estInscription)) {
     throw createError({ statusCode: 400, message: 'Champs obligatoires manquants.' })
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw createError({ statusCode: 400, message: 'Email invalide.' })
   }
-  if (message.length < 10) {
+  if (estInscription && telephone.replace(/\D/g, '').length < 6) {
+    throw createError({ statusCode: 400, message: 'Merci d\'indiquer un numéro de téléphone.' })
+  }
+  if (!estInscription && message.length < 10) {
     throw createError({ statusCode: 400, message: 'Message trop court.' })
   }
   if (website) {
     throw createError({ statusCode: 400, message: 'Envoi bloqué.' })
+  }
+
+  if (estInscription) {
+    // Parcours complet : refusé côté serveur, le formulaire ne fait que l'afficher.
+    const places = await placesAlpha(event, parcours).catch(() => null)
+    if (places && places.remaining === 0) {
+      throw createError({ statusCode: 409, message: 'Désolé, ce parcours est complet.' })
+    }
   }
 
   if (isTest) {
@@ -101,6 +119,7 @@ export default defineEventHandler(async (event) => {
     const id = crypto.randomUUID()
     setContact(id, {
       id, prenom, nom, ville, email, message, newsletter, source,
+      ...(estInscription ? { parcours, telephone, adresse } : {}),
       status: 'new',
       createdAt: new Date().toISOString(),
     })
@@ -132,6 +151,11 @@ export default defineEventHandler(async (event) => {
           message: { stringValue: message },
           newsletter: { booleanValue: newsletter },
           source: { stringValue: source },
+          ...(estInscription ? {
+            parcours: { stringValue: parcours },
+            telephone: { stringValue: telephone },
+            adresse: { stringValue: adresse },
+          } : {}),
           status: { stringValue: 'new' },
           ip: { stringValue: getRequestIP(event) || '' },
           userAgent: { stringValue: getRequestHeader(event, 'user-agent') || '' },
@@ -179,21 +203,22 @@ export default defineEventHandler(async (event) => {
       // Le `<br>` des sauts de ligne est posé APRÈS l'échappement, sinon il
       // ressortirait lui aussi en `&lt;br&gt;`.
       const emailHtml = `
-        <h2>Nouveau contact reçu</h2>
+        <h2>${estInscription ? 'Nouvelle inscription au Parcours Alpha' : 'Nouveau contact reçu'}</h2>
         <p><strong>Nom :</strong> ${escapeHtml(`${prenom} ${nom}`)}</p>
         <p><strong>Email :</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
+        ${estInscription ? `<p><strong>Parcours :</strong> ${escapeHtml(parcours)}</p><p><strong>Téléphone :</strong> ${escapeHtml(telephone)}</p>${adresse ? `<p><strong>Adresse :</strong> ${escapeHtml(adresse)}</p>` : ''}` : ''}
         ${ville ? `<p><strong>Ville :</strong> ${escapeHtml(ville)}</p>` : ''}
-        <p><strong>Message :</strong></p>
+        ${message ? `<p><strong>Message :</strong></p>
         <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin:10px 0">
           ${escapeHtml(message).replace(/\n/g, '<br>')}
-        </div>
+        </div>` : ''}
         <p><small>Reçu le ${new Date().toLocaleString('fr-FR')}</small></p>
         <p><a href="https://console.firebase.google.com/project/${encodeURIComponent(firebaseProjectId)}/firestore/data/~2Fcontacts">Voir dans Firestore</a></p>
       `
 
       const sent = await sendEmail({
         to: contactEmails,
-        subject: nettoyerSujet(`Nouveau contact : ${prenom} ${nom}`),
+        subject: nettoyerSujet(`${estInscription ? 'Inscription Alpha' : 'Nouveau contact'} : ${prenom} ${nom}`),
         html: emailHtml,
         replyTo: email,
       })

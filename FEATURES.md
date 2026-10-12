@@ -495,3 +495,8 @@ Inspiration pour la structure de documentation et les patterns de gestion des in
 | **Directus** | [Interfaces & Layouts](https://docs.directus.io/guides/customizing-admin-app.html) : Champs techniques vs champs visuels |
 | **Sanity** | [Structure Builder](https://www.sanity.io/docs/structure-builder) : Documentation "Gotchas" pour les incohérences attendues |
 | **Builder.io** | [Custom Components](https://www.builder.io/c/docs/custom-components) : Pattern de champs qui n'ont pas toujours d'effet rendu |
+
+
+## Inscription au Parcours Alpha
+
+Page Événements par défaut : prochains événements, présentation Alpha (questions, encadré du prochain parcours à compléter, gratuit), déroulement d'une rencontre en deux temps, formulaire, FAQ, « Où nous trouver » avec carte. Bloc `inscriptionAlpha` : prénom, nom, e-mail, téléphone, adresse facultative, mot facultatif, consentement obligatoire. L'envoi passe par `POST /api/contact` (champs `parcours`, `telephone`, `adresse`) : l'inscrit apparaît dans l'admin 📬 Messages avec ces informations et déclenche l'e-mail de notification habituel. Réglage « Nombre de places » du bloc (0 = illimité) : le formulaire affiche les places restantes (`GET /api/alpha-places`, compteurs seulement) et le serveur refuse l'inscription (409) quand c'est complet. Dans l'admin 📬 Messages, le filtre « Inscrits Alpha » liste les inscrits et le bouton « Export CSV » les télécharge (compatible Excel). La page par défaut comporte aussi une FAQ Alpha.

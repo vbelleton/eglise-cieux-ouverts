@@ -755,6 +755,17 @@
                             :class="{ active: contactMessageFilter === 'unread' }"
                             @click="contactMessageFilter = 'unread'"
                         >Non lus ({{ unreadContactCount }})</button>
+                        <button
+                            class="filter-btn"
+                            :class="{ active: contactMessageFilter === 'alpha' }"
+                            @click="contactMessageFilter = 'alpha'"
+                        >Inscrits Alpha ({{ alphaInscrits.length }})</button>
+                        <button
+                            v-if="alphaInscrits.length"
+                            class="filter-btn"
+                            @click="exporterInscritsAlpha"
+                            title="Télécharger la liste des inscrits au format CSV"
+                        >⬇ Export CSV</button>
                     </div>
                     <div v-if="!contactMessagesLoading && contactMessages.length > 0" class="contact-sort">
                         <label>Tri:</label>
@@ -777,7 +788,7 @@
                             <div class="version-item-row">
                                 <div class="version-info">
                                     <span class="version-date">{{ new Date(m.createdAt).toLocaleString('fr-FR') }}</span>
-                                    <span class="version-author">{{ m.prenom }} {{ m.nom }} — <a :href="`mailto:${m.email}`">{{ m.email }}</a>{{ m.ville ? ' — ' + m.ville : '' }}{{ m.newsletter ? ' — 📧 Newsletter' : '' }}</span>
+                                    <span class="version-author">{{ m.prenom }} {{ m.nom }} — <a :href="`mailto:${m.email}`">{{ m.email }}</a>{{ m.ville ? ' — ' + m.ville : '' }}{{ m.parcours ? ' — 📝 Inscription Alpha : ' + m.parcours : '' }}{{ m.telephone ? ' — 📞 ' + m.telephone : '' }}{{ m.adresse ? ' — 🏠 ' + m.adresse : '' }}{{ m.newsletter ? ' — 📧 Newsletter' : '' }}</span>
                                     <div class="version-meta">{{ m.message }}</div>
                                 </div>
                                 <div class="version-actions">
@@ -1390,7 +1401,7 @@ watch(isAdminUser, (val) => { if (val) loadAdminList() }, { immediate: true })
 const showContactMessages = ref(false)
 const contactMessages = ref([])
 const contactMessagesLoading = ref(false)
-const contactMessageFilter = ref('all') // 'all' | 'unread'
+const contactMessageFilter = ref('all') // 'all' | 'unread' | 'alpha'
 const contactMessageSort = ref('date-desc') // 'date-desc', 'date-asc', 'sender'
 
 // L'archivage a été remplacé par une suppression définitive : il n'ajoutait
@@ -1403,11 +1414,38 @@ const inboxMessages = computed(() => contactMessages.value)
 const unreadContactCount = computed(() =>
   inboxMessages.value.filter(m => m.status !== 'read').length
 )
+const alphaInscrits = computed(() => contactMessages.value.filter(m => m.parcours))
+
+// Export CSV des inscrits Alpha (séparateur « ; » et BOM : s'ouvre
+// correctement dans Excel en français). Les cellules commençant par = + - @
+// sont préfixées d'une apostrophe, sinon Excel les exécute comme formule.
+function exporterInscritsAlpha() {
+  const cellule = (v) => {
+    let t = String(v ?? '').replace(/\r?\n/g, ' ')
+    if (/^[=+\-@]/.test(t)) t = "'" + t
+    return `"${t.replace(/"/g, '""')}"`
+  }
+  const lignes = [['Date', 'Parcours', 'Prénom', 'Nom', 'E-mail', 'Téléphone', 'Adresse', 'Message']]
+  for (const m of [...alphaInscrits.value].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))) {
+    lignes.push([new Date(m.createdAt).toLocaleString('fr-FR'), m.parcours, m.prenom, m.nom, m.email, m.telephone, m.adresse, m.message])
+  }
+  const csv = '\ufeff' + lignes.map(l => l.map(cellule).join(';')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `inscrits-alpha-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 const newsletterSubscriberCount = computed(() => contactMessages.value.filter(m => m.newsletter === true).length)
 
 const filteredContactMessages = computed(() => {
   let filtered = inboxMessages.value
 
+  if (contactMessageFilter.value === 'alpha') {
+    filtered = filtered.filter(m => m.parcours)
+  }
   if (contactMessageFilter.value === 'unread') {
     filtered = filtered.filter(m => m.status !== 'read')
   }

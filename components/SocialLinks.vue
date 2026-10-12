@@ -5,10 +5,10 @@
       :href="link.url"
       target="_blank"
       rel="noopener"
-      :aria-label="SOCIAL_ICONS[link.platform].label"
+      :aria-label="`${SOCIAL_ICONS[link.platform].label} (nouvelle fenêtre)`"
       class="social-link"
     >
-      <svg :style="{ width: size + 'px', height: size + 'px' }" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" focusable="false" :style="{ width: size + 'px', height: size + 'px' }" viewBox="0 0 24 24" fill="currentColor">
         <path :d="SOCIAL_ICONS[link.platform].path" />
       </svg>
     </a>
@@ -32,6 +32,10 @@ defineProps({
 <style scoped>
 .social-link {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
   color: inherit;
 }
 </style>

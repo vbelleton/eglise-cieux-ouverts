@@ -55,6 +55,7 @@
     </VueDraggable>
     </div>
     <div v-else class="page-renderer" :class="{ 'admin-mode': isAdmin && isMounted }">
+        <h1 v-if="pageTitle && !pageHasH1" class="sr-only">{{ pageTitle }}</h1>
         <div
             v-for="block in visibleBlocks"
             :key="block.id"
@@ -157,7 +158,18 @@ const isServerAdmin = computed(() => {
 
 const props = defineProps({
     blocks: { type: Array, default: () => [] },
+    // Titre principal de la page (h1) pour les lecteurs d'écran, quand aucun
+    // bloc n'en affiche un (le héros n'a qu'un logo, par exemple).
+    pageTitle: { type: String, default: "" },
 });
+
+const pageHasH1 = computed(() =>
+    (props.blocks || []).some((b) => {
+        const p = b?.props || {};
+        if (b?.type === "hero") return Boolean(p.overlayText);
+        return typeof p.content === "string" && /<h1[\s>]/i.test(p.content);
+    }),
+);
 
 // selectedElementId / positioningElementId / activeFieldKey : partagés avec
 // le panneau sidebar (composables/useAdmin.js) pour garder la sélection, le

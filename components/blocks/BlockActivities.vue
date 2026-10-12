@@ -7,6 +7,9 @@
                :ref="el => { if (el) slideRefs[i] = el }">
             <img :src="item.image" :alt="item.title" class="activity-main-img" loading="lazy" />
             <label class="activity-info-overlay" :for="`act-cb-${uid}-${i}`"
+                   :tabindex="isHydrated ? 0 : undefined" :role="isHydrated ? 'button' : undefined"
+                   :aria-label="isHydrated ? `Voir le détail : ${item.title}` : undefined"
+                   @keydown.enter.prevent="openSlideModal(i)" @keydown.space.prevent="openSlideModal(i)"
                    @click.prevent="openSlideModal(i)">
               <div class="overlay-text">
                 <span class="overlay-title">{{ item.title }}</span>
@@ -16,15 +19,17 @@
             </label>
           </div>
         </div>
-        <button class="nav-arrow prev" @click="scrollToSlide(currentIndex - 1)">‹</button>
-        <button class="nav-arrow next" @click="scrollToSlide(currentIndex + 1)">›</button>
+        <button type="button" class="nav-arrow prev" aria-label="Activité précédente" @click="scrollToSlide(currentIndex - 1)"><span aria-hidden="true">‹</span></button>
+        <button type="button" class="nav-arrow next" aria-label="Activité suivante" @click="scrollToSlide(currentIndex + 1)"><span aria-hidden="true">›</span></button>
       </div>
 
       <Teleport to="body">
         <Transition name="modal">
-          <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
+          <div v-if="modalOpen" ref="modalEl" class="modal-backdrop" role="dialog" aria-modal="true"
+               :aria-label="activeItem.title" tabindex="-1"
+               @click.self="fermerModal" @keydown.esc="fermerModal" @keydown.tab="pieger">
             <div class="modal-content">
-              <button class="modal-close" @click="modalOpen = false">&times;</button>
+              <button ref="closeEl" type="button" class="modal-close" aria-label="Fermer" @click="fermerModal"><span aria-hidden="true">&times;</span></button>
               <img :src="activeItem.image" :alt="activeItem.title" class="modal-img" />
               <h3 class="modal-title">{{ activeItem.title }}</h3>
               <div class="modal-body" v-html="sanitizeDesc(activeItem.description)"></div>
@@ -37,8 +42,11 @@
         <label v-for="(item, i) in items" :key="i"
                class="thumbnail-wrap" :class="{ 'is-active': currentIndex === i }"
                :for="`act-cb-${uid}-${i}`"
+               :tabindex="isHydrated ? 0 : undefined" :role="isHydrated ? 'button' : undefined"
+               :aria-label="isHydrated ? `Voir le détail : ${item.title}` : undefined"
+               @keydown.enter.prevent="openThumbnailModal(i)" @keydown.space.prevent="openThumbnailModal(i)"
                @click.prevent="openThumbnailModal(i)">
-          <img :src="item.image" :alt="item.title" class="thumbnail-img" loading="lazy" />
+          <img :src="item.image" alt="" class="thumbnail-img" loading="lazy" />
         </label>
       </div>
     </div>
@@ -59,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
 const {
   items = [],
@@ -115,6 +123,29 @@ function scrollToSlide(index) {
   if (el && slider.value) {
     slider.value.scrollTo({ left: el.offsetLeft, behavior: 'smooth' })
   }
+}
+
+// Fenêtre de détail : focus dans la fenêtre à l'ouverture, Échap pour fermer,
+// focus rendu à l'élément qui l'a ouverte, Tab ne sort pas de la fenêtre.
+const modalEl = ref(null)
+const closeEl = ref(null)
+let declencheur = null
+watch(modalOpen, (ouvert) => {
+  if (ouvert) {
+    declencheur = document.activeElement
+    nextTick(() => closeEl.value?.focus())
+  } else if (declencheur) {
+    declencheur.focus?.()
+    declencheur = null
+  }
+})
+function fermerModal() { modalOpen.value = false }
+function pieger(e) {
+  const el = [...(modalEl.value?.querySelectorAll('button, a[href]') || [])]
+  if (!el.length) return
+  e.preventDefault()
+  const i = el.indexOf(document.activeElement)
+  el[(i + (e.shiftKey ? -1 : 1) + el.length) % el.length].focus()
 }
 
 function openModal(i) {

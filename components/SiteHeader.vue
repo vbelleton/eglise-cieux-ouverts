@@ -72,9 +72,10 @@
             </div>
 
             <button
+                ref="burgerEl"
                 @click="toggleMenu"
                 class="burger"
-                aria-label="Menu"
+                :aria-label="menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'"
                 aria-controls="mobile-navigation"
                 :aria-expanded="menuOpen ? 'true' : 'false'"
             >
@@ -82,7 +83,7 @@
             </button>
         </div>
 
-        <nav id="mobile-navigation" class="nav-mobile" aria-label="Navigation mobile" :style="menuBgStyle">
+        <nav id="mobile-navigation" ref="mobileNavEl" class="nav-mobile" aria-label="Navigation mobile" :style="menuBgStyle">
             <div class="nav-links">
                 <template v-for="item in navItems" :key="item.id">
                     <NuxtLink
@@ -141,8 +142,42 @@ const membreLinkLabel = computed(() =>
     memberLoggedIn.value && memberFirstName.value ? `👤 ${memberFirstName.value}` : "Espace membre",
 );
 
+const burgerEl = ref(null);
+const mobileNavEl = ref(null);
+
+// Éléments atteignables au clavier tant que le menu mobile est ouvert : le
+// bouton de fermeture + le contenu du menu. Le reste de la page est derrière.
+function focusablesDuMenu() {
+    const liste = [burgerEl.value, ...(mobileNavEl.value?.querySelectorAll("a[href], button:not([disabled])") || [])];
+    return liste.filter(Boolean);
+}
+
 function handleEscape(e) {
-    if (e.key === "Escape") closeMenu();
+    if (!menuOpen.value) return;
+    if (e.key === "Escape") {
+        closeMenu();
+        // Le focus était dans le menu qui disparaît : on le rend au bouton.
+        burgerEl.value?.focus();
+        return;
+    }
+    if (e.key === "Tab") {
+        // Piège de focus : Tab / Maj+Tab bouclent dans le menu.
+        const el = focusablesDuMenu();
+        if (!el.length) return;
+        const premier = el[0];
+        const dernier = el[el.length - 1];
+        const actif = document.activeElement;
+        if (e.shiftKey && actif === premier) {
+            e.preventDefault();
+            dernier.focus();
+        } else if (!e.shiftKey && actif === dernier) {
+            e.preventDefault();
+            premier.focus();
+        } else if (!el.includes(actif)) {
+            e.preventDefault();
+            premier.focus();
+        }
+    }
 }
 
 function handleDesktopMediaChange(e) {
@@ -223,6 +258,10 @@ function toggleMenu() {
     } else {
         menuOpen.value = !menuOpen.value;
         lockBodyScroll(menuOpen.value);
+        if (menuOpen.value) {
+            // Le focus passe dans le menu (1er lien) ; Échap / burger le rend.
+            nextTick(() => mobileNavEl.value?.querySelector("a[href]")?.focus());
+        }
     }
 }
 
@@ -349,9 +388,9 @@ onUnmounted(() => {
 
 .nav-desktop a.active:not(.nav-membre-link),
 .nav-admin-link.active {
-    color: #ef4b54;
+    color: #c8323c;
     text-decoration: none;
-    border-bottom: 2px solid #ef4b54;
+    border-bottom: 2px solid #c8323c;
     font-weight: 600;
 }
 .nav-admin-link.dimmed {
@@ -395,7 +434,7 @@ onUnmounted(() => {
 }
 
 .nav-desktop-socials a:hover {
-    color: #ef4b54;
+    color: #c8323c;
 }
 
 .header-mobile-socials {
@@ -409,9 +448,9 @@ onUnmounted(() => {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 6px;
+    padding: 14px 10px;
     position: absolute;
-    right: 18px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
 }
@@ -578,8 +617,8 @@ onUnmounted(() => {
     .nav-mobile::before {
         background: linear-gradient(
             180deg,
-            rgba(0, 0, 0, 0.35),
-            rgba(0, 0, 0, 0.6)
+            rgba(6, 72, 134, 0.9),
+            rgba(6, 40, 80, 0.94)
         );
     }
 

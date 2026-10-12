@@ -19,8 +19,9 @@
 
             <!-- Desktop: inline rendering (blocks editable) -->
             <div v-if="previewDevice === 'desktop' || isInnerPreview" class="page-shell" :class="deviceClass">
+                <a v-if="!isAdminMode" href="#contenu" class="skip-link" @click.prevent="allerAuContenu">Aller au contenu</a>
                 <SiteHeader />
-                <main class="site-main">
+                <main id="contenu" class="site-main" tabindex="-1">
                     <slot />
                 </main>
                 <div
@@ -55,10 +56,51 @@
 import { provide, ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import BlockFooter from "~/components/blocks/BlockFooter.vue";
 
+function allerAuContenu() {
+    const main = document.getElementById("contenu");
+    if (!main) return;
+    main.focus({ preventScroll: true });
+    main.scrollIntoView({ behavior: "auto", block: "start" });
+}
+
 useSeoMeta({
     ogSiteName: "Église Cieux Ouverts — Morlaix",
     ogLocale: "fr_FR",
     ogType: "website",
+});
+
+// Données structurées (schema.org « Church ») : permet aux moteurs de
+// recherche d'afficher nom, adresse, horaires et réseaux de l'église.
+const { socialLinks: reseauxSociaux } = useSiteSettings();
+const siteUrl = String(useRuntimeConfig().public.SITE_URL || "").replace(/\/+$/, "");
+useHead({
+    script: [
+        {
+            type: "application/ld+json",
+            key: "ld-church",
+            innerHTML: computed(() =>
+                JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "Church",
+                    name: "Église Cieux Ouverts",
+                    url: siteUrl,
+                    image: `${siteUrl}/images/activites-celebration.jpg`,
+                    telephone: "+33620705496",
+                    address: {
+                        "@type": "PostalAddress",
+                        streetAddress: "2 rue Jean Monnet",
+                        postalCode: "29600",
+                        addressLocality: "Morlaix",
+                        addressCountry: "FR",
+                    },
+                    openingHoursSpecification: [
+                        { "@type": "OpeningHoursSpecification", dayOfWeek: "Sunday", opens: "09:30", closes: "12:00" },
+                    ],
+                    sameAs: (reseauxSociaux.value || []).map((l) => l.url).filter(Boolean),
+                }),
+            ),
+        },
+    ],
 });
 
 const {

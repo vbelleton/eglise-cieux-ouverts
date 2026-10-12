@@ -1,14 +1,14 @@
 <template>
-  <PageRenderer :blocks="blocks" />
+  <PageRenderer :blocks="blocks" page-title="Événements" />
 </template>
 
 <script setup>
 import { computed, watch } from 'vue'
 import { getDefaultBilletteriePage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
-useSeoMeta({
+usePageSeo({
   title: 'Événements — Église Cieux Ouverts Morlaix',
-  description: 'Découvrez et réservez vos places pour nos événements.',
+  description: 'Prochains événements de l\'Église Cieux Ouverts à Morlaix et inscription au Parcours Alpha.',
 })
 
 const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()

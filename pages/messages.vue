@@ -1,13 +1,13 @@
 <template>
-  <PageRenderer :blocks="blocks" />
+  <PageRenderer :blocks="blocks" page-title="Nos messages" />
 </template>
 
 <script setup>
 import { getDefaultMessagesPage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
-useSeoMeta({
+usePageSeo({
   title: 'Messages — Église Cieux Ouverts Morlaix',
-  description: 'Retrouvez les messages et prédications de l\'Église Cieux Ouverts.',
+  description: 'Retrouvez les messages et prédications de l\'Église Cieux Ouverts à Morlaix : vidéos des derniers messages et chaîne YouTube.',
 })
 
 const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()

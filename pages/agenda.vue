@@ -254,7 +254,7 @@ import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
 import { isPast } from '~/utils/churchEvents.js'
 
 
-useSeoMeta({
+usePageSeo({
   title: "Agenda — Église Cieux Ouverts Morlaix",
   description: "Tous les événements à venir à l'Église Cieux Ouverts de Morlaix.",
 })
@@ -542,7 +542,7 @@ function formatDayModalDate(date) {
 .nav-btn:hover { background: #f9fafb; }
 .calendar-month { font-size: 1.1em; font-weight: 700; color: #111827; margin: 0; text-transform: capitalize; }
 .view-toggle { margin-left: auto; display: flex; gap: 4px; }
-.view-btn { background: none; border: none; font-size: 0.82em; color: #6b7280; cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap; transition: all .15s; }
+.view-btn { background: none; border: none; font-size: 0.82em; color: #6b7280; cursor: pointer; padding: 6px 10px; min-height: 28px; border-radius: 6px; white-space: nowrap; transition: all .15s; }
 .view-btn:hover { color: #111827; background: #f9fafb; }
 .view-btn.active { color: #2563eb; background: #eff6ff; font-weight: 600; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }

@@ -1,25 +1,17 @@
 <template>
     <div>
-        <PageRenderer :blocks="blocks" />
+        <PageRenderer :blocks="blocks" page-title="Église Cieux Ouverts, Morlaix" />
     </div>
 </template>
 
 <script setup>
 import { getDefaultHomePage } from "~/utils/blockTypes.js";
 
-useSeoMeta({
+usePageSeo({
     title: "Église Cieux Ouverts — Morlaix",
-    ogTitle: "Église Cieux Ouverts — Morlaix",
     description:
         "Bienvenue à l'Église Cieux Ouverts à Morlaix. Découvrez nos événements, cultes et activités.",
-    ogDescription:
-        "Bienvenue à l'Église Cieux Ouverts à Morlaix. Découvrez nos événements, cultes et activités.",
-    // URL ABSOLUE obligatoire : Open Graph ne résout pas les chemins relatifs
-    // — Facebook, WhatsApp, LinkedIn et Slack affichaient un aperçu sans image.
-    ogImage: "https://eglise-cieux-ouverts.pages.dev/images/activites-celebration.jpg",
-    ogUrl: "https://eglise-cieux-ouverts.pages.dev",
-    ogType: "website",
-    twitterCard: "summary_large_image",
+    path: "/",
 });
 
 const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin();

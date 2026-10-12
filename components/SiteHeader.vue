@@ -66,6 +66,11 @@
                 </div>
             </nav>
 
+            <!-- Téléphone uniquement : réseaux sociaux dans la barre, à gauche du ☰ -->
+            <div class="header-mobile-socials">
+                <SocialLinks :links="socialLinks" :size="22" />
+            </div>
+
             <button
                 @click="toggleMenu"
                 class="burger"
@@ -391,6 +396,10 @@ onUnmounted(() => {
     color: #ef4b54;
 }
 
+.header-mobile-socials {
+    display: none;
+}
+
 .burger {
     display: none;
     flex-direction: column;
@@ -504,6 +513,23 @@ onUnmounted(() => {
     }
     .burger {
         display: flex;
+    }
+    .header-mobile-socials {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        position: absolute;
+        right: 58px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    .header-mobile-socials :deep(a) {
+        display: flex;
+        padding: 6px;
+        color: #064886;
+    }
+    .site-header.menu-open .header-mobile-socials {
+        display: none;
     }
 
     .site-header {

@@ -30,3 +30,20 @@ test.describe('Bloc Bienvenue sur téléphone', () => {
     expect(await titre.evaluate((e) => getComputedStyle(e).fontSize)).toBe('80px')
   })
 })
+
+test.describe('Réseaux sociaux dans la barre du haut', () => {
+  test('visibles sur téléphone, à côté du menu', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/')
+    await expect(page.locator('.header-mobile-socials a')).toHaveCount(2)
+    await expect(page.locator('.header-mobile-socials a').first()).toBeVisible()
+  })
+
+  test('absents de la barre sur tablette et ordi (déjà dans le menu)', async ({ page }) => {
+    for (const largeur of [820, 1440]) {
+      await page.setViewportSize({ width: largeur, height: 900 })
+      await page.goto('/')
+      await expect(page.locator('.header-mobile-socials')).toBeHidden()
+    }
+  })
+})

@@ -106,6 +106,10 @@ export default defineNuxtConfig({
       FIREBASE_PROJECT_ID: process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID,
       FIREBASE_STORAGE_BUCKET: process.env.NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       FIREBASE_MESSAGING_SENDER_ID: process.env.NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      // Adresse publique du site : balise canonical, Open Graph, données
+      // structurées. À changer (NUXT_PUBLIC_SITE_URL) quand cieuxouverts.bzh
+      // sera rattaché à ce projet Pages.
+      SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || 'https://eglise-cieux-ouverts.pages.dev',
       FIREBASE_APP_ID: process.env.NUXT_PUBLIC_FIREBASE_APP_ID,
       apiUrl: process.env.PUBLIC_API_URL || process.env.NUXT_PUBLIC_API_URL
     }

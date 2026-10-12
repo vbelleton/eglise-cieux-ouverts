@@ -1,11 +1,11 @@
 <template>
-  <PageRenderer :blocks="blocks" />
+  <PageRenderer :blocks="blocks" page-title="Nous contacter" />
 </template>
 
 <script setup>
 import { getDefaultContactPage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
-useSeoMeta({
+usePageSeo({
   title: 'Contact — Église Cieux Ouverts Morlaix',
   description: 'Contactez l\'Église Cieux Ouverts à Morlaix. 2 rue Jean Monnet, 29600 Morlaix.',
 })

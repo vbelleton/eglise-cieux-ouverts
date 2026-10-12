@@ -1,6 +1,5 @@
 :root {
   color-scheme: light only;
-  forced-color-adjust: none;
 
   --font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   --font-heading: 'Playfair Display', serif;
@@ -22,7 +21,6 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  forced-color-adjust: none;
 }
 
 html {
@@ -483,3 +481,30 @@ a:hover, .nav-admin-link:hover {
   cursor: pointer;
 }
 .map-facade-btn:hover { background: #0a5fb0; }
+
+/* Accessibilité : texte réservé aux lecteurs d'écran, lien d'évitement */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100001;
+  padding: 12px 20px;
+  background: #064886;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; outline: 3px solid #ffd9dc; outline-offset: 2px; }

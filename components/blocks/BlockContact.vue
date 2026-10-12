@@ -1,5 +1,6 @@
 <template>
   <section
+    ref="rootEl"
     class="block-contact"
     :style="{ background: backgroundGradient, color: textColor || '#ffffff' }"
     :class="[visibilityClasses, { 'page-mode': isClassicPageContact }]"
@@ -20,14 +21,15 @@
           <div class="contact-page-card-inner">
             <div class="contact-page-form-col">
               <form class="contact-page-form" @submit.prevent="submitForm">
+                <p class="contact-required-note">Les champs marqués d'un * sont obligatoires.</p>
                 <div class="contact-page-row">
                   <label class="contact-page-field">
                     <span>{{ labelPrenom }} *</span>
-                    <input v-model="form.prenom" type="text" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
+                    <input v-model="form.prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                   <label class="contact-page-field">
                     <span>{{ labelNom }} *</span>
-                    <input v-model="form.nom" type="text" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
+                    <input v-model="form.nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                 </div>
 
@@ -38,12 +40,12 @@
 
                 <label class="contact-page-field">
                   <span>{{ labelEmail }} *</span>
-                  <input v-model="form.email" type="email" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
+                  <input v-model="form.email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
                 </label>
 
                 <label class="contact-page-field">
                   <span>{{ labelMessage }} *</span>
-                  <textarea v-model="form.message" maxlength="4000" :disabled="isFormDisabled" required rows="6"></textarea>
+                  <textarea v-model="form.message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" maxlength="4000" :disabled="isFormDisabled" required rows="6"></textarea>
                 </label>
 
                 <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
@@ -55,7 +57,7 @@
 
                 <p class="editor-msg" v-if="isEditor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
                 <p class="success-msg" v-if="submitted" role="status">{{ successText }}</p>
-                <p class="error-msg" v-if="errorMessage" role="alert">{{ errorMessage }}</p>
+                <p class="error-msg" v-if="errorMessage" :id="'contact-erreur-' + uid" role="alert">{{ errorMessage }}</p>
 
                 <div class="contact-page-submit">
                   <button type="submit" class="contact-page-btn" :disabled="isFormDisabled">
@@ -66,7 +68,7 @@
             </div>
 
             <div class="contact-page-map-col">
-              <MapFacade :src="mapEmbedUrl" title="Carte — Eglise Cieux Ouverts Morlaix" min-height="420px" />
+              <MapFacade :src="mapEmbedUrl" title="Carte — Église Cieux Ouverts Morlaix" min-height="420px" />
             </div>
           </div>
         </div>
@@ -79,7 +81,7 @@
       <div class="contact-wrap">
         <div class="contact-left">
           <img v-if="image" :src="image" alt="" class="contact-phone" data-field-key="image" loading="lazy" />
-          <div v-else-if="!imagePromoted" class="contact-phone-placeholder"></div>
+          <div v-else-if="!imagePromoted && isEditor" class="contact-phone-placeholder"></div>
 
           <div class="contact-socials" v-if="showSocials">
             <SocialLinks :links="socialLinks" :size="22" />
@@ -93,13 +95,14 @@
             <p v-if="showQuestions !== false">Tu souhaites recevoir notre newsletter ?</p>
           </div>
           <form class="contact-form" @submit.prevent="submitForm">
+            <p class="contact-required-note">Les champs marqués d'un * sont obligatoires.</p>
             <div class="form-row">
-              <input v-model="form.prenom" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
-              <input v-model="form.nom" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
             </div>
             <input v-if="showVille" v-model="form.ville" type="text" :placeholder="labelVille" :aria-label="labelVille" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
-            <input v-model="form.email" type="email" :placeholder="`${labelEmail} *`" :aria-label="labelEmail" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
-            <textarea v-model="form.message" :placeholder="`${labelMessage} *`" :aria-label="labelMessage" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
+            <input v-model="form.email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" :placeholder="`${labelEmail} *`" :aria-label="labelEmail" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
+            <textarea v-model="form.message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" :placeholder="`${labelMessage} *`" :aria-label="labelMessage" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
             <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
             <label v-if="showNewsletter" class="checkbox-label">
               <input type="checkbox" v-model="form.newsletter" :disabled="isFormDisabled" />
@@ -107,7 +110,7 @@
             </label>
             <p class="editor-msg" v-if="isEditor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
             <p class="success-msg" v-if="submitted" role="status">{{ successText }}</p>
-            <p class="error-msg" v-if="errorMessage" role="alert">{{ errorMessage }}</p>
+            <p class="error-msg" v-if="errorMessage" :id="'contact-erreur-' + uid" role="alert">{{ errorMessage }}</p>
             <button type="submit" class="btn-submit" :disabled="isFormDisabled">
               {{ sending ? 'Envoi...' : submitText }}
             </button>
@@ -119,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, inject, onMounted, nextTick } from 'vue'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
 const { socialLinks, loadSiteSettings } = useSiteSettings()
@@ -189,6 +192,8 @@ const visibilityClasses = computed(() => ({
 }))
 
 const route = useRoute()
+const rootEl = ref(null)
+const uid = Math.random().toString(36).slice(2, 8)
 const form = ref({ prenom: '', nom: '', ville: '', email: '', message: '', newsletter: false, website: '' })
 const sending = ref(false)
 const submitted = ref(false)
@@ -229,12 +234,32 @@ function validateForm(data) {
   return ''
 }
 
+// Après une erreur : le focus va sur le premier champ en cause, que les
+// lecteurs d'écran lisent avec le message (aria-invalid + aria-describedby).
+function focusFirstInvalid(data) {
+  const ordre = [
+    ['prenom', !data.prenom],
+    ['nom', !data.nom],
+    ['email', !data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)],
+    ['message', !data.message || data.message.length < 10],
+  ]
+  const cle = ordre.find(([, mauvais]) => mauvais)?.[0]
+  if (!cle) return
+  nextTick(() => rootEl.value?.querySelector(`[data-champ="${cle}"]`)?.focus())
+}
+const invalide = (cle) => Boolean(errorMessage.value) && (
+  cle === 'email' ? (!form.value.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email.trim()))
+  : cle === 'message' ? (!form.value.message.trim() || form.value.message.trim().length < 10)
+  : !form.value[cle].trim()
+)
+
 async function submitForm() {
   if (isEditor === true) return
   const data = normalizeForm()
   const validationError = validateForm(data)
   if (validationError) {
     errorMessage.value = validationError
+    focusFirstInvalid(data)
     return
   }
 
@@ -399,7 +424,7 @@ async function submitForm() {
   cursor: pointer;
   transition: background 0.2s;
 }
-.contact-page-btn:hover { background: rgb(238, 108, 113); }
+.contact-page-btn:hover { background: #c8323c; }
 .contact-page-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .contact-page-map-col {
   border-radius: 10px;
@@ -519,7 +544,7 @@ async function submitForm() {
 .contact-form textarea { resize: vertical; min-height: 150px; }
 .contact-form input::placeholder,
 .contact-form textarea::placeholder { color: #888; }
-.checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.9em; cursor: pointer; opacity: 0.9; margin-top: 10px; margin-bottom: 10px; color: rgb(238, 108, 113); font-weight: 600; }
+.checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.9em; cursor: pointer; margin-top: 10px; margin-bottom: 10px; color: #ffffff; font-weight: 600; }
 .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: rgb(238, 108, 113); }
 .contact-honeypot {
   position: absolute;
@@ -529,13 +554,14 @@ async function submitForm() {
   opacity: 0;
   pointer-events: none;
 }
+.contact-required-note { margin: 0 0 4px; font-size: 0.85em; opacity: 0.9; }
 .editor-msg { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 12px; font-size: 0.9em; }
 .success-msg { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 12px; font-size: 0.9em; }
 .error-msg { background: rgba(239,75,84,0.25); border: 1px solid rgba(239,75,84,0.5); border-radius: 8px; padding: 12px; font-size: 0.9em; }
 .btn-submit {
   align-self: flex-start;
   padding: 14px 40px;
-  background: rgb(26, 150, 223);
+  background: #0b72b5;
   color: white;
   border-radius: 50px;
   font-weight: 700;
@@ -544,7 +570,7 @@ async function submitForm() {
   border: none;
   transition: transform 0.2s, background 0.2s;
 }
-.btn-submit:hover { transform: translateY(-2px); background: rgb(238, 108, 113); }
+.btn-submit:hover { transform: translateY(-2px); background: #c8323c; }
 .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @container (max-width: 768px) {

@@ -1,5 +1,5 @@
 <template>
-  <PageRenderer :blocks="blocks" />
+  <PageRenderer :blocks="blocks" :page-title="slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : ''" />
 </template>
 
 <script setup>
@@ -11,7 +11,7 @@ const slug = computed(() => {
   return Array.isArray(s) ? s[0] : s || ''
 })
 
-useSeoMeta({
+usePageSeo({
   title: computed(() => `${slug.value.charAt(0).toUpperCase() + slug.value.slice(1)} — Église Cieux Ouverts Morlaix`),
 })
 

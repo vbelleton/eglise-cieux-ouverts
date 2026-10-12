@@ -1026,7 +1026,9 @@ test.describe('17. Focus order (Tab and Shift+Tab)', () => {
       if (!el) return false
       if (el.matches && el.matches('.site-header')) return true
       if (el.matches && el.matches('nav a')) return true
-      // Le premier focusable légitime est le lien logo (marque) dans le header.
+      // Le tout premier focusable est le lien d'évitement « Aller au contenu »
+      // (RGAA 12.7), puis le lien logo (marque) dans le header.
+      if (el.matches && el.matches('.skip-link')) return true
       if (el.closest && el.closest('header, .site-header')) return true
       return false
     })
@@ -1072,7 +1074,7 @@ test.describe('17. Focus order (Tab and Shift+Tab)', () => {
       // boucle…). On vérifie ici que le focus reste sur un élément focusable ;
       // le vrai contrat (Tab avance / Shift+Tab recule) est validé via la
       // séquence observée `seen` ci-dessous.
-      expect(active.tag).toMatch(/^(A|BUTTON|INPUT|SELECT|TEXTAREA|DIV)$/)
+      expect(active.tag).toMatch(/^(A|BUTTON|INPUT|SELECT|TEXTAREA|DIV|LABEL)$/)
     }
 
     // Now test Shift+Tab goes backwards by 1 step

@@ -453,3 +453,33 @@ a:hover, .nav-admin-link:hover {
 .admin-mode .block-wrapper iframe {
     pointer-events: none;
 }
+
+/* Cadre léger à la place d'une carte Google (utils/mapFacade.js, MapFacade.vue) */
+.map-facade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  background: linear-gradient(135deg, #e8f1fa 0%, #cfe2f3 100%);
+  color: #064886;
+}
+.map-facade.map-facade-loaded { padding: 0; background: none; display: block; }
+.map-facade-pin { font-size: 2rem; line-height: 1; }
+.map-facade-title { font-weight: 600; font-family: var(--font-body, inherit); }
+.map-facade-btn {
+  background: #064886;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.map-facade-btn:hover { background: #0a5fb0; }

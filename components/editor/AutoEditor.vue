@@ -77,6 +77,7 @@
       </div>
     </section>
     <FieldDesign
+      v-if="modelValue?.type !== 'footer'"
       :model-value="modelValue"
       @update="onDesignUpdate"
     />
@@ -147,7 +148,9 @@ function groupOf(field: FieldSchema): string {
 
 const groupedFields = computed(() => {
   const buckets: Record<string, FieldSchema[]> = {}
+  const valeurs = props.modelValue?.props || {}
   for (const field of props.schema || []) {
+    if (field.hiddenWhen?.(valeurs)) continue
     const g = groupOf(field)
     ;(buckets[g] ||= []).push(field)
   }
@@ -210,7 +213,14 @@ function fieldComponent(type: string) {
 // (liens, URLs, CSS de gradient, ID vidéo) via une convention de nommage —
 // pas de sens à proposer une police pour une URL ou un identifiant.
 const NON_VISUAL_FIELD_PATTERN = /link|url|gradient|videoid|^alt$/i
+// Textes de formulaire (libellés, bouton…) et champs marqués `noStyle` : le
+// composant ne leur applique ni police ni taille, et ils ne peuvent pas être
+// détachés en élément libre — on n'affiche donc pas ces réglages sans effet.
+function sansMiseEnForme(field: FieldSchema) {
+  return (field as { group?: string }).group === 'formulaire' || Boolean((field as { noStyle?: boolean }).noStyle)
+}
 function isFontableField(field: FieldSchema) {
+  if (sansMiseEnForme(field)) return false
   if (!['text', 'textarea', 'richtext'].includes(field.type)) return false
   return !NON_VISUAL_FIELD_PATTERN.test(field.key)
 }
@@ -337,6 +347,7 @@ function isPromotableField(field: FieldSchema) {
   // élément libre ne peut pas fonctionner — promoteFieldToElement ne le
   // trouve pas dans localBlocks et retournait null en silence (bouton mort).
   if (props.modelValue?.type === 'footer') return false
+  if (sansMiseEnForme(field)) return false
   if (!['image', 'text', 'textarea', 'richtext'].includes(field.type)) return false
   return !NON_VISUAL_FIELD_PATTERN.test(field.key)
 }

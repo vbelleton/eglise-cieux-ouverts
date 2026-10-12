@@ -20,7 +20,6 @@ test.describe('Sidebar consistency — All editable fields work', () => {
     'bienvenue': [
       { schemaKey: 'title', fieldLabel: /^Titre$/ },
       { schemaKey: 'subtitle', fieldLabel: /^Sous-titre$/ },
-      { schemaKey: 'backgroundColor', fieldLabel: /^Fond$/ },
       { schemaKey: 'textColor', fieldLabel: /^Couleur texte$/ },
     ],
     'contact': [

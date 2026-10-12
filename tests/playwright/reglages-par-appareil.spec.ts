@@ -28,7 +28,11 @@ for (const [appareil, bouton, largeur] of [['mobile', 2, 390], ['tablet', 1, 800
     await loginAsAdmin(page)
     await page.locator('.device-btn').nth(bouton).click()
     const cadre = page.frameLocator('.device-iframe')
-    await cadre.locator('.block-wrapper[data-block-type="bienvenue"]').first().click({ force: true })
+    // Le bloc peut être momentanément invisible pendant le chargement de
+    // l'aperçu (animation d'entrée) : on envoie le clic directement.
+    const blocApercu = cadre.locator('.block-wrapper[data-block-type="bienvenue"]').first()
+    await blocApercu.waitFor({ state: 'attached', timeout: 10000 })
+    await blocApercu.dispatchEvent('click')
 
     const sidebar = page.locator('.admin-sidebar')
     await expect(sidebar).toBeVisible({ timeout: 8000 })

@@ -38,6 +38,11 @@ export const ANIMATION_ORIGINE = { id: "origine", label: "D'origine" };
 
 const DEFAULT_MESSAGES_BODY = `<p>Les messages partages a l'eglise ne sont pas faits pour s'arreter au dimanche.</p><p>📺 Replonge dans la parole sur notre chaine YouTube :</p><ul><li>(Re)decouvre les messages qui t'ont touche.</li><li>Laisse Dieu te parler a nouveau, ou d'une maniere nouvelle.</li><li>Partage-les avec tes proches pour semer l'esperance autour de toi.</li></ul><p>Que ce soit pour approfondir, reentendre une parole qui t'a marque(e), ou rester connecte(e) dans la semaine, ces moments sont la pour toi.</p><p><strong>Abonne-toi des maintenant pour ne rien manquer et garde la flamme allumee.</strong></p>`;
 const DEFAULT_MESSAGES_GRADIENT = `radial-gradient(circle at 94.35% 89.61%, #054886 0%, 20%, rgba(5, 72, 134, 0) 40%), radial-gradient(circle at 9.07% 95.57%, rgba(238, 108, 113, 0.99) 0%, 25%, rgba(238, 108, 113, 0) 50%), radial-gradient(circle at 4.04% 13.51%, #054886 0%, 42%, rgba(5, 72, 134, 0) 70%), radial-gradient(circle at 93.32% 10.65%, #EF4B54 0%, 42%, rgba(239, 75, 84, 0) 70%), radial-gradient(circle at 48.90% 49.52%, #FFFFFF 0%, 100%, rgba(255, 255, 255, 0) 100%)`;
+// Le bloc Contact a deux mises en page : dès qu'une URL de carte est
+// renseignée, il passe en « page Contact » (formulaire + carte), qui n'affiche
+// ni l'image, ni les questions d'introduction, ni les réseaux sociaux. Ces
+// réglages sont alors masqués dans l'éditeur plutôt que d'y rester sans effet.
+const avecCarte = (props) => Boolean(props?.mapEmbedUrl);
 // ─── TYPES DE BLOCS ────────────────────────────────────────────────────────────
 export const BLOCK_TYPES = {
   hero: {
@@ -66,10 +71,9 @@ export const BLOCK_TYPES = {
         max: 900,
       },
       { key: "overlay", label: "Overlay sombre", type: "boolean" },
-      { key: "overlayColor", label: "Fond overlay", type: "color" },
+      { key: "overlayColor", label: "Fond overlay", type: "color", hiddenWhen: (p) => !p?.overlay },
       { key: "overlayText", label: "Texte principal (remplace logo)", type: "text" },
-      { key: "textColor", label: "Couleur texte", type: "color" },
-      { key: "showButton", label: "Afficher bouton", type: "boolean" },
+      { key: "textColor", label: "Couleur texte", type: "color", hiddenWhen: (p) => !p?.overlayText },
     ],
   },
 
@@ -89,7 +93,6 @@ export const BLOCK_TYPES = {
     schema: [
       { key: "title", label: "Titre", type: "text" },
       { key: "subtitle", label: "Sous-titre", type: "text" },
-      { key: "backgroundColor", label: "Fond", type: "color" },
       { key: "textColor", label: "Couleur texte", type: "color" },
       { key: "animation", label: "Animation", type: "animation" },
       {
@@ -314,14 +317,14 @@ export const BLOCK_TYPES = {
     },
     schema: [
       { key: "title", label: "Titre", type: "text" },
-      { key: "addressTitle", label: "Adresse titre", type: "text" },
-      { key: "addressLine", label: "Adresse ligne", type: "text" },
-      { key: "image", label: "Image gauche", type: "image" },
+      { key: "addressTitle", label: "Adresse titre", type: "text", hiddenWhen: (p) => !avecCarte(p) },
+      { key: "addressLine", label: "Adresse ligne", type: "text", hiddenWhen: (p) => !avecCarte(p) },
+      { key: "image", label: "Image gauche", type: "image", hiddenWhen: avecCarte },
       { key: "mapEmbedUrl", label: "URL carte", type: "text" },
-      { key: "backgroundGradient", label: "Fond (CSS)", type: "text" },
-      { key: "textColor", label: "Texte couleur", type: "color" },
-      { key: "showQuestions", label: "Questions intro", type: "boolean" },
-      { key: "showSocials", label: "Réseaux sociaux", type: "boolean" },
+      { key: "backgroundGradient", label: "Fond (CSS)", type: "text", hiddenWhen: avecCarte },
+      { key: "textColor", label: "Texte couleur", type: "color", hiddenWhen: avecCarte },
+      { key: "showQuestions", label: "Questions intro", type: "boolean", hiddenWhen: avecCarte },
+      { key: "showSocials", label: "Réseaux sociaux", type: "boolean", hiddenWhen: avecCarte },
       { key: "labelPrenom", label: "Champ « prénom »", type: "text", group: "formulaire" },
       { key: "labelNom", label: "Champ « nom »", type: "text", group: "formulaire" },
       { key: "showVille", label: "Demander la ville", type: "boolean", group: "formulaire" },
@@ -370,7 +373,7 @@ export const BLOCK_TYPES = {
     },
     schema: [
       { key: "content", label: "Contenu HTML", type: "richtext" },
-      { key: "backgroundColor", label: "Fond (couleur)", type: "color" },
+      { key: "backgroundColor", label: "Fond (couleur)", type: "color", hiddenWhen: (p) => Boolean(p?.backgroundGradient) },
       { key: "backgroundGradient", label: "Fond (dégradé)", type: "text" },
       { key: "textColor", label: "Couleur texte", type: "color" },
       {
@@ -479,12 +482,14 @@ export const BLOCK_TYPES = {
         label: "Alignement horizontal",
         type: "select",
         options: ["left", "center", "right"],
+        hiddenWhen: (p) => !p?.text && !p?.image,
       },
       {
         key: "contentVerticalAlign",
         label: "Alignement vertical",
         type: "select",
         options: ["top", "middle", "bottom"],
+        hiddenWhen: (p) => !p?.text && !p?.image,
       },
     ],
   },
@@ -502,7 +507,7 @@ export const BLOCK_TYPES = {
     },
     schema: [
       { key: "videoId", label: "ID ou URL YouTube", type: "text", placeholder: "ID (ex: dQw4w9WgXcQ) ou lien complet youtube.com/watch?v=..." },
-      { key: "title", label: "Titre", type: "text" },
+      { key: "title", label: "Titre de la vidéo (lu par les lecteurs d'écran)", type: "text", noStyle: true },
       { key: "backgroundColor", label: "Fond", type: "color" },
       { key: "animation", label: "Animation", type: "animation" },
     ],
@@ -526,8 +531,8 @@ export const BLOCK_TYPES = {
     schema: [
       { key: "label", label: "Label", type: "text" },
       { key: "quote", label: "Citation", type: "textarea" },
-      { key: "ctaText", label: "Bouton texte", type: "text" },
-      { key: "ctaLink", label: "Bouton lien", type: "text" },
+      { key: "ctaText", label: "Bouton texte (s'affiche avec un lien)", type: "text" },
+      { key: "ctaLink", label: "Bouton lien (s'affiche avec un texte)", type: "text" },
       { key: "backgroundGradient", label: "Fond (CSS)", type: "text" },
       { key: "textColor", label: "Texte couleur", type: "color" },
       { key: "animation", label: "Animation", type: "animation" },
@@ -807,7 +812,7 @@ export const BLOCK_TYPES = {
     schema: [
       { key: "text", label: "Messages (un par ligne)", type: "textarea" },
       { key: "link", label: "Lien au clic (ex : /event-list)", type: "text" },
-      { key: "separator", label: "Séparateur", type: "text" },
+      { key: "separator", label: "Séparateur", type: "text", noStyle: true },
       { key: "speed", label: "Durée d'un tour (secondes)", type: "number", min: 5, max: 120 },
       { key: "pauseOnHover", label: "Pause au survol", type: "boolean" },
       { key: "backgroundColor", label: "Fond", type: "color" },
@@ -844,9 +849,9 @@ export const BLOCK_TYPES = {
     schema: [
       { key: "title", label: "Titre", type: "text" },
       { key: "intro", label: "Introduction", type: "textarea" },
-      { key: "parcours", label: "Nom du parcours (ex : Parcours d'automne, le mardi soir)", type: "text" },
+      { key: "parcours", label: "Nom du parcours (ex : Parcours d'automne, le mardi soir)", type: "text", noStyle: true },
       { key: "capacity", label: "Nombre de places (0 = illimité)", type: "number", min: 0, max: 500 },
-      { key: "fullText", label: "Message quand c'est complet", type: "textarea" },
+      { key: "fullText", label: "Message quand c'est complet", type: "textarea", noStyle: true },
       { key: "showAddress", label: "Demander l'adresse postale", type: "boolean", group: "formulaire" },
       { key: "labelPrenom", label: "Champ « prénom »", type: "text", group: "formulaire" },
       { key: "labelNom", label: "Champ « nom »", type: "text", group: "formulaire" },
@@ -933,8 +938,6 @@ export const BLOCK_TYPES = {
       { key: "fontSize", label: "Taille police infos", type: "number", min: 10, max: 48 },
       { key: "titleFontSize", label: "Taille police titre", type: "number", min: 14, max: 72 },
       { key: "textColor", label: "Couleur texte", type: "color" },
-      { key: "titleBoldStart", label: "Début gras titre (index)", type: "number", min: 0, max: 50 },
-      { key: "titleBoldEnd", label: "Fin gras titre (index)", type: "number", min: 0, max: 50 },
     ],
   },
 };

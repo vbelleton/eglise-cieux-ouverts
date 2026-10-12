@@ -220,12 +220,34 @@ const {
     getVisibleItems,
     getMenuItems,
     menuBgImage,
+    menuLoaded,
 } = useMenuEditor();
+// Le menu enregistré n'était lu qu'après le chargement de la page : le rendu
+// serveur (et donc le premier affichage, sur mobile surtout) montrait les
+// libellés d'origine (« Événements ») au lieu des libellés renommés. On le lit
+// aussi côté serveur ; une fois le menu chargé côté client (ou modifié dans
+// l'éditeur), c'est lui qui fait foi.
+const { data: menuServeur } = useAsyncData("menu-navigation", () =>
+    $fetch("/api/menu").catch(() => null),
+);
+const itemsServeur = computed(() => {
+    const items = menuServeur.value?.menuItems;
+    return Array.isArray(items) && items.length
+        ? items.filter((i) => i.to !== "/accueil")
+        : null;
+});
 // La page Événements est masquée de la nav publique quand aucun événement
 // n'est à venir — évite un lien mort vers une page vide. Toujours visible
 // en mode admin pour permettre la gestion du contenu.
 const navItems = computed(() => {
-    const items = adminMode.value ? getMenuItems() : getVisibleItems();
+    const items =
+        !menuLoaded.value && itemsServeur.value
+            ? adminMode.value
+                ? itemsServeur.value
+                : itemsServeur.value.filter((i) => i.visible)
+            : adminMode.value
+              ? getMenuItems()
+              : getVisibleItems();
     if (showBilletterie.value) return items;
     return items.filter((item) => item.to !== "/event-list");
 });

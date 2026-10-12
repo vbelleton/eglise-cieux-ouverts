@@ -57,6 +57,9 @@ function normalizeMemberTabOrder(data: Record<string, any> | null): string[] {
 function buildResponse(data: Record<string, any> | null, isAdmin: boolean) {
   return {
     hideEventsPageIfEmpty: data?.hideEventsPageIfEmpty === true,
+    // Espace membre (comptes, /membre) : désactivé tant que l'admin ne l'a
+    // pas explicitement activé dans ⚙️ Config.
+    espaceMembre: data?.espaceMembre === true,
     socialLinks: normalizeSocialLinks(data),
     memberTabOrder: normalizeMemberTabOrder(data),
     ...(isAdmin ? { contactEmails: normalizeContactEmails(data) } : {}),

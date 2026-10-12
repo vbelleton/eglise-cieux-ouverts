@@ -70,4 +70,17 @@ test.describe('Panne du Worker événements', () => {
     await page.goto('/event-list')
     await expect(page).toHaveURL(/\/$/, { timeout: 10000 })
   })
+
+  test('agenda vide sans masquage demandé : le lien Événements reste (Parcours Alpha)', async ({ page }) => {
+    await agendaVide(page)
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.locator('header a[href="/event-list"]').first()).toBeVisible({ timeout: 15000 })
+  })
+
+  test('agenda vide avec masquage demandé : le lien Événements disparaît', async ({ page, request }) => {
+    await activerMasquageSiVide(request)
+    await agendaVide(page)
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.locator('header a[href="/event-list"]')).toHaveCount(0, { timeout: 15000 })
+  })
 })

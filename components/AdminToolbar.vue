@@ -891,6 +891,17 @@
                         <p class="settings-hint">La page et le lien de menu seront masqués du site public tant qu'aucun événement n'est prévu. Toujours visible en mode admin.</p>
                     </div>
                     <div class="settings-field">
+                        <label class="settings-checkbox-label">
+                            <input
+                                v-model="settingsForm.espaceMembre"
+                                type="checkbox"
+                                class="settings-checkbox"
+                            />
+                            Activer l'espace membre (comptes)
+                        </label>
+                        <p class="settings-hint">Décoché : le lien « Espace membre », la page /membre, la création de compte et les candidatures du bloc Louange sont retirés du site public.</p>
+                    </div>
+                    <div class="settings-field">
                         <label>Ordre des onglets de l'espace membre (/membre)</label>
                         <p class="settings-hint">Ordre d'affichage des onglets Ressources/Demandes/Mes événements.</p>
                         <div class="member-tab-order-list">
@@ -969,7 +980,7 @@ import { BLOCK_TYPES, ANIMATIONS, HARDCODED_SLUGS } from "~/utils/blockTypes.js"
 import { SOCIAL_ICONS } from "~/utils/socialIcons.js";
 import { useToast } from '~/composables/useToast'
 
-const { socialLinks: liveSocialLinks, memberTabOrder: liveMemberTabOrder } = useSiteSettings()
+const { socialLinks: liveSocialLinks, memberTabOrder: liveMemberTabOrder, espaceMembre: liveEspaceMembre, hideEventsPageIfEmpty: liveHideEventsPageIfEmpty } = useSiteSettings()
 
 const { showToast } = useToast()
 
@@ -1534,7 +1545,7 @@ async function deleteContactMessage(message) {
 
 // Settings
 const showSettings = ref(false)
-const settingsForm = ref({ hideEventsPageIfEmpty: false })
+const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
 const contactEmailsText = ref('')
 const socialLinksForm = ref([])
 const emailQuota = ref(null)
@@ -1580,7 +1591,7 @@ async function loadSettings() {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    settingsForm.value = { hideEventsPageIfEmpty: data.hideEventsPageIfEmpty === true }
+    settingsForm.value = { hideEventsPageIfEmpty: data.hideEventsPageIfEmpty === true, espaceMembre: data.espaceMembre === true }
     contactEmailsText.value = (data.contactEmails || []).join(', ')
     socialLinksForm.value = Array.isArray(data.socialLinks) ? data.socialLinks.map(l => ({ ...l })) : []
     memberTabOrderForm.value = Array.isArray(data.memberTabOrder) && data.memberTabOrder.length === 3
@@ -1631,6 +1642,8 @@ async function saveSettings() {
     // BlockBienvenue (state partagé useSiteSettings.js) sans recharger la page.
     liveSocialLinks.value = socialLinksForm.value.map(l => ({ ...l }))
     liveMemberTabOrder.value = [...memberTabOrderForm.value]
+    liveEspaceMembre.value = settingsForm.value.espaceMembre === true
+    liveHideEventsPageIfEmpty.value = settingsForm.value.hideEventsPageIfEmpty === true
     showToast('Configuration sauvegardée', 'toast-success')
     showSettings.value = false
   } catch (e) {

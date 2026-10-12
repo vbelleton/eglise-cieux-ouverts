@@ -137,6 +137,10 @@ useSeoMeta({
   robots: 'noindex',
 })
 
+// Espace membre désactivé dans ⚙️ Config (défaut) : redirection vers
+// l'accueil, décidée par middleware/espace-membre.ts avant le rendu.
+definePageMeta({ middleware: 'espace-membre' })
+
 const {
   isLoggedIn, profile, firstName, authReady,
   authedFetch, fetchProfile, loginEmail, registerEmail, resetPassword, logout,

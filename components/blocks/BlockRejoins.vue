@@ -2,7 +2,7 @@
     <section
         class="block-rejoins"
         :style="{ background: backgroundGradient || '#064886' }"
-        :class="[visibilityClasses, { triggered: isTriggered }]"
+        :class="[visibilityClasses, { triggered: isTriggered, 'horaires-dessous': horairesPosition !== 'cote' }]"
     >
         <div class="rejoins-inner">
             <div class="rejoins-text-container">
@@ -35,6 +35,7 @@ const {
     subtitle = "",
     location = "",
     horaires = [],
+    horairesPosition = "dessous",
     visibility = {},
     isTriggered = false,
     fieldFonts = {},
@@ -45,6 +46,9 @@ const {
     subtitle: { type: String, default: "" },
     location: { type: String, default: "" },
     horaires: { type: Array, default: () => [] },
+    // "dessous" : horaires sous « Rejoins-nous / Chaque dimanche / à Morlaix » ;
+    // "cote" : ancienne mise en page, horaires à droite du texte.
+    horairesPosition: { type: String, default: "dessous" },
     visibility: { type: Object, default: () => ({}) },
     isTriggered: { type: Boolean, default: false },
     fieldFonts: { type: Object, default: () => ({}) },
@@ -177,6 +181,22 @@ const visibilityClasses = computed(() => ({
     color: white;
     letter-spacing: -0.3px;
     margin-top: 5px;
+}
+/* Horaires sous le texte : tout est centré en colonne, les horaires côte à côte */
+.horaires-dessous .rejoins-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 60px;
+}
+.horaires-dessous .rejoins-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 40px 80px;
+}
+.horaires-dessous .rejoins-horaire {
+    align-items: center;
 }
 @container (max-width: 900px) {
     .rejoins-inner {

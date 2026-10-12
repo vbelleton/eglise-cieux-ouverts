@@ -247,7 +247,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import EventModal from '~/components/EventModal.vue'
 import EventImageSlider from '~/components/EventImageSlider.vue'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
@@ -268,7 +268,11 @@ const currentDate = ref(new Date())
 const currentView = ref('month')
 
 // --- Agenda personnel du membre connecté ---
-const { isLoggedIn: memberLoggedIn, authedFetch } = useMemberAuth()
+// Désactivé avec l'espace membre (réglage ⚙️ Config « espaceMembre ») :
+// une session membre restée ouverte ne doit plus rien afficher.
+const { isLoggedIn: membreConnecte, authedFetch } = useMemberAuth()
+const { espaceMembre, loadSiteSettings } = useSiteSettings()
+const memberLoggedIn = computed(() => membreConnecte.value && espaceMembre.value)
 const myParticipations = ref([])
 
 async function loadMyParticipations() {
@@ -324,6 +328,7 @@ async function setModalAttendance(status) {
 watch(memberLoggedIn, (v) => {
   if (v) loadMyParticipations()
 })
+onMounted(() => loadSiteSettings())
 
 onMounted(() => {
   const saved = localStorage.getItem('agenda_view')

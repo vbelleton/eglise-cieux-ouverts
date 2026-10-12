@@ -233,11 +233,12 @@ export const BLOCK_TYPES = {
     defaults: {
       title: "Rejoins-nous",
       subtitle: "Chaque dimanche",
-      location: "dans votre ville",
+      location: "à Morlaix",
       horaires: [
         { heure: "9h30", label: "Accueil café" },
         { heure: "10h00", label: "Célébration" },
       ],
+      horairesPosition: "dessous",
       backgroundGradient:
         "linear-gradient(to bottom, #064886 0%, #e58b8b 100%)",
     },
@@ -245,6 +246,7 @@ export const BLOCK_TYPES = {
       { key: "title", label: "Titre", type: "text" },
       { key: "subtitle", label: "Sous-titre", type: "text" },
       { key: "location", label: "Lieu", type: "text" },
+      { key: "horairesPosition", label: "Position des horaires", type: "select", options: ["dessous", "cote"] },
       { key: "backgroundGradient", label: "Fond (CSS)", type: "text" },
       {
         key: "horaires",

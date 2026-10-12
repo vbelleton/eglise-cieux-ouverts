@@ -86,7 +86,7 @@ Ces bugs ont causé des pertes de contenu réel ou des blocages de l'admin en pr
 
 ## Espace membre
 
-**Page `/membre`** (`pages/membre.vue`, slug réservé dans `HARDCODED_SLUGS`) — espace personnel des membres, distinct de l'admin :
+**Page `/membre`** (`pages/membre.vue`, slug réservé dans `HARDCODED_SLUGS`) — espace personnel des membres, distinct de l'admin. **Désactivé par défaut** : réglage « Activer l'espace membre (comptes) » dans ⚙️ Config (`espaceMembre` de `settings/config`). Désactivé, le lien du SiteHeader disparaît, `/membre` redirige vers l'accueil (`middleware/espace-membre.ts`), l'agenda n'affiche plus rien de personnel et « Je postule ! » du bloc Louange mène à `/contact`. Activé :
 
 - **Auth membre** : Firebase Auth du projet `eglise-cieux-ouverts`, email/mot de passe uniquement (connexion Google retirée) — connexion + création de compte + reset. Composable `useMemberAuth.ts` (refs singleton module-scope, pattern `useAdmin`). Le Worker eglise-app associe/auto-crée le membre par email (`getMemberFromRequest`). Lien « Espace membre » dans le SiteHeader (devient `👤 Prénom` connecté).
 - **Ressources partagées** : liste des ressources ciblées vers le membre (partagées depuis la SPA admin eglise-app, vue `/resources` — ciblage tous/équipe/groupe de maison/membres, snapshot des destinataires au partage). Ouvrir une ressource **logge automatiquement la consultation** (`POST /api/member/resources/:id/access` : première/dernière consultation + compteur) puis ouvre l'URL. L'admin voit « consulté par X/Y » avec détail par membre ; un **digest email quotidien** (cron 8h du Worker, Resend → `ADMIN_EMAIL`, marqueur `digested_at`) récapitule les nouvelles consultations (+ push FCM admins si configuré).
@@ -500,3 +500,8 @@ Inspiration pour la structure de documentation et les patterns de gestion des in
 ## Inscription au Parcours Alpha
 
 Page Événements par défaut : prochains événements, présentation Alpha (questions, encadré du prochain parcours à compléter, gratuit), déroulement d'une rencontre en deux temps, formulaire, FAQ, « Où nous trouver » avec carte. Bloc `inscriptionAlpha` : prénom, nom, e-mail, téléphone, adresse facultative, mot facultatif, consentement obligatoire. L'envoi passe par `POST /api/contact` (champs `parcours`, `telephone`, `adresse`) : l'inscrit apparaît dans l'admin 📬 Messages avec ces informations et déclenche l'e-mail de notification habituel. Réglage « Nombre de places » du bloc (0 = illimité) : le formulaire affiche les places restantes (`GET /api/alpha-places`, compteurs seulement) et le serveur refuse l'inscription (409) quand c'est complet. Dans l'admin 📬 Messages, le filtre « Inscrits Alpha » liste les inscrits et le bouton « Export CSV » les télécharge (compatible Excel). La page par défaut comporte aussi une FAQ Alpha.
+
+
+## Bloc Rejoins-nous
+
+Réglage « Position des horaires » : `dessous` (défaut, horaires centrés sous « Rejoins-nous / Chaque dimanche / à Morlaix ») ou `cote` (ancienne mise en page, horaires à droite).

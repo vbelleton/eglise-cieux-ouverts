@@ -62,12 +62,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const hideEventsPageIfEmpty = body?.hideEventsPageIfEmpty === true // par défaut false (toujours visible)
+  const espaceMembre = body?.espaceMembre === true // par défaut false (espace membre masqué)
   const socialLinks = parseSocialLinks(body)
   const memberTabOrder = parseMemberTabOrder(body)
 
   if (isTest) {
     const { setSettings } = await import('../../utils/firestore-mock.js')
-    setSettings({ contactEmails, hideEventsPageIfEmpty, socialLinks, memberTabOrder })
+    setSettings({ contactEmails, hideEventsPageIfEmpty, espaceMembre, socialLinks, memberTabOrder })
     return { ok: true }
   }
 
@@ -87,6 +88,7 @@ export default defineEventHandler(async (event) => {
     await setFirestoreDoc(config.projectId, accessToken, 'settings', 'config', {
       contactEmails: contactEmails,
       hideEventsPageIfEmpty: hideEventsPageIfEmpty,
+      espaceMembre: espaceMembre,
       socialLinks: socialLinks,
       memberTabOrder: memberTabOrder,
       updatedAt: new Date().toISOString(),

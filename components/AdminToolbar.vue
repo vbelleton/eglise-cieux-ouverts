@@ -251,6 +251,9 @@
             </button>
         </div>
         <div class="admin-sidebar-body">
+            <p v-if="editingFooter && previewDevice !== 'desktop'" class="admin-responsive-hint admin-footer-all-devices">
+                ℹ Le pied de page est commun à tous les formats : ce que tu changes ici s'applique aussi sur ordinateur et tablette/mobile.
+            </p>
             <div v-if="!editingFooter" class="admin-responsive-panel">
                 <p class="admin-responsive-label">Visible sur {{ deviceLabel(previewDevice) }}</p>
                 <button

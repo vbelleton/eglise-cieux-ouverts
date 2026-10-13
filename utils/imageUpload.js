@@ -251,6 +251,22 @@ export async function thumbnailUrl(nom) {
   return adresse(`${THUMB_FOLDER}/${nom}`)
 }
 
+/** Supprime des images téléversées (et leurs vignettes). Renvoie les noms réellement supprimés. */
+export async function deleteUploadedImages(noms) {
+  const token = await jetonAdmin()
+  const supprimees = []
+  for (const nom of noms) {
+    const res = await fetch(`/api/media?name=${encodeURIComponent(nom)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+    })
+    if (res.ok) supprimees.push(nom)
+  }
+  invaliderListe()
+  return supprimees
+}
+
 /** Images déjà téléversées avec leur URL, les plus récentes d'abord. */
 export async function listUploadedImages() {
   const noms = await listUploadedImageNames()

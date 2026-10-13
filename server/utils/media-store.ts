@@ -15,6 +15,7 @@ export interface MediaStore {
   put(key: string, data: ArrayBuffer, contentType: string): Promise<void>
   get(key: string): Promise<StoredMedia | null>
   list(prefix: string): Promise<string[]>
+  delete(keys: string[]): Promise<void>
 }
 
 const memoire = new Map<string, StoredMedia>()
@@ -23,6 +24,7 @@ const magasinMemoire: MediaStore = {
   async put(key, body, contentType) { memoire.set(key, { body, contentType }) },
   async get(key) { return memoire.get(key) ?? null },
   async list(prefix) { return [...memoire.keys()].filter(k => k.startsWith(prefix)) },
+  async delete(keys) { keys.forEach(k => memoire.delete(k)) },
 }
 
 function magasinKV(kv: any): MediaStore {
@@ -44,6 +46,9 @@ function magasinKV(kv: any): MediaStore {
         cursor = res.list_complete ? undefined : res.cursor
       } while (cursor)
       return noms
+    },
+    async delete(keys) {
+      await Promise.all(keys.map(k => kv.delete(k)))
     },
   }
 }

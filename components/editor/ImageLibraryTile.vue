@@ -21,7 +21,7 @@ import { thumbnailUrl, imageUrl } from '~/utils/imageUpload.js'
 // Une vignette ne demande son adresse (et ne charge son image) qu'en entrant
 // dans la zone visible : ouvrir la médiathèque ne coûte plus une requête par
 // image déjà envoyée.
-const props = defineProps<{ name: string; label: string; selected: boolean; badge: string | number }>()
+const props = defineProps<{ name: string; label: string; selected: boolean; badge: string | number; url?: string }>()
 defineEmits<{ toggle: [] }>()
 
 const el = ref<HTMLElement | null>(null)
@@ -30,6 +30,7 @@ let observer: IntersectionObserver | null = null
 let repli = false
 
 async function charger() {
+  if (props.url) { src.value = props.url; return }
   try {
     src.value = await thumbnailUrl(props.name)
   } catch {
@@ -39,7 +40,7 @@ async function charger() {
 
 // Vignette illisible : on retombe une fois sur l'image d'origine.
 async function onError() {
-  if (repli) return
+  if (repli || props.url) return
   repli = true
   try { src.value = await imageUrl(props.name) } catch { src.value = '' }
 }

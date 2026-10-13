@@ -153,8 +153,10 @@ test.describe('Sidebar consistency — All editable fields work', () => {
       await page.goto('/?admin=true')
       await page.waitForSelector('.admin-toolbar', { timeout: 10000 })
 
-      const wrapper = page.locator('.block-wrapper').first()
-      await wrapper.click()
+      // Bloc Bienvenue : le Hero n'expose plus de couleur tant que ni l'overlay
+      // ni le texte principal ne sont activés (réglages sans effet masqués).
+      const wrapper = page.locator('.block-wrapper[data-block-type="bienvenue"]').first()
+      await wrapper.click({ force: true })
       await page.waitForTimeout(300)
 
       // Vérifier qu'il y a au moins un color picker (la plupart des blocs en ont)

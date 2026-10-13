@@ -22,4 +22,10 @@
   "name": "eglise-cieux-ouverts",
   "compatibility_date": "2024-10-01",
   "pages_build_output_dir": "./dist",
+  // Images téléversées (voir server/utils/media-store.ts). Le dashboard ne
+  // permet pas d'ajouter de liaison tant que ce fichier pilote le projet :
+  // elle se déclare ici. Gratuit, sans carte bancaire.
+  "kv_namespaces": [
+    { "binding": "IMAGES", "id": "8814b7a3ca704b5383bd3c817a136785" }
+  ],
 }

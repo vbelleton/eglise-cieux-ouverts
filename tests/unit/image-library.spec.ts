@@ -35,6 +35,12 @@ test.describe('Médiathèque : rapidité', () => {
     expect(lib).toMatch(/Math\.min\(3, files\.length\)/)
   })
 
+  test('un envoi qui échoue abandonne vite avec un message clair (pas 10 minutes)', () => {
+    expect(upload).toContain('maxUploadRetryTime')
+    expect(upload).toContain('retry-limit-exceeded')
+    expect(upload).toContain('messageErreurEnvoi')
+  })
+
   test('l\'ancien envoi sans compression a disparu de la barre admin', () => {
     const barre = lire('components/AdminToolbar.vue')
     expect(barre).not.toContain('uploadBytes')

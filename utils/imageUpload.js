@@ -143,9 +143,32 @@ const sansVignette = new Set()
 
 function invaliderListe() { listeEnCache = null }
 
+// Le SDK réessaie un envoi qui échoue pendant 10 MINUTES avant d'abandonner
+// (« storage/retry-limit-exceeded ») : si le stockage est injoignable ou refuse
+// l'envoi (bucket mal configuré, règles, CORS), l'éditeur paraît figé. On
+// abandonne au bout de 40 s, ce qui laisse de la marge à une connexion lente
+// pour une image déjà réduite.
+const DELAI_MAX_REESSAI_MS = 40 * 1000
+
 async function storageApi() {
   const m = await import('firebase/storage')
-  return { ...m, storage: m.getStorage() }
+  const storage = m.getStorage()
+  storage.maxUploadRetryTime = DELAI_MAX_REESSAI_MS
+  storage.maxOperationRetryTime = DELAI_MAX_REESSAI_MS
+  return { ...m, storage }
+}
+
+/** Message clair à la place des codes Firebase bruts. */
+export function messageErreurEnvoi(err) {
+  const code = err?.code || ''
+  if (code === 'storage/retry-limit-exceeded' || code === 'storage/unknown') {
+    return "Le stockage d'images ne répond pas (connexion, règles d'accès ou configuration du bucket Firebase). Réessaie ; si cela continue, il faut vérifier Firebase Storage."
+  }
+  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
+    return "Envoi refusé : reconnecte-toi à l'admin, ou vérifie les règles de Firebase Storage."
+  }
+  if (code === 'storage/quota-exceeded') return "Le quota de stockage Firebase est atteint."
+  return err?.message || "Échec de l'envoi"
 }
 
 /**
@@ -173,12 +196,17 @@ export async function uploadImageDetailed(file) {
         cacheControl: 'public, max-age=31536000, immutable',
       }).catch(() => null)
     : Promise.resolve(null)
-  await uploadBytes(r, optimise, {
-    contentType: optimise.type,
-    // Le nom est unique et jamais réécrit : cache navigateur long sans risque.
-    cacheControl: 'public, max-age=31536000, immutable',
-  })
-  await envoiVignette
+  try {
+    await uploadBytes(r, optimise, {
+      contentType: optimise.type,
+      // Le nom est unique et jamais réécrit : cache navigateur long sans risque.
+      cacheControl: 'public, max-age=31536000, immutable',
+    })
+  } catch (err) {
+    throw Object.assign(new Error(messageErreurEnvoi(err)), { code: err?.code })
+  }
+  // La vignette est un plus : on ne la laisse jamais retarder l'image elle-même.
+  await Promise.race([envoiVignette, new Promise(resolve => setTimeout(resolve, 3000))])
   invaliderListe()
   const url = await getDownloadURL(r)
   adressesEnCache.set(`${UPLOAD_FOLDER}/${nom}`, url)

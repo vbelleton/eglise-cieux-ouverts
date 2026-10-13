@@ -80,7 +80,7 @@ git config core.hooksPath .githooks        # une fois par clone : active le pre-
 
 ## Images téléversées
 
-`utils/imageUpload.js` : compression dans le navigateur (≤ 2000 px, JPEG 82 %, PNG gardé en PNG pour la transparence, GIF/SVG intacts) puis envoi dans Firebase Storage `uploads/` — utilisé par `FieldImage`, `FieldImages`, la médiathèque `components/editor/ImageLibrary.vue` et `EventManager.vue`. Ne pas réintroduire d'appel direct à `firebase/storage` ailleurs : la compression serait contournée.
+`utils/imageUpload.js` : compression dans le navigateur (≤ 2000 px, JPEG 82 %, PNG gardé en PNG pour la transparence, GIF/SVG intacts) puis envoi dans le bucket **Cloudflare R2** via `/api/media` (`server/api/media/`, `server/utils/media-store.ts`) — liaison R2 nommée **`IMAGES`** à déclarer dans le dashboard Pages (Settings → Bindings), PAS dans `wrangler.jsonc` ; images servies par `/api/media/uploads/<nom>` ; Firebase Storage n'est plus utilisé — utilisé par `FieldImage`, `FieldImages`, la médiathèque `components/editor/ImageLibrary.vue` et `EventManager.vue`. Ne pas réintroduire d'appel direct au stockage ailleurs : la compression serait contournée.
 
 ## Ajouter un bloc
 

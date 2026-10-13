@@ -1,4 +1,4 @@
-// Téléversement d'images vers Firebase Storage (dossier `uploads/`), partagé
+// Téléversement d'images vers Cloudflare R2 (dossier `uploads/`), via /api/media, partagé
 // par l'éditeur de blocs (FieldImage, FieldImages, ImageLibrary) et le
 // gestionnaire d'événements (EventManager).
 //
@@ -6,6 +6,8 @@
 // large : téléversées telles quelles, chaque visiteur les télécharge en
 // entier. Elles sont donc redimensionnées et recompressées dans le
 // navigateur AVANT l'envoi.
+
+import { useNuxtApp } from '#app'
 
 const MAX_DIMENSION = 2000
 const JPEG_QUALITY = 0.82
@@ -136,39 +138,53 @@ async function creerVignette(file) {
 }
 
 // ── Cache de session ───────────────────────────────────────────────────────
-// Rouvrir la médiathèque ne refait ni la liste ni les adresses déjà connues.
+// Rouvrir la médiathèque ne refait pas la liste.
 let listeEnCache = null
-const adressesEnCache = new Map()
-const sansVignette = new Set()
 
 function invaliderListe() { listeEnCache = null }
 
-// Le SDK réessaie un envoi qui échoue pendant 10 MINUTES avant d'abandonner
-// (« storage/retry-limit-exceeded ») : si le stockage est injoignable ou refuse
-// l'envoi (bucket mal configuré, règles, CORS), l'éditeur paraît figé. On
-// abandonne au bout de 40 s, ce qui laisse de la marge à une connexion lente
-// pour une image déjà réduite.
-const DELAI_MAX_REESSAI_MS = 40 * 1000
+// Les images sont stockées dans Cloudflare R2 et servies par le site lui-même
+// (/api/media/…). Un envoi qui ne répond pas est abandonné au bout de 40 s :
+// assez pour une connexion lente avec une image déjà réduite, sans laisser
+// l'éditeur figé.
+const DELAI_MAX_ENVOI_MS = 40 * 1000
 
-async function storageApi() {
-  const m = await import('firebase/storage')
-  const storage = m.getStorage()
-  storage.maxUploadRetryTime = DELAI_MAX_REESSAI_MS
-  storage.maxOperationRetryTime = DELAI_MAX_REESSAI_MS
-  return { ...m, storage }
+async function jetonAdmin() {
+  const { $auth } = useNuxtApp()
+  const user = await new Promise((resolve) => {
+    if ($auth?.currentUser) { resolve($auth.currentUser); return }
+    const unsub = $auth?.onAuthStateChanged?.((u) => { resolve(u); if (typeof unsub === 'function') unsub() })
+    if (!$auth?.onAuthStateChanged) resolve(null)
+  })
+  if (!user) throw new Error("Connecte-toi à l'admin pour envoyer des images.")
+  return user.getIdToken()
 }
 
-/** Message clair à la place des codes Firebase bruts. */
+/** Message clair à la place des erreurs réseau ou serveur brutes. */
 export function messageErreurEnvoi(err) {
-  const code = err?.code || ''
-  if (code === 'storage/retry-limit-exceeded' || code === 'storage/unknown') {
-    return "Le stockage d'images ne répond pas (connexion, règles d'accès ou configuration du bucket Firebase). Réessaie ; si cela continue, il faut vérifier Firebase Storage."
+  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+    return "Le stockage d'images ne répond pas (connexion lente ou service indisponible). Réessaie."
   }
-  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
-    return "Envoi refusé : reconnecte-toi à l'admin, ou vérifie les règles de Firebase Storage."
-  }
-  if (code === 'storage/quota-exceeded') return "Le quota de stockage Firebase est atteint."
   return err?.message || "Échec de l'envoi"
+}
+
+async function envoyer(cle, blob) {
+  const token = await jetonAdmin()
+  const res = await fetch(`/api/media?key=${encodeURIComponent(cle)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': blob.type || 'application/octet-stream' },
+    body: blob,
+    signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+  })
+  if (!res.ok) {
+    const corps = await res.json().catch(() => ({}))
+    throw new Error(corps.message || `Envoi refusé (HTTP ${res.status})`)
+  }
+}
+
+/** Adresse publique d'un fichier du dossier `uploads/`. */
+function adresse(chemin) {
+  return `/api/media/${chemin}`
 }
 
 /**
@@ -180,37 +196,24 @@ export function messageErreurEnvoi(err) {
 export async function uploadImageDetailed(file) {
   if (!file?.type?.startsWith('image/')) throw new Error(`« ${file?.name || 'fichier'} » n'est pas une image`)
   if (file.size > MAX_FILE_SIZE) throw new Error(`« ${file.name} » dépasse 25 Mo`)
-  const [optimise, vignette, api] = await Promise.all([
+  const [optimise, vignette] = await Promise.all([
     compressImage(file),
     creerVignette(file).catch(() => null),
-    storageApi(),
   ])
-  const { storage, ref: storageRef, uploadBytes, getDownloadURL } = api
   const nom = `${Date.now()}_${nomFichierSur(optimise.name)}`
-  const r = storageRef(storage, `${UPLOAD_FOLDER}/${nom}`)
   const envoiVignette = vignette
-    // Facultatif : sans vignette (règles de stockage, réseau), la médiathèque
-    // retombe sur l'image d'origine.
-    ? uploadBytes(storageRef(storage, `${THUMB_FOLDER}/${nom}`), vignette, {
-        contentType: 'image/jpeg',
-        cacheControl: 'public, max-age=31536000, immutable',
-      }).catch(() => null)
+    // Facultatif : sans vignette, la médiathèque retombe sur l'image d'origine.
+    ? envoyer(`${THUMB_FOLDER}/${nom}`, vignette).catch(() => null)
     : Promise.resolve(null)
   try {
-    await uploadBytes(r, optimise, {
-      contentType: optimise.type,
-      // Le nom est unique et jamais réécrit : cache navigateur long sans risque.
-      cacheControl: 'public, max-age=31536000, immutable',
-    })
+    await envoyer(`${UPLOAD_FOLDER}/${nom}`, optimise)
   } catch (err) {
     throw Object.assign(new Error(messageErreurEnvoi(err)), { code: err?.code })
   }
   // La vignette est un plus : on ne la laisse jamais retarder l'image elle-même.
   await Promise.race([envoiVignette, new Promise(resolve => setTimeout(resolve, 3000))])
   invaliderListe()
-  const url = await getDownloadURL(r)
-  adressesEnCache.set(`${UPLOAD_FOLDER}/${nom}`, url)
-  return { url, name: nom }
+  return { url: adresse(`${UPLOAD_FOLDER}/${nom}`), name: nom }
 }
 
 /** Compresse puis téléverse une image. Renvoie son URL publique. */
@@ -220,48 +223,36 @@ export async function uploadImage(file) {
 
 /**
  * Noms des images déjà téléversées, les plus récentes d'abord — un seul appel
- * réseau, sans résoudre les adresses (c'est ce qui rendait la médiathèque
- * interminable : une requête par image avant d'afficher quoi que ce soit).
+ * réseau.
  */
 export async function listUploadedImageNames() {
   if (listeEnCache) return listeEnCache
-  const { storage, ref: storageRef, listAll } = await storageApi()
-  const res = await listAll(storageRef(storage, UPLOAD_FOLDER))
-  listeEnCache = res.items.map(i => i.name).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+  const token = await jetonAdmin()
+  const res = await fetch('/api/media', {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+  })
+  if (!res.ok) throw new Error(`Médiathèque indisponible (HTTP ${res.status})`)
+  const { names } = await res.json()
+  listeEnCache = names.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
   return listeEnCache
 }
 
-async function adresse(chemin) {
-  if (adressesEnCache.has(chemin)) return adressesEnCache.get(chemin)
-  const { storage, ref: storageRef, getDownloadURL } = await storageApi()
-  const url = await getDownloadURL(storageRef(storage, chemin))
-  adressesEnCache.set(chemin, url)
-  return url
-}
-
 /** URL de l'image d'origine. */
-export function imageUrl(nom) {
+export async function imageUrl(nom) {
   return adresse(`${UPLOAD_FOLDER}/${nom}`)
 }
 
 /**
- * URL de la vignette si elle existe, sinon de l'image d'origine (images
- * envoyées avant l'arrivée des vignettes).
+ * URL de la vignette. Une image envoyée sans vignette renvoie une 404 : la
+ * tuile de la médiathèque retombe alors sur l'image d'origine (onError).
  */
 export async function thumbnailUrl(nom) {
-  if (!sansVignette.has(nom)) {
-    try {
-      return await adresse(`${THUMB_FOLDER}/${nom}`)
-    } catch {
-      // On s'en souvient : pas de nouvelle requête perdue à chaque ouverture.
-      sansVignette.add(nom)
-    }
-  }
-  return imageUrl(nom)
+  return adresse(`${THUMB_FOLDER}/${nom}`)
 }
 
 /** Images déjà téléversées avec leur URL, les plus récentes d'abord. */
 export async function listUploadedImages() {
   const noms = await listUploadedImageNames()
-  return Promise.all(noms.map(async name => ({ name, url: await imageUrl(name) })))
+  return noms.map(name => ({ name, url: adresse(`${UPLOAD_FOLDER}/${name}`) }))
 }

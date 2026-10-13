@@ -14,8 +14,7 @@ test.describe('Médiathèque : rapidité', () => {
 
   test('la liste ne résout pas une URL par image avant d\'afficher', () => {
     const noms = upload.slice(upload.indexOf('export async function listUploadedImageNames'), upload.indexOf('async function adresse'))
-    expect(noms).toContain('listAll')
-    expect(noms).not.toContain('getDownloadURL')
+    expect(noms).toContain("fetch('/api/media'")
     expect(lib).toContain('listUploadedImageNames')
     expect(lib).not.toContain('listUploadedImages()')
   })
@@ -27,8 +26,7 @@ test.describe('Médiathèque : rapidité', () => {
 
   test('une vignette est envoyée avec chaque image, et le cache évite les requêtes répétées', () => {
     expect(upload).toContain('THUMB_FOLDER')
-    expect(upload).toContain('adressesEnCache')
-    expect(upload).toContain('sansVignette')
+    expect(upload).toContain('listeEnCache')
   })
 
   test('plusieurs photos sont envoyées en parallèle', () => {
@@ -36,9 +34,12 @@ test.describe('Médiathèque : rapidité', () => {
   })
 
   test('un envoi qui échoue abandonne vite avec un message clair (pas 10 minutes)', () => {
-    expect(upload).toContain('maxUploadRetryTime')
-    expect(upload).toContain('retry-limit-exceeded')
+    expect(upload).toContain('AbortSignal.timeout(DELAI_MAX_ENVOI_MS)')
     expect(upload).toContain('messageErreurEnvoi')
+  })
+
+  test('les images ne passent plus par Firebase Storage', () => {
+    expect(upload).not.toContain('firebase/storage')
   })
 
   test('l\'ancien envoi sans compression a disparu de la barre admin', () => {

@@ -55,4 +55,17 @@ test.describe('API médias', () => {
     const douteux = await request.delete('/api/media?name=' + encodeURIComponent('../x.png'), { headers: auth })
     expect(douteux.status()).toBe(400)
   })
+
+  test('images du site masquées : liste enregistrée, réservée aux éditeurs, chemins contrôlés', async ({ request }) => {
+    expect([401, 403]).toContain((await request.get('/api/media/site-hidden')).status())
+    const ecrit = await request.put('/api/media/site-hidden', { headers: auth, data: { hidden: ['/images/hero-logo.png', '/hero.jpg', '/hero.jpg'] } })
+    expect(ecrit.status()).toBe(200)
+    const lu = await request.get('/api/media/site-hidden', { headers: auth })
+    expect((await lu.json()).hidden).toEqual(['/images/hero-logo.png', '/hero.jpg'])
+    const mauvais = await request.put('/api/media/site-hidden', { headers: auth, data: { hidden: ['/../secret.png'] } })
+    expect(mauvais.status()).toBe(400)
+    await request.put('/api/media/site-hidden', { headers: auth, data: { hidden: [] } })
+    // La liste masquée n'est pas lisible comme une image publique.
+    expect((await request.get('/api/media/meta/site-hidden.json')).status()).toBe(404)
+  })
 })

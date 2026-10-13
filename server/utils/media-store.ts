@@ -71,3 +71,22 @@ export function cleMedia(brut: string): string | null {
   if (!/^uploads\/(thumbs\/)?[a-z0-9][a-z0-9._-]*$/.test(cle)) return null
   return cle
 }
+
+const CLE_MASQUEES = 'meta/site-hidden.json'
+
+export async function lireImagesSiteMasquees(event: any): Promise<string[]> {
+  const fichier = await getMediaStore(event).get(CLE_MASQUEES)
+  if (!fichier) return []
+  try {
+    const liste = JSON.parse(new TextDecoder().decode(fichier.body))
+    return Array.isArray(liste) ? liste.filter(c => typeof c === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export async function ecrireImagesSiteMasquees(event: any, liste: string[]): Promise<void> {
+  const octets = new TextEncoder().encode(JSON.stringify(liste))
+  const data = octets.buffer.slice(octets.byteOffset, octets.byteOffset + octets.byteLength) as ArrayBuffer
+  await getMediaStore(event).put(CLE_MASQUEES, data, 'application/json')
+}

@@ -267,6 +267,29 @@ export async function deleteUploadedImages(noms) {
   return supprimees
 }
 
+/** Images du dossier public/ retirées de la médiathèque (chemins comme « /images/x.jpg »). */
+export async function listHiddenSiteImages() {
+  const token = await jetonAdmin()
+  const res = await fetch('/api/media/site-hidden', {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+  })
+  if (!res.ok) throw new Error(`Médiathèque indisponible (HTTP ${res.status})`)
+  return (await res.json()).hidden
+}
+
+export async function saveHiddenSiteImages(hidden) {
+  const token = await jetonAdmin()
+  const res = await fetch('/api/media/site-hidden', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hidden }),
+    signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+  })
+  if (!res.ok) throw new Error(`Suppression impossible (HTTP ${res.status})`)
+  return (await res.json()).hidden
+}
+
 /** Images déjà téléversées avec leur URL, les plus récentes d'abord. */
 export async function listUploadedImages() {
   const noms = await listUploadedImageNames()

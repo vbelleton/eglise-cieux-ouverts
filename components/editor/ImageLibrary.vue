@@ -22,6 +22,14 @@
           </button>
           <input v-model="search" type="search" class="imglib-search" placeholder="Rechercher par nom" aria-label="Rechercher une image" />
         </div>
+        <label v-if="usage" class="imglib-filtre">
+          Afficher
+          <select v-model="filtreUsage" aria-label="Filtrer selon l'utilisation">
+            <option value="toutes">Toutes les images</option>
+            <option value="utilisees">Utilisées sur le site</option>
+            <option value="libres">Non utilisées</option>
+          </select>
+        </label>
         <div class="imglib-tabs" role="tablist">
           <button role="tab" :aria-selected="onglet === 'envois'" :class="{ actif: onglet === 'envois' }" @click="onglet = 'envois'">Mes images ({{ images.length }})</button>
           <button role="tab" :aria-selected="onglet === 'site'" :class="{ actif: onglet === 'site' }" @click="onglet = 'site'">Images du site ({{ visiblesSite.length }})</button>
@@ -39,6 +47,9 @@
             :key="n"
             :name="n"
             :label="libelle(n)"
+            :used="estUtilisee(urlUpload(n))"
+            :usage="resume(urlUpload(n))"
+            :detail="detail(urlUpload(n))"
             :selected="selected.includes(n)"
             :badge="multiple ? selected.indexOf(n) + 1 : '✓'"
             @toggle="toggle(n)"
@@ -54,6 +65,9 @@
                 :name="u"
                 :url="u"
                 :label="u.slice(1)"
+                :used="estUtilisee(u)"
+                :usage="resume(u)"
+                :detail="detail(u)"
                 :selected="selected.includes(PREFIXE_SITE + u)"
                 :badge="multiple ? selected.indexOf(PREFIXE_SITE + u) + 1 : '✓'"
                 @toggle="toggle(PREFIXE_SITE + u)"
@@ -63,7 +77,10 @@
         </div>
 
         <footer class="imglib-foot">
-          <span class="imglib-count">{{ selected.length ? `${selected.length} sélectionnée(s)` : '' }}</span>
+          <span class="imglib-count">
+            <template v-if="detailSelection">{{ detailSelection }}</template>
+            <template v-else>{{ selected.length ? `${selected.length} sélectionnée(s)` : '' }}</template>
+          </span>
           <button class="imglib-btn imglib-btn-danger" :disabled="!(aSupprimer.length + siteASupprimer.length) || deleting" @click="supprimer">
             {{ deleting ? 'Suppression…' : '🗑 Supprimer' }}
           </button>
@@ -82,6 +99,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import ImageLibraryTile from '~/components/editor/ImageLibraryTile.vue'
 import { listUploadedImageNames, uploadImageDetailed, imageUrl, deleteUploadedImages, listHiddenSiteImages, saveHiddenSiteImages } from '~/utils/imageUpload.js'
 import imagesSite from '~/utils/siteImages.json'
+import { calculerUsageImages, resumeUsage, detailUsage } from '~/utils/imageUsage.js'
 
 // Images fournies avec le site : choisissables, mais jamais supprimables.
 const PREFIXE_SITE = 'site:'
@@ -91,6 +109,8 @@ const emit = defineEmits<{ select: [urls: string[]]; close: [] }>()
 
 const images = ref<string[]>([])
 const masquees = ref<string[]>([])
+const usage = ref<Map<string, { page: string; bloc: string }[]> | null>(null)
+const filtreUsage = ref<'toutes' | 'utilisees' | 'libres'>('toutes')
 const onglet = ref<'envois' | 'site'>('envois')
 const deleting = ref(false)
 const loading = ref(true)
@@ -110,10 +130,28 @@ function libelle(name: string) {
 // Images du site encore visibles (celles retirées par « Supprimer » n'apparaissent plus).
 const visiblesSite = computed(() => (imagesSite as string[]).filter(u => !masquees.value.includes(u)))
 
+const urlUpload = (nom: string) => `/api/media/uploads/${nom}`
+// null tant que le calcul n'est pas terminé : aucune étiquette plutôt qu'une fausse « non utilisée ».
+const estUtilisee = (adresse: string): boolean | null => (usage.value ? (usage.value.get(adresse)?.length ?? 0) > 0 : null)
+const resume = (adresse: string) => resumeUsage(usage.value?.get(adresse))
+const detail = (adresse: string) => detailUsage(usage.value?.get(adresse))
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   const liste: string[] = onglet.value === 'envois' ? images.value : visiblesSite.value
-  return q ? liste.filter(n => n.toLowerCase().includes(q)) : liste
+  const adresse = (n: string) => (onglet.value === 'envois' ? urlUpload(n) : n)
+  const parRecherche = q ? liste.filter(n => n.toLowerCase().includes(q)) : liste
+  if (!usage.value || filtreUsage.value === 'toutes') return parRecherche
+  return parRecherche.filter(n => estUtilisee(adresse(n)) === (filtreUsage.value === 'utilisees'))
+})
+
+// Détail de la dernière image sélectionnée : où elle est affichée.
+const detailSelection = computed(() => {
+  const derniere = selected.value[selected.value.length - 1]
+  if (!derniere || !usage.value) return ''
+  const adresse = derniere.startsWith(PREFIXE_SITE) ? derniere.slice(PREFIXE_SITE.length) : urlUpload(derniere)
+  const endroits = usage.value.get(adresse)
+  return endroits?.length ? `Affichée sur : ${detailUsage(endroits)}` : 'Cette image n\'est affichée nulle part.'
 })
 
 // Images du site rangées par dossier (/images/…, /photos/…, racine).
@@ -140,7 +178,13 @@ async function supprimer() {
   const avert = site.length
     ? "\nLes images du site retirées restent affichées sur les pages qui les utilisent déjà ; les images téléversées supprimées y apparaîtront cassées."
     : "\nSi elle est utilisée sur une page, elle y apparaîtra cassée."
-  if (!window.confirm(msg + avert)) return
+  const utilisees = [...noms.map(n => [n, urlUpload(n)]), ...site.map(u => [u, u])]
+    .map(([nom, adr]) => ({ nom, endroits: usage.value?.get(adr) || [] }))
+    .filter(x => x.endroits.length)
+  const ou = utilisees.length
+    ? '\n\nAttention, encore affichée sur :\n' + utilisees.map(x => `• ${libelle(x.nom).replace(/^\//, '')} : ${detailUsage(x.endroits)}`).join('\n')
+    : ''
+  if (!window.confirm(msg + avert + ou)) return
   deleting.value = true
   error.value = ''
   try {
@@ -230,6 +274,7 @@ async function confirm() {
 
 onMounted(() => {
   load()
+  calculerUsageImages().then(u => { usage.value = u }).catch(() => { usage.value = null })
   nextTick(() => dialogEl.value?.focus())
 })
 </script>
@@ -258,6 +303,8 @@ onMounted(() => {
 .imglib-groupe h4 { margin: 12px 18px 0; font-size: 0.85em; color: #064886; }
 .imglib-groupe h4 span { color: #6b7280; font-weight: 400; }
 .imglib-groupe .imglib-grid { overflow: visible; }
+.imglib-filtre { display: flex; align-items: center; gap: 8px; margin: 8px 18px 0; font-size: 0.82em; color: #4b5563; }
+.imglib-filtre select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
 .imglib-tabs { display: flex; gap: 6px; padding: 10px 18px 0; }
 .imglib-tabs button { padding: 6px 12px; border: 1px solid #d1d5db; border-bottom: 2px solid transparent; background: #f9fafb; border-radius: 8px 8px 0 0; cursor: pointer; font: inherit; font-size: 0.86em; }
 .imglib-tabs button.actif { background: #fff; border-bottom-color: #064886; color: #064886; font-weight: 600; }

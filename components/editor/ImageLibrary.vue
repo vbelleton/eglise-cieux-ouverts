@@ -22,12 +22,18 @@
           </button>
           <input v-model="search" type="search" class="imglib-search" placeholder="Rechercher par nom" aria-label="Rechercher une image" />
         </div>
+        <div class="imglib-tabs" role="tablist">
+          <button role="tab" :aria-selected="onglet === 'envois'" :class="{ actif: onglet === 'envois' }" @click="onglet = 'envois'">Mes images ({{ images.length }})</button>
+          <button role="tab" :aria-selected="onglet === 'site'" :class="{ actif: onglet === 'site' }" @click="onglet = 'site'">Images du site ({{ imagesSite.length }})</button>
+        </div>
         <p class="imglib-hint">Les photos sont redimensionnées et allégées automatiquement avant l'envoi.</p>
         <p v-if="error" class="imglib-error">{{ error }}</p>
 
-        <div v-if="loading" class="imglib-msg">Chargement des images…</div>
-        <div v-else-if="!filtered.length" class="imglib-msg">Aucune image téléversée pour l'instant.</div>
-        <div v-else class="imglib-grid">
+        <div v-if="onglet === 'envois' && loading" class="imglib-msg">Chargement des images…</div>
+        <div v-else-if="!filtered.length" class="imglib-msg">
+          {{ onglet === 'envois' ? 'Aucune image téléversée pour l\'instant.' : 'Aucune image ne correspond.' }}
+        </div>
+        <div v-else-if="onglet === 'envois'" class="imglib-grid">
           <ImageLibraryTile
             v-for="n in filtered"
             :key="n"
@@ -38,9 +44,24 @@
             @toggle="toggle(n)"
           />
         </div>
+        <div v-else class="imglib-grid">
+          <ImageLibraryTile
+            v-for="u in filtered"
+            :key="u"
+            :name="u"
+            :url="u"
+            :label="u.slice(1)"
+            :selected="selected.includes(PREFIXE_SITE + u)"
+            :badge="multiple ? selected.indexOf(PREFIXE_SITE + u) + 1 : '✓'"
+            @toggle="toggle(PREFIXE_SITE + u)"
+          />
+        </div>
 
         <footer class="imglib-foot">
           <span class="imglib-count">{{ selected.length ? `${selected.length} sélectionnée(s)` : '' }}</span>
+          <button v-if="onglet === 'envois'" class="imglib-btn imglib-btn-danger" :disabled="!aSupprimer.length || deleting" @click="supprimer">
+            {{ deleting ? 'Suppression…' : '🗑 Supprimer' }}
+          </button>
           <button class="imglib-btn imglib-btn-sec" @click="$emit('close')">Annuler</button>
           <button class="imglib-btn imglib-btn-primary" :disabled="!selected.length" @click="confirm">
             {{ multiple ? 'Ajouter la sélection' : 'Choisir cette image' }}
@@ -54,12 +75,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import ImageLibraryTile from '~/components/editor/ImageLibraryTile.vue'
-import { listUploadedImageNames, uploadImageDetailed, imageUrl } from '~/utils/imageUpload.js'
+import { listUploadedImageNames, uploadImageDetailed, imageUrl, deleteUploadedImages } from '~/utils/imageUpload.js'
+import imagesSite from '~/utils/siteImages.json'
+
+// Images fournies avec le site : choisissables, mais jamais supprimables.
+const PREFIXE_SITE = 'site:'
 
 const props = defineProps<{ multiple?: boolean }>()
 const emit = defineEmits<{ select: [urls: string[]]; close: [] }>()
 
 const images = ref<string[]>([])
+const onglet = ref<'envois' | 'site'>('envois')
+const deleting = ref(false)
 const loading = ref(true)
 const uploading = ref(false)
 const progress = ref('')
@@ -76,8 +103,33 @@ function libelle(name: string) {
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return q ? images.value.filter(n => n.toLowerCase().includes(q)) : images.value
+  const liste: string[] = onglet.value === 'envois' ? images.value : (imagesSite as string[])
+  return q ? liste.filter(n => n.toLowerCase().includes(q)) : liste
 })
+
+// Seules les images téléversées se suppriment, pas celles du site.
+const aSupprimer = computed(() => selected.value.filter(n => !n.startsWith(PREFIXE_SITE)))
+
+async function supprimer() {
+  const noms = aSupprimer.value
+  if (!noms.length) return
+  const msg = noms.length === 1
+    ? 'Supprimer cette image définitivement ?'
+    : `Supprimer ces ${noms.length} images définitivement ?`
+  if (!window.confirm(`${msg}\nSi elle est utilisée sur une page, elle y apparaîtra cassée.`)) return
+  deleting.value = true
+  error.value = ''
+  try {
+    const faites = await deleteUploadedImages(noms)
+    if (faites.length < noms.length) error.value = `${noms.length - faites.length} image(s) n'ont pas pu être supprimées.`
+    selected.value = selected.value.filter(n => !faites.includes(n))
+    await load()
+  } catch (e: any) {
+    error.value = e?.message || 'Suppression impossible.'
+  } finally {
+    deleting.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -138,7 +190,7 @@ async function onFiles(e: Event) {
 async function confirm() {
   if (!selected.value.length) return
   try {
-    emit('select', await Promise.all(selected.value.map(n => imageUrl(n))))
+    emit('select', await Promise.all(selected.value.map(n => (n.startsWith(PREFIXE_SITE) ? n.slice(PREFIXE_SITE.length) : imageUrl(n)))))
   } catch (e) {
     console.error('ImageLibrary: adresse introuvable', e)
     error.value = 'Impossible de récupérer cette image.'
@@ -170,4 +222,8 @@ onMounted(() => {
 .imglib-btn:disabled { opacity: 0.5; cursor: default; }
 .imglib-btn-primary { background: #064886; border-color: #064886; color: #fff; }
 .imglib-btn-sec { background: #fff; }
+.imglib-btn-danger { border-color: #fca5a5; color: #b91c1c; background: #fff; }
+.imglib-tabs { display: flex; gap: 6px; padding: 10px 18px 0; }
+.imglib-tabs button { padding: 6px 12px; border: 1px solid #d1d5db; border-bottom: 2px solid transparent; background: #f9fafb; border-radius: 8px 8px 0 0; cursor: pointer; font: inherit; font-size: 0.86em; }
+.imglib-tabs button.actif { background: #fff; border-bottom-color: #064886; color: #064886; font-weight: 600; }
 </style>

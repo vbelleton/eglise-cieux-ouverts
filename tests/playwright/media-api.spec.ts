@@ -34,4 +34,25 @@ test.describe('API médias', () => {
     expect((await request.get('/api/media/uploads/inexistante.png')).status()).toBe(404)
     expect((await request.get('/api/media', {})).status()).not.toBe(200)
   })
+
+  test('suppression : image et vignette disparaissent, refus sans droits', async ({ request }) => {
+    const nom = `${Date.now()}_a-supprimer.png`
+    for (const dossier of ['uploads', 'uploads/thumbs']) {
+      const r = await request.post(`/api/media?key=${encodeURIComponent(`${dossier}/${nom}`)}`, { headers: { ...auth, 'Content-Type': 'image/png' }, data: PNG })
+      expect(r.status()).toBe(200)
+    }
+    const refus = await request.delete(`/api/media?name=${encodeURIComponent(nom)}`)
+    expect([401, 403]).toContain(refus.status())
+    expect((await request.get(`/api/media/uploads/${nom}`)).status()).toBe(200)
+
+    const ok = await request.delete(`/api/media?name=${encodeURIComponent(nom)}`, { headers: auth })
+    expect(ok.status()).toBe(200)
+    expect((await request.get(`/api/media/uploads/${nom}`)).status()).toBe(404)
+    expect((await request.get(`/api/media/uploads/thumbs/${nom}`)).status()).toBe(404)
+    const liste = await request.get('/api/media', { headers: auth })
+    expect((await liste.json()).names).not.toContain(nom)
+
+    const douteux = await request.delete('/api/media?name=' + encodeURIComponent('../x.png'), { headers: auth })
+    expect(douteux.status()).toBe(400)
+  })
 })

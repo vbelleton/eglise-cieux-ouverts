@@ -47,4 +47,18 @@ test.describe('Médiathèque : rapidité', () => {
     expect(barre).not.toContain('uploadBytes')
     expect(barre).toContain('uploadImage(file)')
   })
+
+  test('l\'onglet « Images du site » est à jour avec le dossier public/', async () => {
+    // @ts-expect-error script .mjs sans types
+    const { listerImagesDuSite } = await import('../../scripts/generate-site-images.mjs')
+    const figee = JSON.parse(lire('utils/siteImages.json'))
+    expect(figee, 'relancer : node scripts/generate-site-images.mjs').toEqual(listerImagesDuSite())
+    expect(figee.length).toBeGreaterThan(10)
+  })
+
+  test('la suppression est proposée pour les envois seulement, avec confirmation', () => {
+    expect(lib).toContain('deleteUploadedImages')
+    expect(lib).toContain('window.confirm')
+    expect(lib).toContain("v-if=\"onglet === 'envois'\" class=\"imglib-btn imglib-btn-danger\"")
+  })
 })

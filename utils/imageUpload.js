@@ -1,4 +1,4 @@
-// Téléversement d'images vers Cloudflare R2 (dossier `uploads/`), via /api/media, partagé
+// Téléversement d'images vers Cloudflare KV (dossier `uploads/`), via /api/media, partagé
 // par l'éditeur de blocs (FieldImage, FieldImages, ImageLibrary) et le
 // gestionnaire d'événements (EventManager).
 //
@@ -143,7 +143,7 @@ let listeEnCache = null
 
 function invaliderListe() { listeEnCache = null }
 
-// Les images sont stockées dans Cloudflare R2 et servies par le site lui-même
+// Les images sont stockées dans Cloudflare KV et servies par le site lui-même
 // (/api/media/…). Un envoi qui ne répond pas est abandonné au bout de 40 s :
 // assez pour une connexion lente avec une image déjà réduite, sans laisser
 // l'éditeur figé.

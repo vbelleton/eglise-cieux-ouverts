@@ -24,7 +24,7 @@
         </div>
         <div class="imglib-tabs" role="tablist">
           <button role="tab" :aria-selected="onglet === 'envois'" :class="{ actif: onglet === 'envois' }" @click="onglet = 'envois'">Mes images ({{ images.length }})</button>
-          <button role="tab" :aria-selected="onglet === 'site'" :class="{ actif: onglet === 'site' }" @click="onglet = 'site'">Images du site ({{ imagesSite.length }})</button>
+          <button role="tab" :aria-selected="onglet === 'site'" :class="{ actif: onglet === 'site' }" @click="onglet = 'site'">Images du site ({{ visiblesSite.length }})</button>
         </div>
         <p class="imglib-hint">Les photos sont redimensionnées et allégées automatiquement avant l'envoi.</p>
         <p v-if="error" class="imglib-error">{{ error }}</p>
@@ -44,22 +44,27 @@
             @toggle="toggle(n)"
           />
         </div>
-        <div v-else class="imglib-grid">
-          <ImageLibraryTile
-            v-for="u in filtered"
-            :key="u"
-            :name="u"
-            :url="u"
-            :label="u.slice(1)"
-            :selected="selected.includes(PREFIXE_SITE + u)"
-            :badge="multiple ? selected.indexOf(PREFIXE_SITE + u) + 1 : '✓'"
-            @toggle="toggle(PREFIXE_SITE + u)"
-          />
+        <div v-else class="imglib-groupes">
+          <section v-for="g in groupesSite" :key="g.dossier" class="imglib-groupe">
+            <h4>{{ g.dossier }} <span>({{ g.images.length }})</span></h4>
+            <div class="imglib-grid">
+              <ImageLibraryTile
+                v-for="u in g.images"
+                :key="u"
+                :name="u"
+                :url="u"
+                :label="u.slice(1)"
+                :selected="selected.includes(PREFIXE_SITE + u)"
+                :badge="multiple ? selected.indexOf(PREFIXE_SITE + u) + 1 : '✓'"
+                @toggle="toggle(PREFIXE_SITE + u)"
+              />
+            </div>
+          </section>
         </div>
 
         <footer class="imglib-foot">
           <span class="imglib-count">{{ selected.length ? `${selected.length} sélectionnée(s)` : '' }}</span>
-          <button v-if="onglet === 'envois'" class="imglib-btn imglib-btn-danger" :disabled="!aSupprimer.length || deleting" @click="supprimer">
+          <button class="imglib-btn imglib-btn-danger" :disabled="!(aSupprimer.length + siteASupprimer.length) || deleting" @click="supprimer">
             {{ deleting ? 'Suppression…' : '🗑 Supprimer' }}
           </button>
           <button class="imglib-btn imglib-btn-sec" @click="$emit('close')">Annuler</button>
@@ -75,7 +80,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import ImageLibraryTile from '~/components/editor/ImageLibraryTile.vue'
-import { listUploadedImageNames, uploadImageDetailed, imageUrl, deleteUploadedImages } from '~/utils/imageUpload.js'
+import { listUploadedImageNames, uploadImageDetailed, imageUrl, deleteUploadedImages, listHiddenSiteImages, saveHiddenSiteImages } from '~/utils/imageUpload.js'
 import imagesSite from '~/utils/siteImages.json'
 
 // Images fournies avec le site : choisissables, mais jamais supprimables.
@@ -85,6 +90,7 @@ const props = defineProps<{ multiple?: boolean }>()
 const emit = defineEmits<{ select: [urls: string[]]; close: [] }>()
 
 const images = ref<string[]>([])
+const masquees = ref<string[]>([])
 const onglet = ref<'envois' | 'site'>('envois')
 const deleting = ref(false)
 const loading = ref(true)
@@ -101,29 +107,53 @@ function libelle(name: string) {
   return name.replace(/^\d+_/, '')
 }
 
+// Images du site encore visibles (celles retirées par « Supprimer » n'apparaissent plus).
+const visiblesSite = computed(() => (imagesSite as string[]).filter(u => !masquees.value.includes(u)))
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  const liste: string[] = onglet.value === 'envois' ? images.value : (imagesSite as string[])
+  const liste: string[] = onglet.value === 'envois' ? images.value : visiblesSite.value
   return q ? liste.filter(n => n.toLowerCase().includes(q)) : liste
 })
 
-// Seules les images téléversées se suppriment, pas celles du site.
+// Images du site rangées par dossier (/images/…, /photos/…, racine).
+const groupesSite = computed(() => {
+  const parDossier = new Map<string, string[]>()
+  for (const u of filtered.value) {
+    const dossier = u.split('/').length > 2 ? u.split('/')[1] : 'Logos et images générales'
+    const nom = dossier === 'Logos et images générales' ? dossier : `Dossier « ${dossier} »`
+    if (!parDossier.has(nom)) parDossier.set(nom, [])
+    parDossier.get(nom)!.push(u)
+  }
+  return [...parDossier.entries()].map(([dossier, imgs]) => ({ dossier, images: imgs }))
+})
+
 const aSupprimer = computed(() => selected.value.filter(n => !n.startsWith(PREFIXE_SITE)))
+const siteASupprimer = computed(() => selected.value.filter(n => n.startsWith(PREFIXE_SITE)).map(n => n.slice(PREFIXE_SITE.length)))
 
 async function supprimer() {
   const noms = aSupprimer.value
-  if (!noms.length) return
-  const msg = noms.length === 1
-    ? 'Supprimer cette image définitivement ?'
-    : `Supprimer ces ${noms.length} images définitivement ?`
-  if (!window.confirm(`${msg}\nSi elle est utilisée sur une page, elle y apparaîtra cassée.`)) return
+  const site = siteASupprimer.value
+  if (!noms.length && !site.length) return
+  const total = noms.length + site.length
+  const msg = total === 1 ? 'Supprimer cette image de la médiathèque ?' : `Supprimer ces ${total} images de la médiathèque ?`
+  const avert = site.length
+    ? "\nLes images du site retirées restent affichées sur les pages qui les utilisent déjà ; les images téléversées supprimées y apparaîtront cassées."
+    : "\nSi elle est utilisée sur une page, elle y apparaîtra cassée."
+  if (!window.confirm(msg + avert)) return
   deleting.value = true
   error.value = ''
   try {
-    const faites = await deleteUploadedImages(noms)
-    if (faites.length < noms.length) error.value = `${noms.length - faites.length} image(s) n'ont pas pu être supprimées.`
-    selected.value = selected.value.filter(n => !faites.includes(n))
-    await load()
+    if (noms.length) {
+      const faites = await deleteUploadedImages(noms)
+      if (faites.length < noms.length) error.value = `${noms.length - faites.length} image(s) n'ont pas pu être supprimées.`
+      selected.value = selected.value.filter(n => !faites.includes(n))
+      await load()
+    }
+    if (site.length) {
+      masquees.value = await saveHiddenSiteImages([...new Set([...masquees.value, ...site])])
+      selected.value = selected.value.filter(n => !n.startsWith(PREFIXE_SITE))
+    }
   } catch (e: any) {
     error.value = e?.message || 'Suppression impossible.'
   } finally {
@@ -135,6 +165,7 @@ async function load() {
   loading.value = true
   try {
     images.value = await listUploadedImageNames()
+    masquees.value = await listHiddenSiteImages().catch(() => [])
   } catch (e) {
     console.error('ImageLibrary: liste impossible', e)
     error.value = 'Impossible de charger la médiathèque.'
@@ -223,6 +254,10 @@ onMounted(() => {
 .imglib-btn-primary { background: #064886; border-color: #064886; color: #fff; }
 .imglib-btn-sec { background: #fff; }
 .imglib-btn-danger { border-color: #fca5a5; color: #b91c1c; background: #fff; }
+.imglib-groupes { overflow-y: auto; padding: 4px 0 10px; }
+.imglib-groupe h4 { margin: 12px 18px 0; font-size: 0.85em; color: #064886; }
+.imglib-groupe h4 span { color: #6b7280; font-weight: 400; }
+.imglib-groupe .imglib-grid { overflow: visible; }
 .imglib-tabs { display: flex; gap: 6px; padding: 10px 18px 0; }
 .imglib-tabs button { padding: 6px 12px; border: 1px solid #d1d5db; border-bottom: 2px solid transparent; background: #f9fafb; border-radius: 8px 8px 0 0; cursor: pointer; font: inherit; font-size: 0.86em; }
 .imglib-tabs button.actif { background: #fff; border-bottom-color: #064886; color: #064886; font-weight: 600; }

@@ -59,6 +59,7 @@ test.describe('Médiathèque : rapidité', () => {
   test('la suppression est proposée pour les envois seulement, avec confirmation', () => {
     expect(lib).toContain('deleteUploadedImages')
     expect(lib).toContain('window.confirm')
-    expect(lib).toContain("v-if=\"onglet === 'envois'\" class=\"imglib-btn imglib-btn-danger\"")
+    expect(lib).toContain('saveHiddenSiteImages')
+    expect(lib).toContain('groupesSite')
   })
 })

@@ -34,6 +34,9 @@
           <button role="tab" :aria-selected="onglet === 'envois'" :class="{ actif: onglet === 'envois' }" @click="onglet = 'envois'">Mes images ({{ images.length }})</button>
           <button role="tab" :aria-selected="onglet === 'site'" :class="{ actif: onglet === 'site' }" @click="onglet = 'site'">Images du site ({{ visiblesSite.length }})</button>
         </div>
+        <div v-if="filtered.length" class="imglib-selectall">
+          <button type="button" class="imglib-lien" @click="toutSelectionner">{{ toutEstSelectionne ? 'Tout désélectionner' : 'Tout sélectionner' }}</button>
+        </div>
         <p class="imglib-hint">Les photos sont redimensionnées et allégées automatiquement avant l'envoi.</p>
         <p v-if="error" class="imglib-error">{{ error }}</p>
 
@@ -78,14 +81,15 @@
 
         <footer class="imglib-foot">
           <span class="imglib-count">
-            <template v-if="detailSelection">{{ detailSelection }}</template>
+            <template v-if="selected.length === 1 && detailSelection">{{ detailSelection }}</template>
+            <template v-else-if="selected.length > 1 && !multiple">{{ selected.length }} sélectionnées : garde-en une seule pour la choisir, ou supprime-les.</template>
             <template v-else>{{ selected.length ? `${selected.length} sélectionnée(s)` : '' }}</template>
           </span>
           <button class="imglib-btn imglib-btn-danger" :disabled="!(aSupprimer.length + siteASupprimer.length) || deleting" @click="supprimer">
             {{ deleting ? 'Suppression…' : '🗑 Supprimer' }}
           </button>
           <button class="imglib-btn imglib-btn-sec" @click="$emit('close')">Annuler</button>
-          <button class="imglib-btn imglib-btn-primary" :disabled="!selected.length" @click="confirm">
+          <button class="imglib-btn imglib-btn-primary" :disabled="multiple ? !selected.length : selected.length !== 1" @click="confirm">
             {{ multiple ? 'Ajouter la sélection' : 'Choisir cette image' }}
           </button>
         </footer>
@@ -219,11 +223,17 @@ async function load() {
   }
 }
 
+// Les images affichées dans l'onglet courant, avec leur clé de sélection.
+const clesVisibles = computed(() => filtered.value.map(n => (onglet.value === 'envois' ? n : PREFIXE_SITE + n)))
+const toutEstSelectionne = computed(() => clesVisibles.value.length > 0 && clesVisibles.value.every(c => selected.value.includes(c)))
+function toutSelectionner() {
+  if (toutEstSelectionne.value) selected.value = selected.value.filter(c => !clesVisibles.value.includes(c))
+  else selected.value = [...selected.value, ...clesVisibles.value.filter(c => !selected.value.includes(c))]
+}
+
+// Sélection multiple dans tous les cas : on peut supprimer plusieurs images
+// d'un coup même quand la médiathèque s'ouvre pour choisir une seule image.
 function toggle(nom: string) {
-  if (!props.multiple) {
-    selected.value = selected.value[0] === nom ? [] : [nom]
-    return
-  }
   const i = selected.value.indexOf(nom)
   if (i === -1) selected.value.push(nom)
   else selected.value.splice(i, 1)
@@ -303,6 +313,8 @@ onMounted(() => {
 .imglib-groupe h4 { margin: 12px 18px 0; font-size: 0.85em; color: #064886; }
 .imglib-groupe h4 span { color: #6b7280; font-weight: 400; }
 .imglib-groupe .imglib-grid { overflow: visible; }
+.imglib-selectall { padding: 6px 18px 0; }
+.imglib-lien { background: none; border: none; padding: 0; color: #064886; cursor: pointer; font: inherit; font-size: 0.82em; text-decoration: underline; }
 .imglib-filtre { display: flex; align-items: center; gap: 8px; margin: 8px 18px 0; font-size: 0.82em; color: #4b5563; }
 .imglib-filtre select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
 .imglib-tabs { display: flex; gap: 6px; padding: 10px 18px 0; }

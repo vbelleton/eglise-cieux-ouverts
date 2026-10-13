@@ -65,3 +65,32 @@ test('médiathèque : chaque image indique où elle est affichée, et le filtre 
   await expect(dialog.locator('.imglib-item[title="foule-croix.png"]')).toHaveCount(0)
   await expect(dialog.locator('.imglib-usage.libre').first()).toBeVisible()
 })
+
+test('médiathèque : sélection de plusieurs images même pour choisir une image (suppression groupée)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await loginAsAdmin(page, '/')
+  await page.locator('.block-wrapper[data-block-type="hero"]').first().click({ force: true })
+  const sidebar = page.locator('.admin-sidebar')
+  await expect(sidebar).toBeVisible({ timeout: 8000 })
+  await sidebar.getByRole('button', { name: /Médiathèque/ }).first().click()
+  const dialog = page.getByRole('dialog', { name: 'Médiathèque' })
+  await dialog.getByRole('tab', { name: /Images du site/ }).click()
+
+  const tuiles = dialog.locator('.imglib-item')
+  const choisir = dialog.getByRole('button', { name: 'Choisir cette image' })
+  await tuiles.nth(0).click()
+  await expect(choisir).toBeEnabled()
+  await tuiles.nth(1).click()
+  // Deux images cochées : on ne peut pas « choisir » (une seule attendue), mais on peut les supprimer.
+  await expect(dialog.locator('.imglib-item.selected')).toHaveCount(2)
+  await expect(choisir).toBeDisabled()
+  await expect(dialog.locator('.imglib-count')).toContainText('2 sélectionnées')
+  await expect(dialog.getByRole('button', { name: /Supprimer/ })).toBeEnabled()
+
+  // Tout sélectionner / désélectionner.
+  await dialog.getByRole('button', { name: 'Tout sélectionner' }).click()
+  const total = await tuiles.count()
+  await expect(dialog.locator('.imglib-item.selected')).toHaveCount(total)
+  await dialog.getByRole('button', { name: 'Tout désélectionner' }).click()
+  await expect(dialog.locator('.imglib-item.selected')).toHaveCount(0)
+})

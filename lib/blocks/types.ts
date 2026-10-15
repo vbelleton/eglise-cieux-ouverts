@@ -105,6 +105,10 @@ export interface ExtraElement {
   fontSize?: string
   fontFamily?: string
   textAlign?: string
+  // Mise en forme choisie dans la sidebar (boutons G/I/S de AutoEditor.vue).
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
   // Clé du champ de schema d'origine si cet élément a été créé via « Rendre
   // déplaçable »/« Déplacer » (AutoEditor.vue) — permet de retrouver
   // l'élément déjà promu pour relancer le positionnement dessus (bouton

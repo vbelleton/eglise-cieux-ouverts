@@ -10,7 +10,7 @@
     <template v-else>
       <span class="map-facade-pin" aria-hidden="true">📍</span>
       <span class="map-facade-title">{{ title }}</span>
-      <button type="button" class="map-facade-btn" @click="loaded = true">Afficher la carte</button>
+      <button type="button" class="map-facade-btn" @click="loaded = true">{{ buttonText }}</button>
     </template>
   </div>
 </template>
@@ -22,6 +22,7 @@ defineProps({
   src: { type: String, required: true },
   title: { type: String, default: 'Carte' },
   minHeight: { type: String, default: '280px' },
+  buttonText: { type: String, default: 'Afficher la carte' },
 })
 const loaded = ref(false)
 </script>

@@ -11,7 +11,7 @@
       <p v-if="parcours" class="ia-parcours"><strong>{{ parcours }}</strong></p>
 
       <p v-if="places && places.remaining !== null && !submitted" class="ia-places" :class="{ 'ia-places-full': places.remaining === 0 }">
-        {{ places.remaining === 0 ? 'Complet' : `Plus que ${places.remaining} place${places.remaining > 1 ? 's' : ''} sur ${places.capacity}` }}
+        {{ places.remaining === 0 ? fullBadgeText : placesLabel }}
       </p>
 
       <p v-if="submitted" class="ia-success" role="status">{{ successText }}</p>
@@ -58,7 +58,7 @@
         <p v-if="isEditor" class="ia-editor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
         <p v-if="errorMessage" class="ia-error" role="alert">{{ errorMessage }}</p>
 
-        <button type="submit" class="ia-btn" :disabled="sending">{{ sending ? 'Envoi…' : submitText }}</button>
+        <button type="submit" class="ia-btn" :disabled="sending">{{ sending ? sendingText : submitText }}</button>
       </form>
     </div>
   </section>
@@ -84,6 +84,13 @@ const props = defineProps({
   submitText: { type: String, default: "Je m'inscris" },
   successText: { type: String, default: '' },
   fullText: { type: String, default: 'Ce parcours est complet.' },
+  placesText: { type: String, default: 'Plus que {restant} place{s} sur {total}' },
+  fullBadgeText: { type: String, default: 'Complet' },
+  sendingText: { type: String, default: 'Envoi…' },
+  errorRequiredText: { type: String, default: 'Merci de renseigner les champs obligatoires.' },
+  errorEmailText: { type: String, default: 'Merci de saisir une adresse e-mail valide.' },
+  errorPhoneText: { type: String, default: 'Merci de saisir un numéro de téléphone valide.' },
+  errorConsentText: { type: String, default: "Merci de cocher la case d'accord pour l'utilisation de tes coordonnées." },
   backgroundColor: { type: String, default: '#ffffff' },
   textColor: { type: String, default: '#1a1a2e' },
   visibility: { type: Object, default: () => ({}) },
@@ -92,6 +99,16 @@ const props = defineProps({
 })
 
 const isEditor = inject('isEditor', false)
+
+// « Plus que {restant} place{s} sur {total} » : {s} devient « s » au pluriel.
+const placesLabel = computed(() => {
+  const p = places.value
+  if (!p) return ''
+  return String(props.placesText || '')
+    .replaceAll('{restant}', String(p.remaining))
+    .replaceAll('{total}', String(p.capacity))
+    .replaceAll('{s}', p.remaining > 1 ? 's' : '')
+})
 const route = useRoute()
 
 const visibilityClasses = computed(() => ({
@@ -129,19 +146,19 @@ async function submitForm() {
     message: f.message.trim(),
   }
   if (!data.prenom || !data.nom || !data.email || !data.telephone) {
-    errorMessage.value = 'Merci de renseigner les champs obligatoires.'
+    errorMessage.value = props.errorRequiredText
     return
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errorMessage.value = 'Merci de saisir une adresse e-mail valide.'
+    errorMessage.value = props.errorEmailText
     return
   }
   if (data.telephone.replace(/\D/g, '').length < 6) {
-    errorMessage.value = 'Merci de saisir un numéro de téléphone valide.'
+    errorMessage.value = props.errorPhoneText
     return
   }
   if (!f.consent) {
-    errorMessage.value = 'Merci de cocher la case d\'accord pour l\'utilisation de tes coordonnées.'
+    errorMessage.value = props.errorConsentText
     return
   }
   if (f.website.trim() || Date.now() - mountedAt < 2500) {

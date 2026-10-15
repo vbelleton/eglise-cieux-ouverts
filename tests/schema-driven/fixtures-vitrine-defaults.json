@@ -101,6 +101,16 @@
     "newsletterText": "Oui, je souhaite m'abonner à la newsletter.",
     "submitText": "C'est parti !",
     "successText": "Message envoyé, à bientôt !",
+    "requiredNote": "Les champs marqués d'un * sont obligatoires.",
+    "question1": "Tu as une question ?",
+    "question2": "Tu désires parler à un pasteur ?",
+    "question3": "Tu souhaites recevoir notre newsletter ?",
+    "sendingText": "Envoi...",
+    "errorRequiredText": "Merci de renseigner les champs obligatoires.",
+    "errorEmailText": "Merci de saisir une adresse email valide.",
+    "errorShortText": "Ton message est un peu trop court.",
+    "mapTitle": "Carte — Église Cieux Ouverts Morlaix",
+    "mapButtonText": "Afficher la carte",
     "animation": "fadeIn"
   },
   "nousRejoindre": {
@@ -181,6 +191,12 @@
         "places": 2
       }
     ],
+    "placesText": "{nombre} place{s} à pourvoir",
+    "applyText": "Je postule !",
+    "sendingText": "Envoi…",
+    "appliedText": "Candidature envoyée ✓",
+    "successText": "Candidature envoyée ! L'équipe te répondra bientôt.",
+    "errorText": "Impossible d'envoyer la candidature (déjà postulé ?).",
     "backgroundColor": "#ffffff",
     "textColor": "#064886",
     "animation": "fadeIn"
@@ -284,6 +300,13 @@
     "consentText": "J'accepte que mes coordonnées soient utilisées pour organiser le parcours. Elles sont conservées jusqu'à la fin du parcours, puis supprimées sous trois mois.",
     "submitText": "Je m'inscris",
     "successText": "Merci, ton inscription est bien enregistrée. Nous te recontactons très vite.",
+    "placesText": "Plus que {restant} place{s} sur {total}",
+    "fullBadgeText": "Complet",
+    "sendingText": "Envoi…",
+    "errorRequiredText": "Merci de renseigner les champs obligatoires.",
+    "errorEmailText": "Merci de saisir une adresse e-mail valide.",
+    "errorPhoneText": "Merci de saisir un numéro de téléphone valide.",
+    "errorConsentText": "Merci de cocher la case d'accord pour l'utilisation de tes coordonnées.",
     "backgroundColor": "#ffffff",
     "textColor": "#1a1a2e",
     "animation": "fadeIn"
@@ -295,6 +318,11 @@
     "maxItems": 6,
     "emptyText": "Aucun événement à venir pour le moment. Revenez bientôt !",
     "showAgendaLink": true,
+    "agendaLinkText": "Voir tout l'agenda",
+    "bookText": "🎟️ Réserver",
+    "moreText": "En savoir plus",
+    "regularText": "Rendez-vous régulier",
+    "errorText": "Les événements n'ont pas pu être chargés. Réessayez dans un instant.",
     "backgroundColor": "#ffffff",
     "textColor": "#064886",
     "animation": "fadeIn"

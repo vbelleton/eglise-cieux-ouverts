@@ -37,6 +37,7 @@ const DUREE_APERCU = 1400
 let observer = null
 let elementObserver = null
 let replayHandler = null
+let elementReplayHandler = null
 const fallbackObservers = new Map()
 let blocksCache = []
 
@@ -286,6 +287,8 @@ export function useBlockAnimation(isAdmin, isServerAdminRef) {
     if (el) void el.offsetHeight
     nextTick(() => {
       apercuBlocks.value = [...apercuBlocks.value, id]
+      // Une fois .anim-rejeu réellement posée dans le DOM (rendu suivant).
+      nextTick(() => relanceAnimationsApercu(id))
       clearTimeout(finRejeu.get(id))
       finRejeu.set(
         id,
@@ -295,6 +298,37 @@ export function useBlockAnimation(isAdmin, isServerAdminRef) {
         }, DUREE_APERCU),
       )
     })
+  }
+
+  /**
+   * Relance depuis le début les animations d'entrée du bloc et de ses
+   * éléments libres, désormais sur base temporelle (.anim-rejeu).
+   *
+   * Basculer animation-timeline de view() vers auto ne suffit pas à rejouer :
+   * Chrome conserve la progression acquise au scroll (déjà au bout, le bloc
+   * étant visible), et une animation créée à l'instant même — nouvelle
+   * classe block-anim-* posée au même rendu que le choix — restait bloquée
+   * en attente (`pending`, currentTime null) sans jamais démarrer. Dans les
+   * deux cas le bloc s'affichait directement dans son état final : aucun
+   * aperçu visible, alors que playState annonçait « running ».
+   *
+   * Seules les animations du catalogue (keyframes anim*, assets/css/main.css)
+   * sont relancées : les animations propres aux blocs, neutralisées par
+   * .bloc-anim-controlee, ne doivent pas ressurgir.
+   */
+  function relanceAnimationsApercu(id) {
+    const el = wrapperRefs.value[id]
+    if (!el?.getAnimations) return
+    const cibles = [el, ...el.querySelectorAll('.bee-el')]
+    for (const cible of cibles) {
+      for (const a of cible.getAnimations()) {
+        if (!/^anim[A-Z]/.test(a.animationName || '')) continue
+        try {
+          a.cancel()
+          a.play()
+        } catch {}
+      }
+    }
   }
 
   function replayBlockAnimation(id) {
@@ -451,6 +485,14 @@ export function useBlockAnimation(isAdmin, isServerAdminRef) {
       triggeredBlocks.value = [...allIds]
       return
     }
+    // triggeredBlocks est un état de MODULE qui survit aux navigations (le
+    // layout ne remonte pas) : en revenant sur une page déjà vue, ses blocs
+    // y figuraient encore et s'affichaient d'emblée dans leur état final —
+    // leur animation d'entrée ne se rejouait plus jamais (navigateurs sans
+    // animation-timeline). On repart de zéro pour les blocs de CETTE page
+    // uniquement, sans toucher à ceux qu'une autre instance gèrerait.
+    const idsPage = new Set((blocks || []).map((b) => b?.id).filter(Boolean))
+    triggeredBlocks.value = triggeredBlocks.value.filter((id) => !idsPage.has(id))
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -499,7 +541,13 @@ export function useBlockAnimation(isAdmin, isServerAdminRef) {
       newMap[b.id] = b.props?.animation
       const prev = oldMap[b.id]
       const now = b.props?.animation
-      if (prev !== undefined && prev !== now) {
+      // Le rejeu est un APERÇU d'éditeur. Sur le site public, l'animation
+      // résolue change quand la fenêtre franchit un seuil d'appareil
+      // (réglage par appareil + rotation d'une tablette, redimensionnement) :
+      // rejouer y faisait défiler la page jusqu'au bloc (scrollIntoView du
+      // rejeu public) et arrachait le visiteur à sa lecture. La nouvelle
+      // classe suffit : elle s'applique d'elle-même au prochain rendu.
+      if (prev !== undefined && prev !== now && isAdmin && isAdmin.value) {
         // Déléguer plutôt que refaire : cet observateur et l'événement
         // 'replay-animation' émis par AutoEditor se déclenchent tous deux au
         // même clic. Quand chacun menait son propre rejeu, ils se marchaient
@@ -632,24 +680,28 @@ export function useBlockAnimation(isAdmin, isServerAdminRef) {
     document.addEventListener('replay-animation', replayHandler)
 
     // Element-level replay handler
-    const elementReplayHandler = (e) => {
+    //
+    // Retiré par teardownClient, comme replayHandler. Il l'était auparavant
+    // en RÉASSIGNANT teardownClient ici, ce qui ne servait à rien :
+    // PageRenderer a déjà copié la fonction d'origine (déstructurée au
+    // retour de useBlockAnimation, avant le montage). Chaque page visitée
+    // laissait donc son écouteur sur document, et un clic « rejouer » sur un
+    // élément le rejouait autant de fois que de pages traversées.
+    elementReplayHandler = (e) => {
       const { blockId, elementId } = e?.detail || {}
       if (blockId && elementId) replayElement(blockId, elementId)
     }
     document.addEventListener('replay-element-animation', elementReplayHandler)
-
-    // Cleanup element replay listener on teardown
-    const origTeardown = typeof teardownClient === 'function' ? teardownClient : () => {}
-    teardownClient = () => {
-      origTeardown()
-      document.removeEventListener('replay-element-animation', elementReplayHandler)
-    }
   }
 
   function teardownClient() {
     if (observer) observer.disconnect()
     if (elementObserver) elementObserver.disconnect()
     if (replayHandler) document.removeEventListener('replay-animation', replayHandler)
+    if (elementReplayHandler) {
+      document.removeEventListener('replay-element-animation', elementReplayHandler)
+      elementReplayHandler = null
+    }
     for (const [, obs] of fallbackObservers) obs.disconnect()
     fallbackObservers.clear()
   }

@@ -171,7 +171,16 @@ function onResizeStop(el: ExtraElement, x: number, y: number, w: number, h: numb
      de hauteur propre, le bloc garde sa taille naturelle. */
   position: absolute;
   inset: 0;
+  /* `clip` et non `hidden` : même découpe visuelle, mais `hidden` fait du
+     canvas un conteneur de défilement. Or l'animation des éléments libres
+     suit le scroll (animation-timeline: view(), assets/css/main.css), et
+     view() se cale sur le conteneur de défilement le plus proche : le
+     canvas, dans lequel l'élément est toujours entièrement visible. Son
+     animation était donc finie avant même que le bloc n'entre à l'écran.
+     `hidden` reste en repli pour les navigateurs sans `clip` (qui n'ont pas
+     non plus view() et jouent l'animation via .triggered). */
   overflow: hidden;
+  overflow: clip;
   /* Laisse passer les clics vers le contenu du bloc en dessous partout
      sauf sur les éléments eux-mêmes (réactivé ci-dessous). */
   pointer-events: none;

@@ -37,30 +37,6 @@
                 :title="isPromoted(field) ? 'Déplacer/redimensionner cet élément sur la page' : 'Rendre cet élément déplaçable, redimensionnable et le sortir de sa place fixe dans le bloc'"
                 @click="onMoveField(field)"
               >⇱ Déplacer</button>
-              <input
-                v-if="isFontableField(field)"
-                type="number"
-                step="0.1"
-                min="0.3"
-                max="5"
-                class="field-size-input"
-                :value="fieldFontSizeValue(field.key)"
-                title="Taille de police relative (1 = taille par défaut)"
-                placeholder="Taille"
-                @change="onFontSizeChange(field.key, ($event.target as HTMLInputElement).value)"
-              />
-              <select
-                v-if="isFontableField(field)"
-                class="field-font-picker"
-                :value="fieldFontValue(field.key)"
-                title="Police de ce champ"
-                @change="onFontChange(field.key, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">Police par défaut</option>
-                <optgroup v-for="g in fontGroups" :key="g.id" :label="g.label">
-                  <option v-for="f in g.fonts" :key="f.value" :value="f.value">{{ f.label }}</option>
-                </optgroup>
-              </select>
             </div>
             <div
               v-if="isFontableField(field)"
@@ -94,7 +70,30 @@
                 title="Revenir à la couleur par défaut"
                 aria-label="Revenir à la couleur par défaut"
                 @click="setFormatColor(field.key, '')"
-              >Couleur par défaut</button>
+              >↺</button>
+              <span class="field-format-sep" aria-hidden="true"></span>
+              <input
+                type="number"
+                step="0.1"
+                min="0.3"
+                max="5"
+                class="field-size-input"
+                :value="fieldFontSizeValue(field.key)"
+                title="Taille de police relative (1 = taille par défaut)"
+                placeholder="Taille"
+                @change="onFontSizeChange(field.key, ($event.target as HTMLInputElement).value)"
+              />
+              <select
+                class="field-font-picker"
+                :value="fieldFontValue(field.key)"
+                title="Police de ce champ"
+                @change="onFontChange(field.key, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Police par défaut</option>
+                <optgroup v-for="g in fontGroups" :key="g.id" :label="g.label">
+                  <option v-for="f in g.fonts" :key="f.value" :value="f.value">{{ f.label }}</option>
+                </optgroup>
+              </select>
             </div>
             <p v-if="isPromoted(field)" class="field-promoted-note">
               ↳ Déplacé sur la page. Clique « Déplacer » ci-dessus pour l'ajuster, ou sélectionne-le sur le bloc pour modifier son contenu.
@@ -600,7 +599,13 @@ function onDesignUpdate(block: BlockInstance) {
   padding: 2px 5px;
   max-width: 130px;
 }
-.field-format-bar { display: flex; align-items: center; gap: 4px; }
+/* Barre de mise en forme sous le libellé : G/I/S, couleur et taille sur
+   une ligne, la police sur toute la largeur en dessous (la sidebar est trop
+   étroite pour tout aligner sans retours à la ligne désordonnés). */
+.field-format-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.field-format-bar .field-font-picker { flex: 1 1 100%; max-width: none; min-width: 0; height: 26px; }
+.field-format-bar .field-size-input { height: 24px; box-sizing: border-box; }
+.field-format-sep { width: 1px; height: 18px; background: #e2e8f0; margin: 0 2px; }
 .field-format-btn {
   width: 26px;
   height: 24px;
@@ -627,11 +632,10 @@ function onDesignUpdate(block: BlockInstance) {
   cursor: pointer;
 }
 .field-format-reset {
-  font-size: 0.68em;
+  font-size: 0.85em;
   background: none;
   border: none;
   color: #064886;
-  text-decoration: underline;
   cursor: pointer;
   padding: 0 2px;
 }

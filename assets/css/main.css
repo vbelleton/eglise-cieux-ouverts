@@ -311,7 +311,17 @@ a:hover, .nav-admin-link:hover {
     scroll-behavior: auto;
   }
 
+  /* `animation-timeline: auto` : les animations pilotées au scroll
+     (animation-timeline: view() ou nommée — Rejoins, Contact, Nous rejoindre,
+     Aspirations…) ignorent animation-duration. Sans ce retour sur une base
+     temporelle, elles continuaient de glisser au défilement malgré la
+     préférence ; avec, elles atterrissent aussitôt sur leur image finale
+     (animation-fill-mode: both). Le délai est annulé pour la même raison :
+     un élément décalé restait masqué sur sa première image le temps du
+     délai. */
   *, *::before, *::after {
+    animation-timeline: auto !important;
+    animation-delay: 0s !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -411,10 +421,15 @@ a:hover, .nav-admin-link:hover {
 
    Les transitions ne sont volontairement pas touchées : à l'intérieur d'un
    bloc, ce sont les retours au survol des liens et boutons, pas des
-   animations d'entrée — les supprimer rendrait l'interface inerte. */
-.bloc-anim-controlee *,
-.bloc-anim-controlee *::before,
-.bloc-anim-controlee *::after {
+   animations d'entrée — les supprimer rendrait l'interface inerte.
+
+   Les éléments libres (.bee-canvas, BlockExtraElementsCanvas.vue) sont
+   exclus : ils vivent DANS le wrapper mais portent leur propre animation,
+   choisie par l'utilisateur dans la sidebar. Visés par `*`, ils étaient
+   ramenés à 0,01 ms et apparaissaient d'un coup quel que soit le choix. */
+.bloc-anim-controlee :not(.bee-canvas, .bee-canvas *),
+.bloc-anim-controlee :not(.bee-canvas, .bee-canvas *)::before,
+.bloc-anim-controlee :not(.bee-canvas, .bee-canvas *)::after {
     animation-timeline: auto !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
@@ -433,7 +448,11 @@ a:hover, .nav-admin-link:hover {
    temporelle : la durée déclarée redevient effective et l'animation se joue
    une fois, du début à la fin. Elle est retirée ensuite pour rendre au bloc
    son comportement au scroll sur le site public. */
-.anim-rejeu {
+.anim-rejeu,
+/* Les éléments libres du bloc sont rejoués avec lui (AdminToolbar
+   onExtraElementReplay) et souffrent du même piège : leur animation suit le
+   scroll, elle est déjà terminée dans l'éditeur. */
+.anim-rejeu .bee-el {
     animation-timeline: auto !important;
 }
 

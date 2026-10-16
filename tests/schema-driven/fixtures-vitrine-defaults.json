@@ -327,6 +327,147 @@
     "textColor": "#064886",
     "animation": "fadeIn"
   },
+  "sectionTitle": {
+    "title": "Titre de la section",
+    "subtitle": "",
+    "align": "center",
+    "showDivider": true,
+    "dividerColor": "",
+    "backgroundColor": "#ffffff",
+    "textColor": "#064886",
+    "animation": "fadeIn"
+  },
+  "callToAction": {
+    "title": "Envie d'en savoir plus ?",
+    "text": "",
+    "primaryLabel": "Nous contacter",
+    "primaryLink": "/contact",
+    "secondaryLabel": "",
+    "secondaryLink": "",
+    "backgroundColor": "#064886",
+    "textColor": "#ffffff",
+    "buttonColor": "#d97777",
+    "buttonTextColor": "#ffffff",
+    "animation": "fadeIn"
+  },
+  "infosPratiques": {
+    "title": "Infos pratiques",
+    "subtitle": "",
+    "items": [
+      {
+        "icon": "⛪",
+        "label": "Culte",
+        "text": "Chaque dimanche à 10h"
+      },
+      {
+        "icon": "📍",
+        "label": "Adresse",
+        "text": "2 rue Jean Monnet\n29600 Morlaix"
+      }
+    ],
+    "buttonLabel": "",
+    "buttonLink": "",
+    "backgroundColor": "#f4f8fc",
+    "textColor": "#064886",
+    "cardColor": "#ffffff",
+    "buttonColor": "#064886",
+    "buttonTextColor": "#ffffff",
+    "animation": "fadeIn"
+  },
+  "temoignages": {
+    "title": "Ils témoignent",
+    "items": [
+      {
+        "quote": "Écris ici le témoignage d'une personne de l'église.",
+        "name": "Prénom",
+        "role": "",
+        "photo": ""
+      }
+    ],
+    "prevLabel": "Témoignage précédent",
+    "nextLabel": "Témoignage suivant",
+    "slideLabel": "Témoignage",
+    "backgroundColor": "#f4f8fc",
+    "textColor": "#064886",
+    "cardColor": "#ffffff",
+    "animation": "fadeIn"
+  },
+  "colonnes": {
+    "title": "",
+    "subtitle": "",
+    "columns": 2,
+    "items": [
+      {
+        "image": "",
+        "title": "Première colonne",
+        "text": "Écris ici le texte de la première colonne.",
+        "linkLabel": "",
+        "link": ""
+      },
+      {
+        "image": "",
+        "title": "Deuxième colonne",
+        "text": "Écris ici le texte de la deuxième colonne.",
+        "linkLabel": "",
+        "link": ""
+      }
+    ],
+    "backgroundColor": "#ffffff",
+    "textColor": "#064886",
+    "buttonColor": "#064886",
+    "animation": "fadeIn"
+  },
+  "compteARebours": {
+    "title": "Plus que quelques jours…",
+    "subtitle": "",
+    "targetDate": "2026-12-25 10:00",
+    "showSeconds": true,
+    "doneText": "C'est maintenant !",
+    "daysLabel": "Jours",
+    "hoursLabel": "Heures",
+    "minutesLabel": "Minutes",
+    "secondsLabel": "Secondes",
+    "buttonLabel": "",
+    "buttonLink": "",
+    "backgroundColor": "#064886",
+    "textColor": "#ffffff",
+    "cardColor": "rgba(255, 255, 255, 0.14)",
+    "buttonColor": "#d97777",
+    "buttonTextColor": "#ffffff",
+    "animation": "fadeIn"
+  },
+  "don": {
+    "icon": "💙",
+    "title": "Soutenir l'église",
+    "text": "Votre générosité permet à l'église de vivre et d'accueillir chacun. Merci !",
+    "note": "",
+    "buttonLabel": "Faire un don",
+    "buttonLink": "/contact",
+    "backgroundColor": "#fdf2f2",
+    "textColor": "#064886",
+    "buttonColor": "#d97777",
+    "buttonTextColor": "#ffffff",
+    "animation": "fadeIn"
+  },
+  "audio": {
+    "title": "Écouter les messages",
+    "subtitle": "",
+    "items": [
+      {
+        "title": "Titre du message",
+        "speaker": "",
+        "date": "",
+        "description": "",
+        "audioUrl": ""
+      }
+    ],
+    "emptyText": "L'enregistrement sera bientôt disponible.",
+    "downloadText": "Télécharger",
+    "backgroundColor": "#ffffff",
+    "textColor": "#064886",
+    "cardColor": "#f4f8fc",
+    "animation": "fadeIn"
+  },
   "footer": {
     "title": "Il y a une place pour toi !",
     "email": "contact@cieuxouverts.bzh",

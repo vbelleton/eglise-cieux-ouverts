@@ -22,7 +22,9 @@ Chaque page est composée de blocs (voir « Système de blocs »). Le contenu r�
 
 ## Système de blocs (schema-driven)
 
-23 types de blocs (`utils/blockTypes.js` = source de vérité, vérifié) : `hero`, `bienvenue`, `activities`, `textImage`, `rejoins`, `aspirations`, `contact`, `nousRejoindre`, `richText`, `gallery`, `spacer`, `youtube`, `vision`, `fullWidthImage`, `equipe`, `louange`, `faq`, `iconGrid`, `stats`, `quote`, `bandeau`, `evenements`, `footer`.
+31 types de blocs (`utils/blockTypes.js` = source de vérité, vérifié) : `hero`, `bienvenue`, `activities`, `textImage`, `rejoins`, `aspirations`, `contact`, `nousRejoindre`, `richText`, `gallery`, `spacer`, `youtube`, `vision`, `fullWidthImage`, `equipe`, `louange`, `faq`, `iconGrid`, `stats`, `quote`, `bandeau`, `evenements`, `sectionTitle`, `callToAction`, `infosPratiques`, `temoignages`, `colonnes`, `compteARebours`, `don`, `audio`, `footer`.
+
+- **Blocs ajoutés (titre de section, bouton, horaires, témoignages, colonnes, compte à rebours, don, audio)** : tout texte visible vient des props (aucun texte en dur). Liens et sources passent par `utils/safeLink.js` (`lienSur`, `sourceSure` : refus de `javascript:`/`data:`). Le compte à rebours utilise l'heure de l'appareil du visiteur ; l'audio lit une URL de fichier mp3 hébergé ailleurs (pas de téléversement audio). Le bloc `don` pointe par défaut vers `/contact` : y mettre le vrai lien de don.
 
 Chaque type déclare `label`, `icon`, `category`, `animations` (stratégie), `defaults`, `schema` (champs auto-générés dans la sidebar : `text`, `textarea`, `richtext`, `number`, `color`, `boolean`, `select`, `animation`, `image`, `array`, `images`).
 

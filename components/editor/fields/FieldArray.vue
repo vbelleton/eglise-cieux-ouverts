@@ -62,6 +62,12 @@
               :value="item[sub.key]"
               @input="updateItem(idx, sub.key, ($event.target as HTMLInputElement).value)"
             />
+            <FieldImage
+              v-else-if="sub.type === 'image'"
+              :value="item[sub.key]"
+              :field="sub"
+              @change="updateItem(idx, sub.key, $event)"
+            />
             <textarea
               v-else-if="sub.type === 'textarea'"
               class="field-textarea"
@@ -107,6 +113,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import FieldImage from './FieldImage.vue'
 
 const props = defineProps<{ value: any; field: any }>()
 const emit = defineEmits<{ change: [value: any[]] }>()

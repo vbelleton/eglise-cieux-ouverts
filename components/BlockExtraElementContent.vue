@@ -46,6 +46,9 @@ const textStyle = computed(() => {
   const s: Record<string, string> = {}
   if (el.color) s.color = el.color
   if (el.fontSize) s.fontSize = el.fontSize
+  if (el.bold) s.fontWeight = '700'
+  if (el.italic) s.fontStyle = 'italic'
+  if (el.underline) s.textDecoration = 'underline'
   if (el.textAlign) s.textAlign = el.textAlign
   if (el.fontFamily) {
     const stack = fontStack(el.fontFamily)

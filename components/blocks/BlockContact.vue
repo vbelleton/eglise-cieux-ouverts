@@ -21,7 +21,7 @@
           <div class="contact-page-card-inner">
             <div class="contact-page-form-col">
               <form class="contact-page-form" @submit.prevent="submitForm">
-                <p class="contact-required-note">Les champs marqués d'un * sont obligatoires.</p>
+                <p v-if="requiredNote" class="contact-required-note" data-field-key="requiredNote" :style="fieldFontStyle(fieldFonts, 'requiredNote', fieldFontSizes)">{{ requiredNote }}</p>
                 <div class="contact-page-row">
                   <label class="contact-page-field">
                     <span>{{ labelPrenom }} *</span>
@@ -61,14 +61,14 @@
 
                 <div class="contact-page-submit">
                   <button type="submit" class="contact-page-btn" :disabled="isFormDisabled">
-                    {{ sending ? 'Envoi...' : submitText }}
+                    {{ sending ? sendingText : submitText }}
                   </button>
                 </div>
               </form>
             </div>
 
             <div class="contact-page-map-col">
-              <MapFacade :src="mapEmbedUrl" title="Carte — Église Cieux Ouverts Morlaix" min-height="420px" />
+              <MapFacade :src="mapEmbedUrl" :title="mapTitle" :button-text="mapButtonText" min-height="420px" />
             </div>
           </div>
         </div>
@@ -90,12 +90,14 @@
 
         <div class="contact-right">
           <div class="contact-questions">
-            <p v-if="showQuestions !== false">Tu as une question ?</p>
-            <p v-if="showQuestions !== false">Tu désires parler à un pasteur ?</p>
-            <p v-if="showQuestions !== false">Tu souhaites recevoir notre newsletter ?</p>
+            <template v-if="showQuestions !== false">
+              <p v-if="question1" data-field-key="question1" :style="fieldFontStyle(fieldFonts, 'question1', fieldFontSizes)">{{ question1 }}</p>
+              <p v-if="question2" data-field-key="question2" :style="fieldFontStyle(fieldFonts, 'question2', fieldFontSizes)">{{ question2 }}</p>
+              <p v-if="question3" data-field-key="question3" :style="fieldFontStyle(fieldFonts, 'question3', fieldFontSizes)">{{ question3 }}</p>
+            </template>
           </div>
           <form class="contact-form" @submit.prevent="submitForm">
-            <p class="contact-required-note">Les champs marqués d'un * sont obligatoires.</p>
+            <p v-if="requiredNote" class="contact-required-note" data-field-key="requiredNote" :style="fieldFontStyle(fieldFonts, 'requiredNote', fieldFontSizes)">{{ requiredNote }}</p>
             <div class="form-row">
               <input v-model="form.prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
               <input v-model="form.nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
@@ -112,7 +114,7 @@
             <p class="success-msg" v-if="submitted" role="status">{{ successText }}</p>
             <p class="error-msg" v-if="errorMessage" :id="'contact-erreur-' + uid" role="alert">{{ errorMessage }}</p>
             <button type="submit" class="btn-submit" :disabled="isFormDisabled">
-              {{ sending ? 'Envoi...' : submitText }}
+              {{ sending ? sendingText : submitText }}
             </button>
           </form>
         </div>
@@ -148,6 +150,16 @@ const {
   newsletterText = "Oui, je souhaite m'abonner à la newsletter.",
   submitText = "C'est parti !",
   successText = 'Message envoyé, à bientôt !',
+  requiredNote = "Les champs marqués d'un * sont obligatoires.",
+  question1 = 'Tu as une question ?',
+  question2 = 'Tu désires parler à un pasteur ?',
+  question3 = 'Tu souhaites recevoir notre newsletter ?',
+  sendingText = 'Envoi...',
+  errorRequiredText = 'Merci de renseigner les champs obligatoires.',
+  errorEmailText = 'Merci de saisir une adresse email valide.',
+  errorShortText = 'Ton message est un peu trop court.',
+  mapTitle = 'Carte — Église Cieux Ouverts Morlaix',
+  mapButtonText = 'Afficher la carte',
   visibility = {},
   fieldFonts = {},
   fieldFontSizes = {},
@@ -172,6 +184,16 @@ const {
   newsletterText: { type: String, default: "Oui, je souhaite m'abonner à la newsletter." },
   submitText: { type: String, default: "C'est parti !" },
   successText: { type: String, default: 'Message envoyé, à bientôt !' },
+  requiredNote: { type: String, default: "Les champs marqués d'un * sont obligatoires." },
+  question1: { type: String, default: 'Tu as une question ?' },
+  question2: { type: String, default: 'Tu désires parler à un pasteur ?' },
+  question3: { type: String, default: 'Tu souhaites recevoir notre newsletter ?' },
+  sendingText: { type: String, default: 'Envoi...' },
+  errorRequiredText: { type: String, default: 'Merci de renseigner les champs obligatoires.' },
+  errorEmailText: { type: String, default: 'Merci de saisir une adresse email valide.' },
+  errorShortText: { type: String, default: 'Ton message est un peu trop court.' },
+  mapTitle: { type: String, default: 'Carte — Église Cieux Ouverts Morlaix' },
+  mapButtonText: { type: String, default: 'Afficher la carte' },
   visibility: { type: Object, default: () => ({}) },
   fieldFonts: { type: Object, default: () => ({}) },
   fieldFontSizes: { type: Object, default: () => ({}) },
@@ -217,13 +239,13 @@ function normalizeForm() {
 
 function validateForm(data) {
   if (!data.prenom || !data.nom || !data.email || !data.message) {
-    return 'Merci de renseigner les champs obligatoires.'
+    return errorRequiredText
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    return 'Merci de saisir une adresse email valide.'
+    return errorEmailText
   }
   if (data.message.length < 10) {
-    return 'Ton message est un peu trop court.'
+    return errorShortText
   }
   if (data.website) {
     return 'Envoi bloqué.'

@@ -44,6 +44,7 @@ scripts/*
 !scripts/generate-tests.ts
 !scripts/optimize-images.sh
 !scripts/scan-secrets.sh
+!scripts/generate-site-images.mjs
 
 # Playwright MCP artifacts
 .playwright-mcp/

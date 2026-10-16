@@ -96,5 +96,27 @@ export function fieldFontStyle(fieldFonts, key, fieldFontSizes) {
   }
   const size = fieldFontSizes?.[key]
   if (size) style.fontSize = size
+  Object.assign(style, formatStyle(fieldFonts?._formats?.[key]))
+  return style
+}
+
+// Couleur saisie dans l'admin : seuls #rgb/#rrggbb(aa) et rgb()/rgba() sont
+// acceptés, pour qu'une valeur arbitraire ne puisse pas injecter d'autre CSS.
+const COULEUR_VALIDE = /^(#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\(\s*[\d.\s,%]+\))$/i
+export function couleurValide(c) {
+  return typeof c === "string" && COULEUR_VALIDE.test(c.trim())
+}
+
+// Mise en forme d'un champ de texte (gras/italique/souligné/couleur), stockée
+// dans props.fieldFonts._formats[clé] = { gras, italique, souligne, couleur }
+// — rangée dans fieldFonts pour que tous les appels existants à
+// fieldFontStyle() l'appliquent sans toucher chaque composant de bloc.
+export function formatStyle(format) {
+  const style = {}
+  if (!format || typeof format !== "object") return style
+  if (format.gras) style.fontWeight = "700"
+  if (format.italique) style.fontStyle = "italic"
+  if (format.souligne) style.textDecoration = "underline"
+  if (couleurValide(format.couleur)) style.color = format.couleur.trim()
   return style
 }

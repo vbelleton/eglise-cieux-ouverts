@@ -9,14 +9,14 @@
           <h3>{{ pos.poste }}</h3>
           <p v-if="pos.description" class="louange-desc">{{ pos.description }}</p>
           <p v-if="pos.places" class="louange-places">
-            {{ pos.places }} place{{ pos.places > 1 ? 's' : '' }} à pourvoir
+            {{ placesLabel(pos.places) }}
           </p>
           <button
             class="louange-apply"
             :disabled="pendingKeys.has(posKey(pos)) || sentKeys.has(posKey(pos))"
             @click="apply(pos)"
           >
-            {{ sentKeys.has(posKey(pos)) ? 'Candidature envoyée ✓' : pendingKeys.has(posKey(pos)) ? 'Envoi…' : 'Je postule !' }}
+            {{ sentKeys.has(posKey(pos)) ? appliedText : pendingKeys.has(posKey(pos)) ? sendingText : applyText }}
           </button>
         </article>
       </div>
@@ -34,6 +34,12 @@ const props = defineProps({
   title: { type: String, default: '' },
   intro: { type: String, default: '' },
   positions: { type: Array, default: () => [] },
+  placesText: { type: String, default: '{nombre} place{s} à pourvoir' },
+  applyText: { type: String, default: 'Je postule !' },
+  sendingText: { type: String, default: 'Envoi…' },
+  appliedText: { type: String, default: 'Candidature envoyée ✓' },
+  successText: { type: String, default: "Candidature envoyée ! L'équipe te répondra bientôt." },
+  errorText: { type: String, default: "Impossible d'envoyer la candidature (déjà postulé ?)." },
   backgroundColor: { type: String, default: '#ffffff' },
   textColor: { type: String, default: '#064886' },
   animation: { type: String, default: 'fadeIn' },
@@ -65,6 +71,13 @@ const pendingKeys = ref(new Set())
 const sentKeys = ref(new Set())
 const toast = ref('')
 
+// « {nombre} place{s} à pourvoir » : {s} devient « s » au pluriel.
+function placesLabel(nombre) {
+  return String(props.placesText || '')
+    .replaceAll('{nombre}', String(nombre))
+    .replaceAll('{s}', nombre > 1 ? 's' : '')
+}
+
 function posKey(pos) {
   return pos.key || pos.poste || ''
 }
@@ -88,9 +101,9 @@ async function apply(pos) {
       body: { position_key: key, position_label: pos.poste },
     })
     sentKeys.value = new Set([...sentKeys.value, key])
-    toast.value = 'Candidature envoyée ! L\'équipe te répondra bientôt.'
+    toast.value = props.successText
   } catch (e) {
-    toast.value = e?.data?.message || 'Impossible d\'envoyer la candidature (déjà postulé ?).'
+    toast.value = e?.data?.message || props.errorText
   } finally {
     const next = new Set(pendingKeys.value)
     next.delete(key)

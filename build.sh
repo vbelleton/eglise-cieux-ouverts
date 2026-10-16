@@ -27,17 +27,17 @@ if [ "$CF_PAGES_BRANCH" != "main" ]; then
   export NUXT_FIREBASE_PRIVATE_KEY="${NUXT_FIREBASE_PRIVATE_KEY:-dummy-key-set-in-cloudflare-dashboard}"
 fi
 
-# package-lock.json est généré sur macOS et ne verrouille donc que le
-# binding natif darwin-arm64 pour les paquets multi-plateformes
-# (oxc-parser, esbuild, rollup). npm install seul ne suffit pas : avec
-# un lockfile existant (même partiel), npm considère la résolution déjà
-# satisfaite et ne va pas chercher les variantes de plateforme
-# manquantes. On supprime donc le lockfile ici pour forcer une
-# résolution fraîche sur la machine Linux de Cloudflare elle-même, qui
-# récupère alors correctement le binding linux-x64-gnu (bug connu
-# npm/cli#4828 — suggestion officielle de npm dans son propre message
-# d'erreur : supprimer node_modules + package-lock.json puis réinstaller).
-rm -f package-lock.json
+# Installation STRICTE depuis package-lock.json (npm ci), comme la CI GitHub.
+# Avant, ce script supprimait le lockfile pour forcer une résolution fraîche
+# (le lockfile, généré sur macOS, ne contenait alors que les bindings natifs
+# darwin). Il contient aujourd'hui les variantes linux-x64 (rollup, esbuild,
+# oxc, lightningcss…), et la résolution fraîche s'est retournée contre nous :
+# chaque build prenait les dernières versions publiées, et le 16/10/2026 une
+# nouvelle version de dépendance a fait planter `npm install` lui-même
+# (« Cannot read properties of null (reading 'edgesOut') ») — tous les
+# déploiements Cloudflare échouaient, sans aucun changement de code.
+# Si un binding de plateforme venait à manquer, régénérer le lockfile
+# (npm install) et le commiter, plutôt que de revenir à une résolution libre.
 rm -rf node_modules
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 npm run build

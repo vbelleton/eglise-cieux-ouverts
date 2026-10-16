@@ -14,7 +14,7 @@
       <div v-if="loading" class="evts-grid" aria-busy="true">
         <div v-for="n in Math.min(maxItems, 3)" :key="n" class="evt-card evt-skeleton" />
       </div>
-      <p v-else-if="erreur" class="evts-msg">Les événements n'ont pas pu être chargés. Réessayez dans un instant.</p>
+      <p v-else-if="erreur" class="evts-msg">{{ errorText }}</p>
       <p v-else-if="!liste.length" class="evts-msg" data-field-key="emptyText" :style="fieldFontStyle(fieldFonts, 'emptyText', fieldFontSizes)">{{ emptyText }}</p>
       <div v-else class="evts-grid">
         <article v-for="evt in liste" :key="`${evt.id}-${evt.date.getTime()}`" class="evt-card">
@@ -33,17 +33,17 @@
               <span v-if="evt.heure">🕙 {{ evt.heure }}<template v-if="evt.fin"> – {{ evt.fin }}</template></span>
               <span v-if="evt.lieu">📍 {{ evt.lieu }}</span>
             </p>
-            <span v-if="evt.repeat_period" class="evt-regulier">Rendez-vous régulier</span>
+            <span v-if="evt.repeat_period" class="evt-regulier">{{ regularText }}</span>
             <div v-if="evt.lien || evt.billetterie" class="evt-liens">
-              <a v-if="evt.billetterie" :href="evt.billetterie" target="_blank" rel="noopener" class="evt-btn">🎟️ Réserver</a>
-              <a v-if="evt.lien" :href="evt.lien" target="_blank" rel="noopener" class="evt-btn evt-btn-sec">En savoir plus</a>
+              <a v-if="evt.billetterie" :href="evt.billetterie" target="_blank" rel="noopener" class="evt-btn">{{ bookText }}</a>
+              <a v-if="evt.lien" :href="evt.lien" target="_blank" rel="noopener" class="evt-btn evt-btn-sec">{{ moreText }}</a>
             </div>
           </div>
         </article>
       </div>
 
       <div v-if="showAgendaLink" class="evts-agenda">
-        <NuxtLink to="/agenda" class="evt-btn evt-btn-sec">Voir tout l'agenda</NuxtLink>
+        <NuxtLink to="/agenda" class="evt-btn evt-btn-sec">{{ agendaLinkText }}</NuxtLink>
       </div>
     </div>
   </section>
@@ -60,6 +60,11 @@ const props = defineProps({
   maxItems: { type: Number, default: 6 },
   emptyText: { type: String, default: '' },
   showAgendaLink: { type: Boolean, default: true },
+  agendaLinkText: { type: String, default: "Voir tout l'agenda" },
+  bookText: { type: String, default: '🎟️ Réserver' },
+  moreText: { type: String, default: 'En savoir plus' },
+  regularText: { type: String, default: 'Rendez-vous régulier' },
+  errorText: { type: String, default: "Les événements n'ont pas pu être chargés. Réessayez dans un instant." },
   backgroundColor: { type: String, default: '#ffffff' },
   textColor: { type: String, default: '#064886' },
   animation: { type: String, default: 'fadeIn' },

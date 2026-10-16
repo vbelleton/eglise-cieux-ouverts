@@ -97,15 +97,26 @@ function defaultState() {
 
 let state = defaultState()
 
+// Jour situé `n` jours après aujourd'hui (date locale, pas toISOString).
+function dansJours(n) {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /**
  * Événements de l'église pour les tests : en réel ils viennent du Worker
- * eglise-app, jamais appelé ici. Dates ancrées sur le mois courant, comme le
- * reste des fixtures — voir jourDuMoisCourant plus haut.
+ * eglise-app, jamais appelé ici. Utilisés par /api/taches/sources, qui ne
+ * garde que les événements À VENIR : ils sont donc datés à partir
+ * d'aujourd'hui, pas sur le mois courant comme les autres fixtures — le 15
+ * et le 17 du mois passaient dans le passé dès le 16, et
+ * tests/playwright/taches-sources.spec.ts échouait la seconde moitié de
+ * chaque mois sans qu'une ligne de code ait changé.
  */
 export function getChurchEventsMock() {
   return [
-    { id: 1, title: 'Culte du dimanche', start_date: DATE_EVENEMENT_MOCK, start_time: '10:00', location: 'Morlaix', status: 'active' },
-    { id: 2, title: 'Soirée louange', start_date: DATE_EVENEMENT_MOCK_2, start_time: '19:30', location: 'Morlaix', status: 'active' },
+    { id: 1, title: 'Culte du dimanche', start_date: dansJours(7), start_time: '10:00', location: 'Morlaix', status: 'active' },
+    { id: 2, title: 'Soirée louange', start_date: dansJours(9), start_time: '19:30', location: 'Morlaix', status: 'active' },
   ]
 }
 

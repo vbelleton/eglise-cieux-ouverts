@@ -37,8 +37,42 @@
                 :title="isPromoted(field) ? 'Déplacer/redimensionner cet élément sur la page' : 'Rendre cet élément déplaçable, redimensionnable et le sortir de sa place fixe dans le bloc'"
                 @click="onMoveField(field)"
               >⇱ Déplacer</button>
+            </div>
+            <div
+              v-if="isFontableField(field)"
+              class="field-format-bar"
+              role="group"
+              :aria-label="`Mise en forme : ${field.label}`"
+            >
+              <button
+                v-for="opt in FORMAT_OPTIONS"
+                :key="opt.cle"
+                type="button"
+                class="field-format-btn"
+                :class="[`field-format-${opt.cle}`, { 'field-format-on': formatValue(field.key)[opt.cle] }]"
+                :aria-pressed="formatValue(field.key)[opt.cle] ? 'true' : 'false'"
+                :title="opt.titre"
+                :aria-label="opt.titre"
+                @click="toggleFormat(field.key, opt.cle)"
+              >{{ opt.lettre }}</button>
               <input
-                v-if="isFontableField(field)"
+                type="color"
+                class="field-format-color"
+                :value="formatValue(field.key).couleur || '#000000'"
+                title="Couleur du texte"
+                aria-label="Couleur du texte"
+                @input="setFormatColor(field.key, ($event.target as HTMLInputElement).value)"
+              />
+              <button
+                v-if="formatValue(field.key).couleur"
+                type="button"
+                class="field-format-reset"
+                title="Revenir à la couleur par défaut"
+                aria-label="Revenir à la couleur par défaut"
+                @click="setFormatColor(field.key, '')"
+              >↺</button>
+              <span class="field-format-sep" aria-hidden="true"></span>
+              <input
                 type="number"
                 step="0.1"
                 min="0.3"
@@ -50,7 +84,6 @@
                 @change="onFontSizeChange(field.key, ($event.target as HTMLInputElement).value)"
               />
               <select
-                v-if="isFontableField(field)"
                 class="field-font-picker"
                 :value="fieldFontValue(field.key)"
                 title="Police de ce champ"
@@ -123,6 +156,7 @@ provide('blockType', computed(() => props.modelValue?.type || ''))
 const GROUP_DEFS: { id: string; label: string; icon: string }[] = [
   { id: 'contenu', label: 'Contenu', icon: '📝' },
   { id: 'formulaire', label: 'Formulaire (champs et textes)', icon: '✏️' },
+  { id: 'textes', label: 'Boutons et messages', icon: '💬' },
   { id: 'medias', label: 'Icônes / médias', icon: '🖼️' },
   { id: 'mise-en-page', label: 'Mise en page', icon: '📐' },
   { id: 'couleurs', label: 'Couleurs / thème', icon: '🎨' },
@@ -213,11 +247,13 @@ function fieldComponent(type: string) {
 // (liens, URLs, CSS de gradient, ID vidéo) via une convention de nommage —
 // pas de sens à proposer une police pour une URL ou un identifiant.
 const NON_VISUAL_FIELD_PATTERN = /link|url|gradient|videoid|^alt$/i
-// Textes de formulaire (libellés, bouton…) et champs marqués `noStyle` : le
+// Textes de formulaire (libellés, bouton…), boutons et messages (groupe
+// « textes ») et champs marqués `noStyle` : le
 // composant ne leur applique ni police ni taille, et ils ne peuvent pas être
 // détachés en élément libre — on n'affiche donc pas ces réglages sans effet.
 function sansMiseEnForme(field: FieldSchema) {
-  return (field as { group?: string }).group === 'formulaire' || Boolean((field as { noStyle?: boolean }).noStyle)
+  const group = (field as { group?: string }).group
+  return group === 'formulaire' || group === 'textes' || Boolean((field as { noStyle?: boolean }).noStyle)
 }
 function isFontableField(field: FieldSchema) {
   if (sansMiseEnForme(field)) return false
@@ -334,6 +370,66 @@ function onFontSizeChange(key: string, value: string) {
   emit('update', updated)
 }
 
+// Gras / italique / souligné / couleur par champ. Hors promotion, stockés
+// dans props.fieldFonts._formats[clé] (lu par fieldFontStyle, déjà branché
+// sur chaque champ des blocs) ; champ promu → sur l'ExtraElement
+// (bold/italic/underline/color, lus par BlockExtraElementContent.vue).
+type FormatCle = 'gras' | 'italique' | 'souligne'
+interface FormatChamp { gras?: boolean; italique?: boolean; souligne?: boolean; couleur?: string }
+const FORMAT_OPTIONS: { cle: FormatCle; lettre: string; titre: string }[] = [
+  { cle: 'gras', lettre: 'G', titre: 'Gras' },
+  { cle: 'italique', lettre: 'I', titre: 'Italique' },
+  { cle: 'souligne', lettre: 'S', titre: 'Souligné' },
+]
+const CLE_ELEMENT: Record<FormatCle, 'bold' | 'italic' | 'underline'> = {
+  gras: 'bold',
+  italique: 'italic',
+  souligne: 'underline',
+}
+
+function formatValue(key: string): FormatChamp {
+  if (isPromotedKey(key)) {
+    const id = promotedElementIdByKey(key)
+    const el = props.modelValue?.props?.extraElements?.find((e) => e.id === id)
+    if (!el) return {}
+    return { gras: !!el.bold, italique: !!el.italic, souligne: !!el.underline, couleur: el.color || '' }
+  }
+  return props.modelValue?.props?.fieldFonts?._formats?.[key] || {}
+}
+
+function writeFormat(key: string, patch: FormatChamp) {
+  if (!props.modelValue) return
+  if (isPromotedKey(key)) {
+    const elPatch: Partial<ExtraElement> = {}
+    for (const cle of Object.keys(CLE_ELEMENT) as FormatCle[]) {
+      if (cle in patch) elPatch[CLE_ELEMENT[cle]] = patch[cle] || undefined
+    }
+    if ('couleur' in patch) elPatch.color = patch.couleur || undefined
+    updatePromotedElementStyle(key, elPatch)
+    return
+  }
+  const fieldFonts = { ...(props.modelValue.props?.fieldFonts || {}) }
+  const formats = { ...(fieldFonts._formats || {}) }
+  const next: FormatChamp = { ...(formats[key] || {}), ...patch }
+  for (const k of Object.keys(next) as (keyof FormatChamp)[]) {
+    if (!next[k]) delete next[k]
+  }
+  if (Object.keys(next).length) formats[key] = next
+  else delete formats[key]
+  if (Object.keys(formats).length) fieldFonts._formats = formats
+  else delete fieldFonts._formats
+  // Delta seul (voir onChange).
+  emit('update', { ...props.modelValue, props: { fieldFonts } })
+}
+
+function toggleFormat(key: string, cle: FormatCle) {
+  writeFormat(key, { [cle]: !formatValue(key)[cle] })
+}
+
+function setFormatColor(key: string, couleur: string) {
+  writeFormat(key, { couleur })
+}
+
 // "Rendre déplaçable" : convertit la valeur actuelle d'un champ fixe du
 // bloc (image/texte/HTML) en élément libre du canvas (props.extraElements),
 // pour lui donner le même comportement déplacer/redimensionner/éditer
@@ -426,6 +522,11 @@ function promoteField(field: FieldSchema) {
     if (align) seed.textAlign = String(align)
     const fontName = props.modelValue.props?.fieldFonts?.[field.key]
     if (fontName && fontStack(fontName)) seed.fontFamily = fontName
+    const format = formatValue(field.key)
+    if (format.gras) seed.bold = true
+    if (format.italique) seed.italic = true
+    if (format.souligne) seed.underline = true
+    if (format.couleur) seed.color = format.couleur
   }
 
   // promoteFieldToElement() lance elle-même le mode positionnement, une
@@ -497,6 +598,46 @@ function onDesignUpdate(block: BlockInstance) {
   color: #555;
   padding: 2px 5px;
   max-width: 130px;
+}
+/* Barre de mise en forme sous le libellé : G/I/S, couleur et taille sur
+   une ligne, la police sur toute la largeur en dessous (la sidebar est trop
+   étroite pour tout aligner sans retours à la ligne désordonnés). */
+.field-format-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.field-format-bar .field-font-picker { flex: 1 1 100%; max-width: none; min-width: 0; height: 26px; }
+.field-format-bar .field-size-input { height: 24px; box-sizing: border-box; }
+.field-format-sep { width: 1px; height: 18px; background: #e2e8f0; margin: 0 2px; }
+.field-format-btn {
+  width: 26px;
+  height: 24px;
+  font-size: 0.8em;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  color: #555;
+  cursor: pointer;
+  padding: 0;
+  font-family: Georgia, serif;
+}
+.field-format-gras { font-weight: 700; }
+.field-format-italique { font-style: italic; }
+.field-format-souligne { text-decoration: underline; }
+.field-format-btn.field-format-on { background: #064886; border-color: #064886; color: #fff; }
+.field-format-color {
+  width: 28px;
+  height: 24px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 1px;
+  background: #fff;
+  cursor: pointer;
+}
+.field-format-reset {
+  font-size: 0.85em;
+  background: none;
+  border: none;
+  color: #064886;
+  cursor: pointer;
+  padding: 0 2px;
 }
 .field-size-input {
   font-size: 0.72em;

@@ -162,7 +162,6 @@ export function resetMock() {
   CONTACTS = {}
   VERSIONS = {}
   SETTINGS = { config: { contactEmails: ['belletonv@gmail.com'] } }
-  EMAIL_QUOTA = { month: null, count: 0 }
   ADMIN_USERS = [{ email: 'ci-admin@tests.fr', role: 'admin' }]
   MENU = { menuItems: null, menuBgImage: '' }
   FOOTER = null
@@ -291,22 +290,6 @@ export function setSettings(data) {
   return { success: true }
 }
 
-// Mock du quota d'envoi d'emails (collection 'settings', document 'emailQuota')
-// Compteur mensuel remis à zéro à chaque changement de mois (format 'YYYY-MM').
-let EMAIL_QUOTA = { month: null, count: 0 }
-
-export function getEmailQuota() {
-  return JSON.parse(JSON.stringify(EMAIL_QUOTA))
-}
-
-export function incrementEmailQuota() {
-  const month = new Date().toISOString().slice(0, 7)
-  if (EMAIL_QUOTA.month !== month) {
-    EMAIL_QUOTA = { month, count: 0 }
-  }
-  EMAIL_QUOTA.count++
-  return JSON.parse(JSON.stringify(EMAIL_QUOTA))
-}
 
 // Mock des comptes admin (collection 'settings', document 'admins').
 // L'utilisateur mock CI (voir plugins/auth-mock.client.ts) est admin par

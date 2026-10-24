@@ -54,6 +54,14 @@ export const BLOCK_MAP: Record<string, () => Promise<any>> = {
   inscriptionAlpha: () => import('../../components/blocks/BlockInscriptionAlpha.vue'),
   bandeau: () => import('../../components/blocks/BlockBandeau.vue'),
   evenements: () => import('../../components/blocks/BlockEvenements.vue'),
+  sectionTitle: () => import('../../components/blocks/BlockSectionTitle.vue'),
+  callToAction: () => import('../../components/blocks/BlockCallToAction.vue'),
+  infosPratiques: () => import('../../components/blocks/BlockInfosPratiques.vue'),
+  temoignages: () => import('../../components/blocks/BlockTemoignages.vue'),
+  colonnes: () => import('../../components/blocks/BlockColonnes.vue'),
+  compteARebours: () => import('../../components/blocks/BlockCompteARebours.vue'),
+  don: () => import('../../components/blocks/BlockDon.vue'),
+  audio: () => import('../../components/blocks/BlockAudio.vue'),
   footer: () => import('../../components/blocks/BlockFooter.vue'),
 }
 

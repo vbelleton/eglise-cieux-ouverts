@@ -1,5 +1,4 @@
 import { getFirestoreConfig, getAccessToken, getFirestoreDoc, setFirestoreDoc, parseFirestoreDoc } from '../utils/firebase'
-import { getEmailQuotaLimit } from '../utils/email-quota'
 import { sendEmail, escapeHtml, nettoyerSujet } from '../utils/send-email'
 import { fetchWithTimeout } from '../utils/http'
 import { placesAlpha } from '../utils/alpha-places'

@@ -867,19 +867,13 @@
                         ></textarea>
                         <p class="settings-hint">Un ou plusieurs emails, séparés par une virgule ou un retour à la ligne. Chacun recevra les messages du formulaire de contact.</p>
                     </div>
-                    <div class="settings-field" v-if="emailQuota">
-                        <label>Quota d'envoi d'emails ({{ emailQuota.month || 'ce mois' }})</label>
-                        <div class="quota-bar-wrap">
-                            <div class="quota-bar">
-                                <div class="quota-bar-fill" :class="quotaLevelClass" :style="{ width: quotaPercent + '%' }"></div>
-                            </div>
-                            <span class="quota-text">{{ emailQuota.count }}/{{ emailQuota.limit }}</span>
-                        </div>
-                        <p v-if="quotaPercent >= 100" class="settings-hint quota-warning">
-                            Quota atteint : les nouveaux messages restent visibles dans l'admin mais aucun email ne sera envoyé jusqu'au mois prochain. Si cette limite est gênante, une formule Resend supérieure permet d'augmenter le quota.
+                    <div class="settings-field" v-if="etatEmail">
+                        <label>Envoi des emails</label>
+                        <p v-if="etatEmail.configured" class="settings-hint email-etat email-etat-ok">
+                            ✅ Actif{{ etatEmail.fromEmailValeur ? ` : les messages partent de ${etatEmail.fromEmailValeur}` : '' }}.
                         </p>
-                        <p v-else-if="quotaPercent >= 80" class="settings-hint quota-warning">
-                            Le quota d'envoi mensuel approche de sa limite.
+                        <p v-else class="settings-hint email-etat email-etat-ko">
+                            ⚠️ Pas configuré : les messages restent visibles dans 📬 Messages, mais aucun email n'est envoyé. Il manque {{ manquesEmail }} dans les variables Cloudflare (Mailjet).
                         </p>
                     </div>
                     <div class="settings-field">
@@ -1558,7 +1552,7 @@ const showSettings = ref(false)
 const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
 const contactEmailsText = ref('')
 const socialLinksForm = ref([])
-const emailQuota = ref(null)
+const etatEmail = ref(null)
 const settingsSaving = ref(false)
 
 const MEMBER_TAB_LABELS = { ressources: '📚 Ressources', demandes: '🙋 Demandes', evenements: '📅 Mes événements' }
@@ -1571,20 +1565,20 @@ function moveMemberTab(i, dir) {
     memberTabOrderForm.value = arr
 }
 
-const quotaPercent = computed(() => {
-  if (!emailQuota.value || !emailQuota.value.limit) return 0
-  return Math.min(100, Math.round((emailQuota.value.count / emailQuota.value.limit) * 100))
-})
-const quotaLevelClass = computed(() => {
-  if (quotaPercent.value >= 100) return 'quota-critical'
-  if (quotaPercent.value >= 80) return 'quota-warning-level'
-  return 'quota-ok'
+// Variables Mailjet absentes, nommées telles qu'à saisir dans Cloudflare.
+const manquesEmail = computed(() => {
+  const e = etatEmail.value || {}
+  return [
+    !e.apiKey && 'NUXT_MAILJET_API_KEY',
+    !e.apiSecret && 'NUXT_MAILJET_API_SECRET',
+    !e.fromEmail && 'NUXT_MAILJET_FROM_EMAIL',
+  ].filter(Boolean).join(', ')
 })
 
 watch(showSettings, async (show) => {
   if (show) {
     await loadSettings()
-    await loadEmailQuota()
+    await chargerEtatEmail()
   }
 })
 
@@ -1613,17 +1607,19 @@ async function loadSettings() {
   }
 }
 
-async function loadEmailQuota() {
+// Diagnostic de /api/health : dit si l'envoi Mailjet est en place, et à
+// un admin, depuis quelle adresse.
+async function chargerEtatEmail() {
   try {
     const token = await getFirebaseToken()
-    const res = await fetch('/api/settings/email-quota', {
+    const res = await fetch('/api/health', {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    emailQuota.value = await res.json()
+    etatEmail.value = (await res.json()).email || null
   } catch (e) {
-    console.error('[admin] load email quota failed:', e)
-    emailQuota.value = null
+    console.error('[admin] load email status failed:', e)
+    etatEmail.value = null
   }
 }
 
@@ -3609,41 +3605,11 @@ async function saveChanges() {
     opacity: 0.35;
     cursor: default;
 }
-.settings-hint.quota-warning {
+.settings-hint.email-etat-ok {
+    color: #15803d;
+}
+.settings-hint.email-etat-ko {
     color: #b45309;
-}
-.quota-bar-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.quota-bar {
-    flex: 1;
-    height: 8px;
-    border-radius: 4px;
-    background: #e5e7eb;
-    overflow: hidden;
-}
-.quota-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.2s ease;
-}
-.quota-bar-fill.quota-ok {
-    background: #22c55e;
-}
-.quota-bar-fill.quota-warning-level {
-    background: #f59e0b;
-}
-.quota-bar-fill.quota-critical {
-    background: #ef4444;
-}
-.quota-text {
-    font-size: 12px;
-    color: #6b7280;
-    white-space: nowrap;
-    min-width: 48px;
-    text-align: right;
 }
 .settings-checkbox-label {
     display: flex;

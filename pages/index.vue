@@ -5,6 +5,7 @@
 </template>
 
 <script setup>
+import { lirePageApi } from "~/utils/pageApiCache.js";
 import { getDefaultHomePage } from "~/utils/blockTypes.js";
 
 usePageSeo({
@@ -27,7 +28,7 @@ const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin();
 // écraserait la vraie page) — voir `contenuNonCharge` dans useAdmin.js.
 const { data: pageData } = await useAsyncData("page-accueil-blocks", async () => {
     try {
-        const data = await $fetch("/api/pages/accueil");
+        const data = await lirePageApi("/api/pages/accueil", { sansCache: isAdminMode.value });
         return {
             blocks: data?.blocks?.length ? data.blocks : getDefaultHomePage(),
             echecLecture: false,

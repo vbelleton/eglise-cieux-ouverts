@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { lirePageApi } from '~/utils/pageApiCache.js'
 import { computed, watch } from 'vue'
 import { getDefaultBilletteriePage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
@@ -46,7 +47,9 @@ watch([isAdminMode, hideIfEmpty, hasEvenements, eventsLoading, eventsErreur], ()
 // lecture ratée donne `pageData = null`, la page se rabat sur ses defaults, et
 // en admin l'auto-save les écrirait par-dessus le vrai contenu. Voir
 // `contenuNonCharge` dans useAdmin.js.
-const { data: pageData, error: pageError } = await useFetch('/api/pages/event-list')
+const { data: pageData, error: pageError } = await useAsyncData('page-event-list', () =>
+  lirePageApi('/api/pages/event-list', { sansCache: isAdminMode.value }),
+)
 
 // normalizePageBlocks : la page jamais éditée (ancien bloc par défaut,
 // sauvegardé tel quel) passe sur le contenu par défaut actuel — voir

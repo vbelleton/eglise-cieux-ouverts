@@ -62,6 +62,7 @@ Firebase Auth (email + mot de passe — connexion Google retirée), projet Fireb
 ## Menu & Footer
 
 - **Menu** (navigation du site) : Firestore `settings/menu`, édité via la modale de gestion du menu (voir « Éditeur admin »).
+- **Changement de page depuis le menu** : le contenu de la page visée (`/api/pages/:slug`) est préchargé dès le survol, le focus ou le toucher d'un lien, et une page lue il y a moins d'une minute est réutilisée sans nouvel appel (`utils/pageApiCache.js`, navigateur uniquement ; jamais en admin, qui lit toujours la version à jour et vide ce cache). Barre de progression en haut de l'écran si le chargement dépasse 150 ms (`NuxtLoadingIndicator`, `app.vue`), transition de page raccourcie à 0,12 s.
 - **Footer** (bandeau bas de chaque page) : Firestore `settings/footer` — si le document n'existe pas (`props: null`), le site retombe sur `BLOCK_TYPES.footer.defaults` (`utils/blockTypes.js`). **Piège** : contrairement aux pages (toujours sauvegardées explicitement dès leur création), le footer peut tourner indéfiniment sur les defaults code sans qu'aucun admin ne l'ait jamais sauvegardé — un changement de defaults dans le code se répercute alors directement sur le site réel (déjà arrivé : neutralisation accidentelle du vrai contact en prod, corrigé).
 
 ## Formulaire de contact

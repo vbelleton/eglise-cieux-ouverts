@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { lirePageApi } from '~/utils/pageApiCache.js'
 import { getDefaultMessagesPage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
 usePageSeo({
@@ -17,7 +18,7 @@ const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()
 // écraserait la vraie page). Voir `contenuNonCharge` dans useAdmin.js.
 const { data: pageData } = await useAsyncData('page-messages-blocks', async () => {
   try {
-    const data = await $fetch('/api/pages/messages')
+    const data = await lirePageApi('/api/pages/messages', { sansCache: isAdminMode.value })
     return {
       blocks: data?.blocks?.length ? normalizePageBlocks('messages', data.blocks) : getDefaultMessagesPage(),
       echecLecture: false,

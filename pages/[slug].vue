@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { lirePageApi } from '~/utils/pageApiCache.js'
 import { normalizePageBlocks } from '~/utils/blockTypes.js'
 
 const route = useRoute()
@@ -29,7 +30,7 @@ const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()
 // contenu. Voir `contenuNonCharge` dans useAdmin.js.
 const { data: pageData } = await useAsyncData(`page-${slug.value}-blocks`, async () => {
   try {
-    const data = await $fetch(`/api/pages/${slug.value}`)
+    const data = await lirePageApi(`/api/pages/${slug.value}`, { sansCache: isAdminMode.value })
     return {
       exists: data?.exists !== false,
       blocks: data?.blocks?.length ? normalizePageBlocks(slug.value, data.blocks) : [],

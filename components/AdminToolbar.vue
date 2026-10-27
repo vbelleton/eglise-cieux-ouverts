@@ -875,6 +875,13 @@
                         <p v-else class="settings-hint email-etat email-etat-ko">
                             ⚠️ Pas configuré : les messages restent visibles dans 📬 Messages, mais aucun email n'est envoyé. Il manque {{ manquesEmail }} dans les variables Cloudflare (Mailjet).
                         </p>
+                        <button type="button" class="settings-test-email-btn" :disabled="testEmailEnCours" @click="envoyerEmailTest">
+                            {{ testEmailEnCours ? 'Envoi…' : 'Envoyer un email de test' }}
+                        </button>
+                        <p v-if="testEmail" class="settings-hint test-email-resultat" :class="testEmail.ok ? 'email-etat-ok' : 'email-etat-ko'">
+                            <template v-if="testEmail.ok">✅ Email de test envoyé à {{ testEmail.destinataires.join(', ') }}. Vérifie aussi les spams.</template>
+                            <template v-else>❌ {{ testEmail.explication }}<br><small>{{ testEmail.erreur }}</small></template>
+                        </p>
                     </div>
                     <div class="settings-field">
                         <label class="settings-checkbox-label">
@@ -1553,6 +1560,8 @@ const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
 const contactEmailsText = ref('')
 const socialLinksForm = ref([])
 const etatEmail = ref(null)
+const testEmail = ref(null)
+const testEmailEnCours = ref(false)
 const settingsSaving = ref(false)
 
 const MEMBER_TAB_LABELS = { ressources: '📚 Ressources', demandes: '🙋 Demandes', evenements: '📅 Mes événements' }
@@ -1578,6 +1587,7 @@ const manquesEmail = computed(() => {
 watch(showSettings, async (show) => {
   if (show) {
     await loadSettings()
+    testEmail.value = null
     await chargerEtatEmail()
   }
 })
@@ -1609,6 +1619,36 @@ async function loadSettings() {
 
 // Diagnostic de /api/health : dit si l'envoi Mailjet est en place, et à
 // un admin, depuis quelle adresse.
+// Traduit les refus Mailjet les plus courants en consigne à suivre.
+function expliquerErreurEmail(erreur) {
+  const e = String(erreur || '')
+  if (/not been validated|sender.*valid|validated/i.test(e)) return "L'adresse d'envoi n'est pas validée chez Mailjet : dans Mailjet → Senders & Domains, valide-la (lien reçu par email) ou mets dans NUXT_MAILJET_FROM_EMAIL une adresse déjà validée."
+  if (/HTTP 401|unauthorized|authenticat/i.test(e)) return 'Mailjet refuse la clé API ou la clé secrète : vérifie NUXT_MAILJET_API_KEY et NUXT_MAILJET_API_SECRET dans Cloudflare (sans espace en trop).'
+  if (/non configuré/i.test(e)) return "L'envoi n'est pas configuré : une variable Mailjet manque dans Cloudflare."
+  if (/Aucun email de destination/i.test(e)) return e
+  if (/abort|timeout/i.test(e)) return "Mailjet n'a pas répondu à temps. Réessaie dans un moment."
+  return "Mailjet a refusé l'envoi. Le détail ci-dessous indique la raison."
+}
+
+async function envoyerEmailTest() {
+  testEmailEnCours.value = true
+  testEmail.value = null
+  try {
+    const token = await getFirebaseToken()
+    const res = await fetch('/api/settings/test-email', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`)
+    testEmail.value = { ...data, explication: expliquerErreurEmail(data.erreur) }
+  } catch (e) {
+    testEmail.value = { ok: false, destinataires: [], erreur: e.message || String(e), explication: "Le test n'a pas pu être lancé." }
+  } finally {
+    testEmailEnCours.value = false
+  }
+}
+
 async function chargerEtatEmail() {
   try {
     const token = await getFirebaseToken()
@@ -3604,6 +3644,24 @@ async function saveChanges() {
 .member-tab-order-btn:disabled {
     opacity: 0.35;
     cursor: default;
+}
+.settings-test-email-btn {
+    margin-top: 6px;
+    padding: 6px 12px;
+    border: 1px solid #064886;
+    border-radius: 6px;
+    background: #fff;
+    color: #064886;
+    font-size: 13px;
+    cursor: pointer;
+}
+.settings-test-email-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+.test-email-resultat small {
+    color: #6b7280;
+    word-break: break-word;
 }
 .settings-hint.email-etat-ok {
     color: #15803d;

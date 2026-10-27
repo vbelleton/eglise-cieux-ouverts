@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { lirePageApi } from '~/utils/pageApiCache.js'
 import { getDefaultContactPage, normalizePageBlocks } from '~/utils/blockTypes.js'
 
 usePageSeo({
@@ -17,7 +18,7 @@ const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()
 // écraserait la vraie page). Voir `contenuNonCharge` dans useAdmin.js.
 const { data: pageData } = await useAsyncData('page-contact-blocks', async () => {
   try {
-    const data = await $fetch('/api/pages/contact')
+    const data = await lirePageApi('/api/pages/contact', { sansCache: isAdminMode.value })
     return {
       blocks: data?.blocks?.length ? normalizePageBlocks('contact', data.blocks) : getDefaultContactPage(),
       echecLecture: false,

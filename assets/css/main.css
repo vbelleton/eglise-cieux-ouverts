@@ -293,9 +293,12 @@ a:hover, .nav-admin-link:hover {
 }
 
 /* Page transitions */
+/* Courte : en mode `out-in`, sortie puis entrée s'enchaînent, et c'est du
+   temps pendant lequel la page ne répond pas au clic qui vient d'être fait.
+   0.25 s chacune ajoutaient une demi-seconde à chaque changement de page. */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .page-enter-from {
   opacity: 0;

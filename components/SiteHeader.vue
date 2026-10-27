@@ -19,6 +19,7 @@
                         v-if="!isMounted || !adminMode"
                         :to="item.to"
                         active-class="active"
+                        v-on="intentionNavigation(item.to)"
                         :class="{
                             'nav-admin-link': isMounted && adminMode,
                             dimmed: isMounted && adminMode && !item.visible,
@@ -42,6 +43,7 @@
                                 :key="sub.id"
                                 :to="sub.to"
                                 class="sub-link"
+                                v-on="intentionNavigation(sub.to)"
                                 @click="closeMenu"
                                 >{{ sub.label }}</NuxtLink
                             >
@@ -89,6 +91,7 @@
                     <NuxtLink
                         v-if="!isMounted || (!adminMode && item.visible !== false)"
                         :to="item.to"
+                        v-on="intentionNavigation(item.to)"
                         @click="closeMenu"
                         >{{ item.label }}</NuxtLink
                     >
@@ -105,6 +108,7 @@
                             v-if="!adminMode && sub.visible !== false"
                             :to="sub.to"
                             class="sub-link"
+                            v-on="intentionNavigation(sub.to)"
                             @click="closeMenu"
                             >— {{ sub.label }}</NuxtLink
                         >
@@ -130,6 +134,15 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, inject } from "vue";
 import MenuEditor from "~/components/editor/MenuEditor.vue";
+import { prechargerPage } from "~/utils/pageApiCache.js";
+
+// Le contenu de la page visée part dès que l'intention se dessine (survol,
+// focus clavier, doigt posé) : au clic, il est en général déjà arrivé et la
+// page change sans attendre l'API. Voir utils/pageApiCache.js.
+function intentionNavigation(to) {
+    const precharger = () => prechargerPage(to);
+    return { mouseenter: precharger, focus: precharger, touchstart: precharger };
+}
 
 const menuOpen = ref(false);
 const isScrolled = ref(false);

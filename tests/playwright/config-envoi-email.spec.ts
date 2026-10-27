@@ -32,4 +32,30 @@ test.describe('Configuration admin — envoi des emails', () => {
     await page.locator('button[title="Configuration"]').click()
     await expect(page.locator('.email-etat')).toHaveText('✅ Actif : les messages partent de envoi@exemple.fr.')
   })
+
+  test('le bouton de test affiche la vraie raison d\'un échec', async ({ page }) => {
+    // En test, Mailjet n'est pas configuré : l'envoi échoue, et la modale
+    // doit le dire au lieu de rester muette.
+    await loginAsAdmin(page)
+    await page.locator('button[title="Configuration"]').click()
+    await page.getByRole('button', { name: 'Envoyer un email de test' }).click()
+    const resultat = page.locator('.test-email-resultat')
+    await expect(resultat).toContainText("L'envoi n'est pas configuré")
+    await expect(resultat).toContainText('Mailjet non configuré')
+  })
+
+  test('le refus « adresse non validée » est expliqué', async ({ page }) => {
+    await page.route('**/api/settings/test-email', (route) => route.fulfill({
+      json: { ok: false, destinataires: ['eglise@exemple.fr'], erreur: 'Mailjet a rejeté l\'envoi : [{"Status":"error","Errors":[{"ErrorMessage":"The sender address has not been validated"}]}]' },
+    }))
+    await loginAsAdmin(page)
+    await page.locator('button[title="Configuration"]').click()
+    await page.getByRole('button', { name: 'Envoyer un email de test' }).click()
+    await expect(page.locator('.test-email-resultat')).toContainText("L'adresse d'envoi n'est pas validée chez Mailjet")
+  })
+
+  test('un visiteur anonyme ne peut pas lancer de test', async ({ request }) => {
+    const res = await request.post('/api/settings/test-email')
+    expect(res.status()).toBe(401)
+  })
 })

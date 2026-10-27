@@ -106,6 +106,13 @@ Ces bugs ont causé des pertes de contenu réel ou des blocages de l'admin en pr
 - **Membres** (`/api/members`, D1 table `members`) — liste des membres avec pagination, recherche, filtrage par équipe (`teams`). Accessible via `GET /api/members?page=1&size=25&q=...&teamId=...` en passant un token Firebase Bearer. Retourne les champs : `id`, `first_name`, `last_name`, `email`, `phone`, `birth_date`, `membership_type`, `role`, `teams` (array), + champs RGPD (`consent_*`). Admins voient tous les champs ; members et autres rôles voient une version réduite (exclusion des champs sensibles : `birth_date`, `baptism_date`, `notes`, `pco_*`, `consent_*`, `data_origin`, `gdpr_*`). Rôles/permissions définis en `src/auth.js` : `admin` (accès total), `editor` (peut modifier), `scheduler`, `music_director`, `tech_director`, `member`, `volunteer`, `viewer` (lecture seule ou réduite).
 - **Proxy local** (`server/api/members.get.ts` sur eglise-cieux-ouverts) — le site envoie son token Bearer à eglise-app, l'app retourne les membres bruts. Composable `useMembers()` (`composables/useMembers.ts`) encapsule le fetch avec pagination et filtres côté client.
 
+## Application installable (PWA)
+
+- **Installation** : manifeste `public/manifest.webmanifest` (nom « Cieux Ouverts », icônes `favicon-192/512` + versions `maskable`, couleur `#064886`). Chrome/Android proposent l'installation ; le bandeau `components/InstallAppBanner.vue` (au-dessus du pied de page, hors admin) offre un bouton « Installer », ou sur iPhone/iPad explique Partager → « Sur l'écran d'accueil ». Masquable (« × », mémorisé sur l'appareil), absent une fois l'app installée.
+- **Hors ligne** : service worker `public/sw.js`, enregistré par `plugins/pwa.client.ts`. Réseau d'abord pour le HTML et les lectures publiques (`/api/pages`, `menu`, `footer`, `settings`, agenda du Worker) — le cache n'est qu'un repli, la fraîcheur du contenu ne change pas. Bundles `/_nuxt/*` et images servis depuis le cache. Une page jamais visitée affiche `public/offline.html`.
+- **Admin exclu** : jamais servi depuis le cache (`/admin`, `?admin=true`, `preview-inner`, onglet signalé en mode admin, requêtes authentifiées, tout ce qui n'est pas GET).
+- **Notifications push** : étudiées, non retenues pour l'instant (octobre 2026). Possibles plus tard sans refaire la base (Web Push, abonnements à stocker, écran d'envoi admin ; sur iPhone seulement si l'app est installée).
+
 ## Tests
 
 - `tests/schema-driven/` (config `playwright.unit.config.ts`) — tests génériques par schema (SSR, admin, responsive, a11y, intégrité) + specs dédiées par bloc.

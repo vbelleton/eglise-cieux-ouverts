@@ -47,6 +47,12 @@
   cache-control: public, max-age=2592000
 /favicon-192.png
   cache-control: public, max-age=2592000
+/favicon-512.png
+  cache-control: public, max-age=2592000
+/favicon-maskable-192.png
+  cache-control: public, max-age=2592000
+/favicon-maskable-512.png
+  cache-control: public, max-age=2592000
 /logo-nav.png
   cache-control: public, max-age=2592000
 /logo.png
@@ -82,3 +88,13 @@
 # doit toujours refléter le build en ligne, jamais une copie en cache.
 /version.txt
   cache-control: no-store
+
+# Application installable (PWA). Le service worker doit être revalidé à
+# chaque visite pour que ses mises à jour arrivent ; le manifeste et la page
+# hors ligne changent rarement mais suivent le même principe.
+/sw.js
+  cache-control: no-cache
+/manifest.webmanifest
+  cache-control: no-cache
+/offline.html
+  cache-control: no-cache

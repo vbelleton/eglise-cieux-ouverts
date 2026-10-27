@@ -49,6 +49,14 @@ export default defineNuxtConfig({
       // Retire la classe no-js dès que JS s'exécute : avec JS désactivé elle
       // reste et active les fallbacks CSS (contenu/animations visibles, SEO).
       script: [{ innerHTML: "document.documentElement.classList.remove('no-js')", tagPosition: 'head' }],
+      // Application installable (PWA) : manifeste + service worker
+      // (public/sw.js, enregistré par plugins/pwa.client.ts).
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/favicon-192.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/favicon-180.png' },
+      ],
       // `main` est la seule branche destinée à être indexée. Cloudflare
       // Pages construit toute autre branche en Preview — donc chaque PR a
       // sa propre URL publique (`https://<hash>.eglise-cieux-ouverts.pages.dev`)
@@ -56,9 +64,15 @@ export default defineNuxtConfig({
       // restait indexable si un robot la découvrait. `CF_PAGES_BRANCH` est
       // absent en dev/build local (build:e2e compris), d'où la garde sur sa
       // présence : ne pas ajouter ce meta hors Cloudflare Pages.
-      meta: process.env.CF_PAGES_BRANCH && process.env.CF_PAGES_BRANCH !== 'main'
-        ? [{ name: 'robots', content: 'noindex, nofollow' }]
-        : [],
+      meta: [
+        { name: 'theme-color', content: '#064886' },
+        // Nom sous l'icône une fois ajouté à l'écran d'accueil d'un iPhone.
+        { name: 'apple-mobile-web-app-title', content: 'Cieux Ouverts' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
+        ...(process.env.CF_PAGES_BRANCH && process.env.CF_PAGES_BRANCH !== 'main'
+          ? [{ name: 'robots', content: 'noindex, nofollow' }]
+          : []),
+      ],
     },
     pageTransition: { name: 'page', mode: 'out-in' },
   },

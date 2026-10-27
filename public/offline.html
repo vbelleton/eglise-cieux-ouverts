@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#064886">
+  <title>Hors connexion — Église Cieux Ouverts</title>
+  <!-- Page de repli du service worker (public/sw.js) : affichée quand une
+       page jamais visitée est demandée sans réseau. Autonome (aucune
+       ressource externe) puisqu'elle doit s'afficher hors ligne. -->
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(to bottom, #ffffff 0%, #eaf3fb 100%); color: #1f2937;
+    }
+    main { max-width: 420px; padding: 32px 24px; text-align: center; }
+    img { width: 96px; height: auto; }
+    h1 { color: #064886; font-size: 1.5rem; margin: 20px 0 12px; }
+    p { line-height: 1.55; margin: 0 0 12px; }
+    .infos { margin-top: 24px; padding: 16px; border-radius: 12px; background: #fff; box-shadow: 0 2px 12px rgba(6, 72, 134, .08); }
+    button {
+      margin-top: 20px; padding: 12px 24px; border: 0; border-radius: 999px;
+      background: #064886; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    a { color: #064886; }
+    button:focus-visible { outline: 3px solid #d97777; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/favicon-192.png" alt="" width="96" height="96">
+    <h1>Pas de connexion</h1>
+    <p>Cette page n'a pas encore été consultée sur cet appareil, elle n'est donc pas disponible hors ligne.</p>
+    <p>Les pages déjà visitées restent consultables : <a href="/">revenir à l'accueil</a>.</p>
+    <div class="infos">
+      <p><strong>Culte chaque dimanche à 10 h</strong></p>
+      <p>2 rue Jean Monnet, 29600 Morlaix</p>
+    </div>
+    <button type="button" onclick="location.reload()">Réessayer</button>
+  </main>
+</body>
+</html>

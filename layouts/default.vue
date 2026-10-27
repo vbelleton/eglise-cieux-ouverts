@@ -24,6 +24,9 @@
                 <main id="contenu" class="site-main" tabindex="-1">
                     <slot />
                 </main>
+                <ClientOnly>
+                    <InstallAppBanner v-if="!isAdminMode && !isInnerPreview" />
+                </ClientOnly>
                 <div
                     class="footer-editable-wrap"
                     :class="{ 'admin-selected': editingFooter }"

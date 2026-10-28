@@ -62,13 +62,13 @@ test.describe('Responsive admin mode', () => {
       }
     })
 
-    test('tablet device preview works', async ({ page }) => {
-      await page.locator('.device-btn').nth(1).click()
-      await page.waitForTimeout(1000)
-      const iframe = page.locator('.device-iframe')
-      await expect(iframe).toBeVisible()
-      const width = await iframe.evaluate(el => parseInt(el.style.width))
-      expect(width).toBe(768)
+    // Sous 768 px, l'aperçu Tablette/Mobile en iframe n'a plus de sens (l'écran
+    // a déjà cette largeur) : les boutons d'appareil sont masqués et l'édition
+    // reste directe sur la page. Voir admin-telephone.spec.ts.
+    test('pas de boutons d\'aperçu par appareil, édition directe', async ({ page }) => {
+      await expect(page.locator('.admin-btn-save')).toBeVisible()
+      await expect(page.locator('.device-btn').first()).toBeHidden()
+      await expect(page.locator('.device-iframe')).toHaveCount(0)
     })
   })
 
@@ -84,13 +84,11 @@ test.describe('Responsive admin mode', () => {
       }
     })
 
-    test('mobile device preview opens at 375px', async ({ page }) => {
-      await page.locator('.device-btn').nth(2).click()
-      await page.waitForTimeout(1000)
-      const iframe = page.locator('.device-iframe')
-      await expect(iframe).toBeVisible()
-      const width = await iframe.evaluate(el => parseInt(el.style.width))
-      expect(width).toBe(375)
+    test('la barre admin tient dans l\'écran, sans aperçu par appareil', async ({ page }) => {
+      await expect(page.locator('.admin-btn-save')).toBeVisible()
+      const { sw, cw } = await page.locator('.admin-toolbar').evaluate((t) => ({ sw: t.scrollWidth, cw: t.clientWidth }))
+      expect(sw).toBeLessThanOrEqual(cw)
+      await expect(page.locator('.device-btn').first()).toBeHidden()
     })
 
     test('hamburger menu is accessible on mobile', async ({ page }) => {

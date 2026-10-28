@@ -1,5 +1,5 @@
 <template>
-    <div class="admin-toolbar">
+    <div class="admin-toolbar" :class="{ 'admin-toolbar-telephone': ecranTelephone }">
         <div class="admin-toolbar-left">
             <span class="admin-badge">Mode édition</span>
             <select
@@ -100,6 +100,42 @@
                     </template>
                     <template v-else-if="!isAdminUser" />
                     <template v-else>
+                        <button
+                            class="admin-btn admin-btn-add-block"
+                            @click="() => { loadTemplates(); showBlockPicker = true }"
+                            title="Ajouter un bloc à la page"
+                        >
+                            ＋<span class="admin-btn-add-label"> Bloc</span>
+                        </button>
+                        <button
+                            class="admin-btn admin-btn-save"
+                            :class="{ 'a-sauvegarder': hasAnyUnsavedChanges && !saving }"
+                            @click="saveChanges"
+                            :disabled="saving"
+                            title="Sauvegarder les modifications"
+                        >
+                            <template v-if="ecranTelephone">{{ saving ? "…" : "💾" }}</template>
+                            <template v-else>{{ saving ? "Sauvegarde..." : "Sauvegarder" }}</template>
+                        </button>
+                        <!-- Sur téléphone, la barre ne peut pas tout aligner : les
+                             outils secondaires passent dans un menu déroulant. Sur
+                             ordinateur ce conteneur est `display: contents`, donc
+                             invisible pour la mise en page. -->
+                        <button
+                            v-if="ecranTelephone"
+                            class="admin-btn admin-btn-secondary admin-btn-plus"
+                            :aria-expanded="menuPlusOuvert ? 'true' : 'false'"
+                            aria-label="Autres outils"
+                            title="Autres outils"
+                            @click="menuPlusOuvert = !menuPlusOuvert"
+                        >
+                            {{ menuPlusOuvert ? "✕" : "☰" }}<span v-if="(unresolvedCommentCount || 0) + (unreadContactCount || 0)" class="admin-plus-dot"></span>
+                        </button>
+                        <div
+                            class="admin-toolbar-plus"
+                            :class="{ ouvert: menuPlusOuvert }"
+                            @click="onClicMenuPlus"
+                        >
                         <span
                             class="admin-save-status preview-mode"
                             v-if="previewingVersion"
@@ -125,21 +161,6 @@
                             alt="Photo profil"
                         />
                         <span v-else class="admin-user">{{ user.email }}</span>
-                        <button
-                            class="admin-btn admin-btn-add-block"
-                            @click="() => { loadTemplates(); showBlockPicker = true }"
-                            title="Ajouter un bloc à la page"
-                        >
-                            ＋ Bloc
-                        </button>
-                        <button
-                            class="admin-btn"
-                            @click="saveChanges"
-                            :disabled="saving"
-                            title="Sauvegarder les modifications"
-                        >
-                            {{ saving ? "Sauvegarde..." : "Sauvegarder" }}
-                        </button>
                         <button
                             v-if="previewingVersion"
                             class="admin-btn admin-btn-preview-cancel admin-btn-compact"
@@ -215,6 +236,7 @@
                         >
                             Quitter
                         </button>
+                        </div>
                     </template>
                 </template>
                 <template v-else>
@@ -243,10 +265,19 @@
         v-if="sidebarBlock && user"
         @click="positioningElementId ? stopPositioning() : closeSidebar()"
     ></div>
-    <div class="admin-sidebar" v-if="sidebarBlock && user" :class="{ 'positioning-mode': positioningElementId }">
+    <div class="admin-sidebar" v-if="sidebarBlock && user" :class="{ 'positioning-mode': positioningElementId, 'sidebar-agrandie': sidebarAgrandie }">
         <div class="admin-sidebar-header">
             <h3>{{ getBlockLabel(sidebarBlock.type) }}</h3>
-            <button class="admin-close-btn" @click="closeSidebar">
+            <button
+                v-if="ecranTelephone"
+                class="admin-close-btn admin-agrandir-btn"
+                :title="sidebarAgrandie ? 'Réduire le panneau pour voir la page' : 'Agrandir le panneau'"
+                :aria-label="sidebarAgrandie ? 'Réduire le panneau' : 'Agrandir le panneau'"
+                @click="sidebarAgrandie = !sidebarAgrandie"
+            >
+                {{ sidebarAgrandie ? "▾" : "▴" }}
+            </button>
+            <button class="admin-close-btn" @click="closeSidebar" aria-label="Fermer">
                 ✕
             </button>
         </div>
@@ -291,6 +322,9 @@
                         Réinitialiser ({{ deviceLabel(previewDevice) }})
                     </button>
                 </div>
+                <p v-else-if="ecranTelephone" class="admin-responsive-hint">
+                    Depuis un téléphone, tes modifications s'appliquent à tous les formats. Les réglages propres à la tablette ou au mobile se font depuis un ordinateur.
+                </p>
                 <p v-else class="admin-responsive-hint">
                     Choisis Tablette/Mobile dans la barre du haut pour régler chaque format.
                 </p>
@@ -1181,6 +1215,62 @@ function onExtraElementReplay() {
     })
 }
 
+// ─── Téléphone ───
+// Sous 768 px, la barre d'outils, la sidebar et l'aperçu par appareil sont
+// repensés pour le tactile (voir les styles `admin-toolbar-telephone`).
+const ecranTelephone = ref(false)
+const menuPlusOuvert = ref(false)
+const sidebarAgrandie = ref(false)
+let mqTelephone = null
+function onChangeEcran() {
+    ecranTelephone.value = !!mqTelephone?.matches
+    if (!ecranTelephone.value) menuPlusOuvert.value = false
+    // L'aperçu Tablette/Mobile affiche la page dans une iframe à 768/375 px :
+    // sur un écran de téléphone, c'est déjà la vraie largeur, l'iframe ne
+    // ferait que réduire la page et couper l'édition directe des blocs. On
+    // revient donc en édition « tous formats » (props de base) : modifier un
+    // texte depuis son téléphone doit le changer partout, pas seulement sur
+    // mobile.
+    if (ecranTelephone.value && previewDevice.value !== 'desktop') setDevice('desktop')
+}
+// Un clic sur un bouton du menu « ☰ » ouvre sa modale : on referme le menu.
+function onClicMenuPlus(e) {
+    if (e.target.closest && e.target.closest('button')) menuPlusOuvert.value = false
+}
+// Safari iOS zoome sur tout champ dont la police fait moins de 16 px, et ne
+// dézoome pas ensuite : la page reste décalée après chaque saisie. Les
+// champs de l'admin sont plus petits que ça. Bloquer le zoom à l'échelle 1
+// pendant l'admin seulement (le site public garde le zoom libre — RGAA).
+let viewportOrigine = null
+function bloquerZoomSaisie(actif) {
+    const meta = document.querySelector('meta[name="viewport"]')
+    if (!meta) return
+    if (actif) {
+        if (viewportOrigine === null) viewportOrigine = meta.getAttribute('content') || ''
+        if (!/maximum-scale/.test(viewportOrigine)) meta.setAttribute('content', `${viewportOrigine}, maximum-scale=1`)
+    } else if (viewportOrigine !== null) {
+        meta.setAttribute('content', viewportOrigine)
+        viewportOrigine = null
+    }
+}
+// Sur téléphone la sidebar s'ouvre en panneau par le bas : on ramène le
+// bloc sélectionné dans la partie visible au-dessus, sinon on modifie à
+// l'aveugle un bloc caché sous le panneau.
+watch(() => sidebarBlock.value?.id, (id) => {
+    sidebarAgrandie.value = false
+    if (!id || !ecranTelephone.value || editingFooter.value) return
+    nextTick(() => {
+        const el = document.querySelector(`.block-wrapper[data-block-id="${CSS.escape(id)}"]`)
+        if (!el) return
+        const haut = 48 + 56
+        const r = el.getBoundingClientRect()
+        const zoneVisible = window.innerHeight * 0.4
+        if (r.top < haut - 4 || r.top > zoneVisible) {
+            window.scrollTo({ top: window.scrollY + r.top - haut, behavior: 'smooth' })
+        }
+    })
+})
+
 function setDevice(device) {
   previewDevice.value = device
   const newQuery = { ...route.query, device }
@@ -2060,6 +2150,11 @@ onMounted(() => {
 
     document.addEventListener("keydown", onUndoRedoShortcut);
 
+    mqTelephone = window.matchMedia?.("(max-width: 768px)") || null
+    mqTelephone?.addEventListener?.("change", onChangeEcran)
+    onChangeEcran()
+    bloquerZoomSaisie(true)
+
     if (!customPages.value.length) loadCustomPages();
 });
 
@@ -2086,6 +2181,8 @@ onUnmounted(() => {
     if (unsubscribe) unsubscribe();
     clearTimeout(autoSaveTimer);
     document.removeEventListener("keydown", onUndoRedoShortcut);
+    mqTelephone?.removeEventListener?.("change", onChangeEcran);
+    bloquerZoomSaisie(false);
 });
 
 const undoTooltip = computed(() => {
@@ -2871,6 +2968,111 @@ async function saveChanges() {
     border-color: #3b82f6;
 }
 
+/* Sur ordinateur, le conteneur du menu « ☰ » n'existe pas pour la mise en
+   page : ses boutons restent alignés dans la barre comme avant. L'ordre
+   d'origine (statut et avatar avant « ＋ Bloc ») est rétabli par `order`. */
+.admin-toolbar-plus {
+    display: contents;
+}
+.admin-toolbar-right > .undo-redo-group { order: -2; }
+.admin-toolbar-plus > .admin-save-status,
+.admin-toolbar-plus > .admin-avatar,
+.admin-toolbar-plus > .admin-user { order: -1; }
+
+/* ─── Téléphone ─── */
+.admin-toolbar-telephone {
+    gap: 6px;
+    padding: 0 6px;
+}
+.admin-toolbar-telephone .admin-badge,
+.admin-toolbar-telephone .admin-toolbar-center {
+    display: none;
+}
+.admin-toolbar-telephone .admin-toolbar-left {
+    flex: 1;
+    min-width: 0;
+}
+.admin-toolbar-telephone .admin-page-select {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    font-size: 16px;
+}
+.admin-toolbar-telephone .admin-toolbar-right {
+    gap: 4px;
+}
+.admin-toolbar-telephone .undo-redo-group {
+    margin-right: 0;
+}
+.admin-toolbar-telephone .admin-icon-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: 1.15em;
+}
+.admin-toolbar-telephone .admin-toolbar-right > .admin-btn {
+    min-width: 40px;
+    height: 36px;
+    padding: 0 10px;
+    font-size: 1.05em;
+}
+.admin-toolbar-telephone .admin-btn-add-label {
+    display: none;
+}
+.admin-btn-save.a-sauvegarder {
+    box-shadow: 0 0 0 2px #fbbf24;
+}
+.admin-btn-plus {
+    position: relative;
+}
+.admin-plus-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+.admin-toolbar-telephone .admin-toolbar-plus {
+    display: none;
+}
+.admin-toolbar-telephone .admin-toolbar-plus.ouvert {
+    position: fixed;
+    top: 52px;
+    right: 6px;
+    width: min(280px, calc(100vw - 12px));
+    max-height: calc(100dvh - 64px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px;
+    background: #1a1a2e;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.admin-toolbar-telephone .admin-toolbar-plus .admin-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    text-align: left;
+    font-size: 0.95em;
+    padding: 0 14px;
+    gap: 10px;
+}
+.admin-toolbar-telephone .admin-toolbar-plus .admin-btn-compact .label {
+    display: inline;
+}
+.admin-toolbar-telephone .admin-toolbar-plus .admin-save-status {
+    margin: 0 0 4px;
+    white-space: normal;
+}
+.admin-toolbar-telephone .admin-toolbar-plus .admin-avatar,
+.admin-toolbar-telephone .admin-toolbar-plus .admin-user {
+    display: none;
+}
+
 .contact-sort {
     display: flex;
     align-items: center;
@@ -3076,6 +3278,78 @@ async function saveChanges() {
     font-size: 0.9em;
     margin-top: 8px;
 }
+
+/* ─── Sidebar sur téléphone : panneau par le bas ───
+   Pleine largeur sur 60 % de l'écran : le bloc modifié reste visible
+   au-dessus (le watcher sur sidebarBlock le fait défiler à cet endroit).
+   « ▴ » l'agrandit en plein écran pour les longs formulaires. */
+@media (max-width: 768px) {
+    .admin-sidebar {
+        top: auto;
+        left: 0;
+        width: 100%;
+        height: 60dvh;
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.2);
+        transition: height 0.2s ease;
+    }
+    .admin-sidebar.sidebar-agrandie {
+        height: calc(100dvh - 48px);
+        border-radius: 0;
+    }
+    /* Pendant le placement d'un élément libre sur la page, on ne garde que
+       l'en-tête et les actions : le bloc doit être visible pour le déplacer. */
+    .admin-sidebar.positioning-mode {
+        height: auto;
+    }
+    .admin-sidebar.positioning-mode .admin-sidebar-body {
+        display: none;
+    }
+    .admin-sidebar-overlay {
+        background: rgba(0, 0, 0, 0.12);
+    }
+    .admin-sidebar-header {
+        padding: 8px 8px 8px 16px;
+        gap: 4px;
+    }
+    .admin-sidebar-header h3 {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .admin-close-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .admin-sidebar-footer {
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    }
+    .admin-action-btn {
+        min-height: 44px;
+    }
+    /* Modales : presque plein écran, sans marge perdue. */
+    .version-modal,
+    .settings-modal {
+        width: calc(100vw - 16px);
+        max-height: calc(100dvh - 24px);
+    }
+    .version-modal-close {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .block-picker-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .admin-mgr-add {
+        flex-wrap: wrap;
+    }
+    .admin-mgr-input {
+        flex: 1 1 100%;
+    }
+}
+
 </style>
 
 <style>
@@ -3497,7 +3771,9 @@ async function saveChanges() {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    /* Au-dessus de la barre admin (z-index 10000), comme les autres modales :
+       à 9999, la barre recouvrait le titre et le bouton ✕ de la modale. */
+    z-index: 99999;
 }
 .settings-modal {
     background: white;
@@ -3759,4 +4035,5 @@ async function saveChanges() {
         height: 52px;
     }
 }
+
 </style>

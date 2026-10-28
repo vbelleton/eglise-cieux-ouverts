@@ -725,6 +725,8 @@ async function deplacer(evenement, nouveauStatut) {
 }
 @media (max-width: 760px) {
   .taches-colonnes { grid-template-columns: 1fr; }
+  .taches-ajout { flex-wrap: wrap; }
+  .taches-ajout .taches-input { flex: 1 1 100%; }
 }
 .taches-colonne {
   background: #f3f4f6;

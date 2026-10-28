@@ -7,14 +7,14 @@
 // déjà vue refaisait toute la lecture. Ici :
 //   - survol / focus / toucher d'un lien du menu → la lecture part tout de
 //     suite (`prechargerPage`), le clic arrive en général après la réponse ;
-//   - une lecture faite il y a moins de DUREE_MS est réutilisée telle quelle.
+//   - une lecture faite il y a moins de DUREE_MS (5 min) est réutilisée telle quelle.
 //
 // Côté serveur on ne met RIEN en cache : un module partagé entre requêtes y
 // mélangerait les visiteurs. En admin non plus (`sansCache`) : on lit toujours
 // la version à jour, et on vide le cache au passage pour qu'une page modifiée
 // puis consultée en visiteur ne ressorte pas dans son ancienne version.
 
-const DUREE_MS = 60_000;
+const DUREE_MS = 5 * 60_000;
 const cache = new Map(); // url -> { promesse, t }
 
 // Pages qui ne lisent pas /api/pages (contenu propre ou réservé) : inutile de

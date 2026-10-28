@@ -402,6 +402,12 @@ onMounted(() => {
         }
         document.addEventListener('click', onPreviewLinkClick, true)
         onUnmounted(() => document.removeEventListener('click', onPreviewLinkClick, true))
+        // L'aperçu appareil est dans l'admin : pas de zoom au pincement non plus
+        // (l'iframe a son propre document, le blocage du parent ne l'atteint pas).
+        function bloquerPincementApercu(e) { e.preventDefault() }
+        document.documentElement.style.touchAction = 'pan-x pan-y'
+        document.addEventListener('gesturestart', bloquerPincementApercu)
+        onUnmounted(() => document.removeEventListener('gesturestart', bloquerPincementApercu))
     }
     if (["mobile", "tablet", "desktop"].includes(route.query.device)) {
         previewDevice.value = route.query.device;
@@ -508,6 +514,14 @@ function onFooterClick(e) {
 #app-root.is-inner-preview .admin-sidebar,
 #app-root.is-inner-preview .admin-toolbar {
     display: none !important;
+}
+/* Sur téléphone, l'iframe « tablette » (768 px) est réduite de moitié pour
+   tenir dans l'écran ; la hauteur est doublée pour compenser. */
+@media (max-width: 768px) {
+    .device-iframe.preview-tablet {
+        zoom: 0.5;
+        height: calc((100vh - 48px - 12px) * 2);
+    }
 }
 .device-iframe {
     width: 100%;

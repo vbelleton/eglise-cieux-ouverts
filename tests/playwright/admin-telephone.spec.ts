@@ -63,10 +63,28 @@ test.describe('Admin sur téléphone', () => {
     await expect(page.locator('meta[name="viewport"]')).not.toHaveAttribute('content', /maximum-scale/)
   })
 
-  test('un lien ?device=mobile ne bascule pas en aperçu iframe sur téléphone', async ({ page }) => {
-    await page.goto('/?admin=true&device=mobile')
-    await page.waitForSelector('.admin-toolbar .admin-btn-save')
-    await expect(page.locator('.device-iframe')).toHaveCount(0)
-    await expect(page.locator('.block-wrapper').first()).toBeVisible()
+  test('le sélecteur d\'appareil est dans le menu ☰ et ouvre l\'aperçu', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.locator('.admin-btn-plus').click()
+    const menu = page.locator('.admin-device-menu')
+    await expect(menu).toBeVisible()
+    await expect(menu.locator('.admin-device-menu-btn.active')).toContainText('Ordinateur')
+    await menu.getByRole('button', { name: /Mobile/ }).click()
+    await expect(page.locator('.device-iframe')).toBeVisible()
+    await page.locator('.admin-btn-plus').click()
+    await page.locator('.admin-device-menu').getByRole('button', { name: /Tablette/ }).click()
+    await expect(page.locator('.device-iframe.preview-tablet')).toBeVisible()
+    const { sw, cw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }))
+    expect(sw).toBeLessThanOrEqual(cw)
+  })
+
+  test('zoom au pincement bloqué en admin, rendu en quittant', async ({ page }) => {
+    await loginAsAdmin(page)
+    await expect(page.locator('.admin-btn-save')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.style.touchAction)).toBe('pan-x pan-y')
+    await page.locator('.admin-btn-plus').click()
+    await page.locator('.admin-toolbar-plus .admin-btn', { hasText: 'Quitter' }).click()
+    await expect(page.locator('.admin-toolbar')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.style.touchAction)).toBe('')
   })
 })

@@ -5,7 +5,7 @@
         :style="headerStyle"
     >
         <div class="header-inner">
-            <NuxtLink to="/" class="brand" aria-label="Accueil — Cieux Ouverts">
+            <NuxtLink to="/" class="brand" aria-label="Accueil — Cieux Ouverts" @click="onLogoClick">
                 <img src="/logo-nav.png" alt="Cieux Ouverts" class="logo" />
             </NuxtLink>
 
@@ -298,6 +298,22 @@ function toggleMenu() {
             nextTick(() => mobileNavEl.value?.querySelector("a[href]")?.focus());
         }
     }
+}
+
+// Déjà sur l'accueil, NuxtLink vers la même route ne fait rien : on remonte en
+// haut de page à la place (ce qui rejoue aussi l'animation « Bienvenue », pilotée
+// par le défilement). Ailleurs, la navigation normale reprend la main.
+// Le menu mobile fige le body et restaure la position à sa fermeture : on attend
+// cette fermeture avant de remonter, sinon elle annulerait le défilement.
+async function onLogoClick(e) {
+    if (route.path !== "/") {
+        closeMenu();
+        return;
+    }
+    e.preventDefault();
+    await closeMenu();
+    const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduit ? "auto" : "smooth" });
 }
 
 async function closeMenu() {

@@ -4,6 +4,11 @@ import { resetMock } from './helpers/reset'
 // Réactivité des changements de page depuis le menu (utils/pageApiCache.js) :
 // la lecture du contenu part au survol, le clic ne la refait pas, et une page
 // déjà vue revient sans nouvel appel à l'API.
+//
+// Les compteurs sont posés AVANT le chargement : toutes les pages du menu sont
+// aussi lues en différé quelques secondes après l'affichage, donc ce qui compte
+// est le nombre TOTAL de lectures d'une page (une seule), quel que soit celui
+// du survol, du clic ou de la lecture différée qui part le premier.
 
 function compterLectures(page: Page, slug: string) {
   const compteur = { n: 0 }
@@ -19,9 +24,9 @@ test.describe('Navigation : préchargement du contenu', () => {
   })
 
   test('le survol précharge, le clic ne relit pas', async ({ page }) => {
+    const lectures = compterLectures(page, 'contact')
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    const lectures = compterLectures(page, 'contact')
 
     const lien = page.locator('.nav-desktop').getByRole('link', { name: 'Contact' })
     await lien.hover()
@@ -34,9 +39,9 @@ test.describe('Navigation : préchargement du contenu', () => {
   })
 
   test('une page déjà vue revient sans nouvel appel', async ({ page }) => {
+    const lectures = compterLectures(page, 'messages')
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    const lectures = compterLectures(page, 'messages')
     const nav = page.locator('.nav-desktop')
 
     await nav.getByRole('link', { name: 'Messages' }).click()
@@ -51,22 +56,25 @@ test.describe('Navigation : préchargement du contenu', () => {
   })
 
   test('une lecture ratée ne reste pas en cache', async ({ page }) => {
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
     let echecs = 1
     await page.route('**/api/pages/contact', (route) => {
       if (echecs-- > 0) return route.fulfill({ status: 500, body: '{}' })
       return route.continue()
     })
+    const reponseRatee = page.waitForResponse((r) => r.url().endsWith('/api/pages/contact') && r.status() === 500)
     const lectures = compterLectures(page, 'contact')
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
     const lien = page.locator('.nav-desktop').getByRole('link', { name: 'Contact' })
 
-    const reponseRatee = page.waitForResponse((r) => r.url().endsWith('/api/pages/contact') && r.status() === 500)
+    // La première lecture (survol ou lecture différée, selon le plus rapide) échoue.
     await lien.hover()
     await reponseRatee
+    await page.waitForTimeout(200)
     await lien.click()
     await page.waitForURL('/contact')
     await expect(page.locator('[data-block-type="contact"]')).toBeVisible()
+    // Une lecture ratée + une relecture réussie, jamais l'échec resservi.
     expect(lectures.n).toBe(2)
   })
 })

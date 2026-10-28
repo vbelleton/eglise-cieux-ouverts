@@ -136,6 +136,20 @@
                             :class="{ ouvert: menuPlusOuvert }"
                             @click="onClicMenuPlus"
                         >
+                        <!-- Sélecteur d'appareil : sur téléphone, la barre n'a plus
+                             la place pour les trois boutons du centre. -->
+                        <div v-if="ecranTelephone" class="admin-device-menu" role="group" aria-label="Aperçu par appareil">
+                            <button
+                                v-for="d in ['desktop', 'tablet', 'mobile']"
+                                :key="d"
+                                class="admin-device-menu-btn"
+                                :class="{ active: previewDevice === d }"
+                                :aria-pressed="previewDevice === d ? 'true' : 'false'"
+                                @click="setDevice(d)"
+                            >
+                                <span>{{ deviceIcon(d) }}</span>{{ deviceLabel(d) }}
+                            </button>
+                        </div>
                         <span
                             class="admin-save-status preview-mode"
                             v-if="previewingVersion"
@@ -323,7 +337,7 @@
                     </button>
                 </div>
                 <p v-else-if="ecranTelephone" class="admin-responsive-hint">
-                    Depuis un téléphone, tes modifications s'appliquent à tous les formats. Les réglages propres à la tablette ou au mobile se font depuis un ordinateur.
+                    Choisis Tablette/Mobile dans le menu ☰ pour régler chaque format.
                 </p>
                 <p v-else class="admin-responsive-hint">
                     Choisis Tablette/Mobile dans la barre du haut pour régler chaque format.
@@ -1225,13 +1239,6 @@ let mqTelephone = null
 function onChangeEcran() {
     ecranTelephone.value = !!mqTelephone?.matches
     if (!ecranTelephone.value) menuPlusOuvert.value = false
-    // L'aperçu Tablette/Mobile affiche la page dans une iframe à 768/375 px :
-    // sur un écran de téléphone, c'est déjà la vraie largeur, l'iframe ne
-    // ferait que réduire la page et couper l'édition directe des blocs. On
-    // revient donc en édition « tous formats » (props de base) : modifier un
-    // texte depuis son téléphone doit le changer partout, pas seulement sur
-    // mobile.
-    if (ecranTelephone.value && previewDevice.value !== 'desktop') setDevice('desktop')
 }
 // Un clic sur un bouton du menu « ☰ » ouvre sa modale : on referme le menu.
 function onClicMenuPlus(e) {
@@ -1241,8 +1248,22 @@ function onClicMenuPlus(e) {
 // dézoome pas ensuite : la page reste décalée après chaque saisie. Les
 // champs de l'admin sont plus petits que ça. Bloquer le zoom à l'échelle 1
 // pendant l'admin seulement (le site public garde le zoom libre — RGAA).
+// `maximum-scale` ne suffit pas : Safari l'ignore pour le pincement (réglage
+// d'accessibilité). `touch-action: pan-x pan-y` et `gesturestart` le bloquent.
 let viewportOrigine = null
+let touchActionOrigine = null
+function bloquerGestePincement(e) { e.preventDefault() }
 function bloquerZoomSaisie(actif) {
+    const racine = document.documentElement
+    if (actif) {
+        if (touchActionOrigine === null) touchActionOrigine = racine.style.touchAction || ''
+        racine.style.touchAction = 'pan-x pan-y'
+        document.addEventListener('gesturestart', bloquerGestePincement)
+    } else {
+        if (touchActionOrigine !== null) racine.style.touchAction = touchActionOrigine
+        touchActionOrigine = null
+        document.removeEventListener('gesturestart', bloquerGestePincement)
+    }
     const meta = document.querySelector('meta[name="viewport"]')
     if (!meta) return
     if (actif) {
@@ -3063,6 +3084,32 @@ async function saveChanges() {
 }
 .admin-toolbar-telephone .admin-toolbar-plus .admin-btn-compact .label {
     display: inline;
+}
+.admin-device-menu {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+.admin-device-menu-btn {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72em;
+    cursor: pointer;
+}
+.admin-device-menu-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
 }
 .admin-toolbar-telephone .admin-toolbar-plus .admin-save-status {
     margin: 0 0 4px;

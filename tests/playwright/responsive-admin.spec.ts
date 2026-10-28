@@ -62,10 +62,9 @@ test.describe('Responsive admin mode', () => {
       }
     })
 
-    // Sous 768 px, l'aperçu Tablette/Mobile en iframe n'a plus de sens (l'écran
-    // a déjà cette largeur) : les boutons d'appareil sont masqués et l'édition
-    // reste directe sur la page. Voir admin-telephone.spec.ts.
-    test('pas de boutons d\'aperçu par appareil, édition directe', async ({ page }) => {
+    // Sous 768 px, les boutons d'appareil de la barre sont remplacés par le
+    // sélecteur du menu ☰ (voir admin-telephone.spec.ts).
+    test('pas de boutons d\'appareil dans la barre, édition directe par défaut', async ({ page }) => {
       await expect(page.locator('.admin-btn-save')).toBeVisible()
       await expect(page.locator('.device-btn').first()).toBeHidden()
       await expect(page.locator('.device-iframe')).toHaveCount(0)
@@ -84,7 +83,7 @@ test.describe('Responsive admin mode', () => {
       }
     })
 
-    test('la barre admin tient dans l\'écran, sans aperçu par appareil', async ({ page }) => {
+    test('la barre admin tient dans l\'écran, sélecteur d\'appareil dans le menu', async ({ page }) => {
       await expect(page.locator('.admin-btn-save')).toBeVisible()
       const { sw, cw } = await page.locator('.admin-toolbar').evaluate((t) => ({ sw: t.scrollWidth, cw: t.clientWidth }))
       expect(sw).toBeLessThanOrEqual(cw)

@@ -93,3 +93,26 @@ for (const animation of ['origine', 'portal']) {
     await expect.poll(() => bienvenueVisible(page), { timeout: 5000 }).toBe(true)
   })
 }
+
+/**
+ * Cause réelle constatée sur téléphone (WebKit, donc Safari iPhone) : quand
+ * l'animation choisie passe de « d'origine » au réglage mobile après le
+ * montage de la page (navigation interne), WebKit abandonne les animations
+ * internes neutralisées par .bloc-anim-controlee au lieu de les finir. Les
+ * lettres retombaient sur leur style de départ, opacity 0. Chromium ne les
+ * abandonne pas : on les retire nous-mêmes, et le bloc doit rester visible
+ * par son seul style.
+ */
+test('« Bienvenue » reste visible quand ses animations neutralisées disparaissent (Safari)', async ({ page }) => {
+  await resetMock(page.request)
+  await regleAnimationBienvenue(page, 'portal')
+  await page.goto('/')
+  await defileJusquaBienvenue(page)
+  await expect.poll(() => bienvenueVisible(page)).toBe(true)
+
+  await page.evaluate(() => {
+    const bloc = document.querySelector('.block-bienvenue')!
+    for (const a of bloc.getAnimations({ subtree: true })) a.cancel()
+  })
+  expect(await bienvenueVisible(page)).toBe(true)
+})

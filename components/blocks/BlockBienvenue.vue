@@ -148,6 +148,24 @@ function getLetterVars(i) {
     }
 }
 
+/* Animation choisie dans le sélecteur (wrapper .bloc-anim-controlee, cf.
+   lib/blocks/renderer.ts) : les animations propres au bloc sont neutralisées,
+   il faut donc l'état final explicite. main.css se contente de les ramener à
+   0,01 ms en comptant sur leur image finale, or Safari/WebKit les abandonne
+   quand la classe arrive après l'insertion du bloc (navigation interne sur
+   téléphone : l'animation passe de « d'origine » au réglage mobile une fois
+   la page montée). Sans animation, ces éléments retombaient sur leur style de
+   départ, opacity 0 : « Bienvenue » ne réapparaissait plus en revenant sur
+   l'accueil. Sélecteur entièrement :global() (« :global(.a) .b » ne garde que
+   « .a ») ; classe doublée pour dépasser « .admin-animate .hero-…[data-v] ». */
+:global(.bloc-anim-controlee .block-bienvenue.block-bienvenue .hero-bienvenue-char),
+:global(.bloc-anim-controlee .block-bienvenue.block-bienvenue .hero-subtitle),
+:global(.bloc-anim-controlee .block-bienvenue.block-bienvenue .hero-socials) {
+    animation-name: none;
+    opacity: 1;
+    transform: none;
+}
+
 /* Fallback: in admin mode or when admin-animate class is present, trigger standard animations immediately */
 .admin-animate .hero-bienvenue-char {
     opacity: 0;

@@ -279,18 +279,25 @@
         v-if="sidebarBlock && user"
         @click="positioningElementId ? stopPositioning() : closeSidebar()"
     ></div>
-    <div class="admin-sidebar" v-if="sidebarBlock && user" :class="{ 'positioning-mode': positioningElementId, 'sidebar-agrandie': sidebarAgrandie }">
+    <div class="admin-sidebar" v-if="sidebarBlock && user" :class="{ 'positioning-mode': positioningElementId, [`sidebar-${sidebarNiveau}`]: ecranTelephone }">
         <div class="admin-sidebar-header">
             <h3>{{ getBlockLabel(sidebarBlock.type) }}</h3>
-            <button
-                v-if="ecranTelephone"
-                class="admin-close-btn admin-agrandir-btn"
-                :title="sidebarAgrandie ? 'Réduire le panneau pour voir la page' : 'Agrandir le panneau'"
-                :aria-label="sidebarAgrandie ? 'Réduire le panneau' : 'Agrandir le panneau'"
-                @click="sidebarAgrandie = !sidebarAgrandie"
-            >
-                {{ sidebarAgrandie ? "▾" : "▴" }}
-            </button>
+            <template v-if="ecranTelephone">
+                <button
+                    class="admin-close-btn admin-reduire-btn"
+                    title="Réduire le panneau pour voir la page"
+                    aria-label="Réduire le panneau"
+                    :disabled="sidebarNiveau === 'bas'"
+                    @click="changerNiveauPanneau(-1)"
+                >▾</button>
+                <button
+                    class="admin-close-btn admin-agrandir-btn"
+                    title="Agrandir le panneau"
+                    aria-label="Agrandir le panneau"
+                    :disabled="sidebarNiveau === 'haut'"
+                    @click="changerNiveauPanneau(1)"
+                >▴</button>
+            </template>
             <button class="admin-close-btn" @click="closeSidebar" aria-label="Fermer">
                 ✕
             </button>
@@ -1234,7 +1241,42 @@ function onExtraElementReplay() {
 // repensés pour le tactile (voir les styles `admin-toolbar-telephone`).
 const ecranTelephone = ref(false)
 const menuPlusOuvert = ref(false)
-const sidebarAgrandie = ref(false)
+// Hauteur du panneau d'un bloc sur téléphone : « bas » (en-tête et actions
+// seulement, toute la page visible), « moyen » (60 % de l'écran) ou « haut »
+// (plein écran, pour les longs formulaires).
+const NIVEAUX_PANNEAU = ['bas', 'moyen', 'haut']
+const sidebarNiveau = ref('moyen')
+function changerNiveauPanneau(delta) {
+    const i = NIVEAUX_PANNEAU.indexOf(sidebarNiveau.value) + delta
+    sidebarNiveau.value = NIVEAUX_PANNEAU[Math.max(0, Math.min(NIVEAUX_PANNEAU.length - 1, i))]
+    clearTimeout(timerApercu)
+}
+// Aperçu d'une animation : le bloc qui s'anime doit se voir. Sur téléphone il
+// était masqué par le panneau (60 % de l'écran) ; sur ordinateur, il pouvait
+// être hors de l'écran, la page n'ayant pas défilé jusqu'à lui. L'aperçu dure
+// ~1,4 s : on réduit le panneau le temps de le jouer, puis on le rétablit.
+let timerApercu = null
+function montrerApercuAnimation(e) {
+    const id = e?.detail?.id
+    const el = id && document.querySelector(`.block-wrapper[data-block-id="${CSS.escape(id)}"]`)
+    if (!el) return
+    const hautBarre = 48 + (ecranTelephone.value ? 8 : 0)
+    const r = el.getBoundingClientRect()
+    const bas = window.innerHeight - (ecranTelephone.value ? 140 : 0)
+    if (r.top < hautBarre + 4 || r.top > bas - 80) {
+        const cible = r.height < bas - hautBarre
+            ? window.scrollY + r.top - hautBarre - ((bas - hautBarre - r.height) / 2)
+            : window.scrollY + r.top - hautBarre
+        window.scrollTo({ top: Math.max(0, cible), behavior: 'auto' })
+    }
+    if (!ecranTelephone.value || sidebarNiveau.value === 'bas') return
+    const avant = sidebarNiveau.value
+    sidebarNiveau.value = 'bas'
+    clearTimeout(timerApercu)
+    timerApercu = setTimeout(() => {
+        if (sidebarNiveau.value === 'bas') sidebarNiveau.value = avant
+    }, 2000)
+}
 let mqTelephone = null
 function onChangeEcran() {
     ecranTelephone.value = !!mqTelephone?.matches
@@ -1278,7 +1320,8 @@ function bloquerZoomSaisie(actif) {
 // bloc sélectionné dans la partie visible au-dessus, sinon on modifie à
 // l'aveugle un bloc caché sous le panneau.
 watch(() => sidebarBlock.value?.id, (id) => {
-    sidebarAgrandie.value = false
+    sidebarNiveau.value = 'moyen'
+    clearTimeout(timerApercu)
     if (!id || !ecranTelephone.value || editingFooter.value) return
     nextTick(() => {
         const el = document.querySelector(`.block-wrapper[data-block-id="${CSS.escape(id)}"]`)
@@ -2173,6 +2216,7 @@ onMounted(() => {
 
     mqTelephone = window.matchMedia?.("(max-width: 768px)") || null
     mqTelephone?.addEventListener?.("change", onChangeEcran)
+    document.addEventListener('replay-animation', montrerApercuAnimation)
     onChangeEcran()
     bloquerZoomSaisie(true)
 
@@ -2203,6 +2247,8 @@ onUnmounted(() => {
     clearTimeout(autoSaveTimer);
     document.removeEventListener("keydown", onUndoRedoShortcut);
     mqTelephone?.removeEventListener?.("change", onChangeEcran);
+    document.removeEventListener('replay-animation', montrerApercuAnimation);
+    clearTimeout(timerApercu);
     bloquerZoomSaisie(false);
 });
 
@@ -3340,9 +3386,25 @@ async function saveChanges() {
         box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.2);
         transition: height 0.2s ease;
     }
-    .admin-sidebar.sidebar-agrandie {
+    .admin-sidebar.sidebar-haut {
         height: calc(100dvh - 48px);
         border-radius: 0;
+    }
+    /* Réduit : en-tête et actions seulement. Le corps reste dans la mise en
+       page (hauteur nulle, pas display: none) pour garder sa position de
+       défilement quand le panneau se rouvre. */
+    .admin-sidebar.sidebar-bas {
+        height: auto;
+    }
+    .admin-sidebar.sidebar-bas .admin-sidebar-body {
+        flex: 0 0 0;
+        min-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        overflow: hidden;
+    }
+    .admin-close-btn:disabled {
+        opacity: 0.3;
     }
     /* Pendant le placement d'un élément libre sur la page, on ne garde que
        l'en-tête et les actions : le bloc doit être visible pour le déplacer. */

@@ -144,6 +144,22 @@ function intentionNavigation(to) {
     return { mouseenter: precharger, focus: precharger, touchstart: precharger };
 }
 
+// Une fois la page affichée, le navigateur lit en différé le contenu de toutes
+// les pages du menu : le tout premier clic vers chacune est alors instantané
+// (le survol ne suffit pas au toucher ni quand le clic suit de près). Jamais
+// en admin, qui lit toujours la version à jour.
+let preloadTimer = null;
+function prechargeMenu() {
+    if (adminMode.value) return;
+    const lancer = () => {
+        for (const item of navItems.value) {
+            prechargerPage(item.to);
+            for (const sub of item.children || []) prechargerPage(sub.to);
+        }
+    };
+    preloadTimer = window.setTimeout(lancer, 1500);
+}
+
 const menuOpen = ref(false);
 const isScrolled = ref(false);
 const route = useRoute();
@@ -361,9 +377,11 @@ onMounted(() => {
     mobileMq.value = window.matchMedia("(min-width: 769px)");
     mobileMq.value.addEventListener("change", handleDesktopMediaChange);
     loadSiteSettings();
+    prechargeMenu();
 });
 
 onUnmounted(() => {
+    window.clearTimeout(preloadTimer);
     window.removeEventListener("scroll", onScroll);
     document.removeEventListener("keydown", handleEscape);
     mobileMq.value?.removeEventListener("change", handleDesktopMediaChange);

@@ -1,7 +1,7 @@
 <template>
     <header
         class="site-header"
-        :class="{ scrolled: isScrolled, 'menu-open': menuOpen }"
+        :class="{ scrolled: isScrolled, 'menu-open': menuOpen, 'menu-pending': menuPending }"
         :style="headerStyle"
     >
         <div class="header-inner">
@@ -256,8 +256,10 @@ const {
 // libellés d'origine (« Événements ») au lieu des libellés renommés. On le lit
 // aussi côté serveur ; une fois le menu chargé côté client (ou modifié dans
 // l'éditeur), c'est lui qui fait foi.
+// Un seul nouvel essai côté serveur : sur un isolat froid, la première lecture
+// de Firestore échoue parfois, et c'est alors le menu d'origine qui s'affichait.
 const { data: menuServeur } = useAsyncData("menu-navigation", () =>
-    $fetch("/api/menu").catch(() => null),
+    $fetch("/api/menu", { retry: 1, retryDelay: 200 }).catch(() => null),
 );
 const itemsServeur = computed(() => {
     const items = menuServeur.value?.menuItems;
@@ -265,6 +267,13 @@ const itemsServeur = computed(() => {
         ? items.filter((i) => i.to !== "/accueil")
         : null;
 });
+// Ni menu lu côté serveur, ni menu chargé côté client : seuls les libellés
+// d'origine sont disponibles. Les afficher le temps que le vrai menu arrive
+// montrait d'abord les anciens noms (« Messages ») puis les noms renommés. On
+// garde la place mais on masque les liens jusqu'à ce que le vrai menu soit là.
+const menuPending = computed(
+    () => !adminMode.value && !menuLoaded.value && !itemsServeur.value,
+);
 // La page Événements est masquée de la nav publique quand aucun événement
 // n'est à venir — évite un lien mort vers une page vide. Toujours visible
 // en mode admin pour permettre la gestion du contenu.
@@ -390,6 +399,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.site-header.menu-pending .nav-desktop,
+.site-header.menu-pending .nav-mobile {
+    visibility: hidden;
+}
+/* Sans JavaScript le vrai menu n'arrivera jamais : on montre celui d'origine. */
+:global(html.no-js) .site-header.menu-pending .nav-desktop,
+:global(html.no-js) .site-header.menu-pending .nav-mobile {
+    visibility: visible;
+}
+
 .site-header {
     position: fixed;
     top: 0;

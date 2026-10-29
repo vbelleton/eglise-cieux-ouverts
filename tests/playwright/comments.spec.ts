@@ -54,8 +54,8 @@ test.describe('Demandes développeur', () => {
     await page.locator('.admin-comment-actions button', { hasText: 'Créer la demande' }).click()
     await expect(page.locator('.admin-comment-del-btn')).toBeVisible({ timeout: 3000 })
 
-    page.on('dialog', (d) => d.accept())
     await page.locator('.admin-comment-del-btn').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer' }).click()
     await expect(page.locator('.admin-comment-actions button', { hasText: 'Créer la demande' })).toBeVisible({ timeout: 3000 })
     await expect(page.locator('.dev-comment-badge')).toHaveCount(0)
   })

@@ -64,13 +64,13 @@ test.describe('Messages de contact', () => {
     await expect(item).toBeVisible({ timeout: 3000 })
 
     // Refuser la confirmation ne doit rien supprimer
-    page.once('dialog', (d) => d.dismiss())
     await item.locator('.version-del-btn').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler' }).click()
     await expect(page.locator('.version-item', { hasText: 'Lucie Bernard' })).toBeVisible({ timeout: 3000 })
 
     // Accepter supprime réellement le message
-    page.once('dialog', (d) => d.accept())
     await item.locator('.version-del-btn').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer' }).click()
     await expect(page.locator('.version-item', { hasText: 'Lucie Bernard' })).toHaveCount(0, { timeout: 3000 })
 
     // Et il ne revient pas après rechargement (suppression persistée)

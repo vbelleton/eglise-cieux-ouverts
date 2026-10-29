@@ -213,7 +213,7 @@ test.describe('Navigation entre pages en mode admin', () => {
 })
 
 test.describe('Aperçu responsive (device preview)', () => {
-  test('le mode tablette affiche une iframe à 768px', async ({ page }) => {
+  test('le mode tablette affiche une iframe à 820px', async ({ page }) => {
     await page.goto('/?admin=true')
     await page.waitForTimeout(3000)
 
@@ -222,7 +222,7 @@ test.describe('Aperçu responsive (device preview)', () => {
 
     const iframe = page.locator('.device-iframe')
     await expect(iframe).toBeVisible()
-    expect(await iframe.evaluate((el) => el.style.width)).toBe('768px')
+    expect(await iframe.evaluate((el) => el.style.width)).toBe('820px')
   })
 
   test('le mode mobile affiche une iframe à 375px', async ({ page }) => {

@@ -452,7 +452,7 @@ test.describe('6. Responsive device preview', () => {
     await expect(page.locator('.device-btn')).toHaveCount(3)
   })
 
-  test('tablet preview shows iframe at 768px', async ({ page }) => {
+  test('tablet preview shows iframe at 820px', async ({ page }) => {
     await page.goto('/?admin=true')
     await page.waitForTimeout(2000)
     await page.locator('.device-btn').nth(1).click()
@@ -460,7 +460,7 @@ test.describe('6. Responsive device preview', () => {
     const iframe = page.locator('.device-iframe')
     await expect(iframe).toBeVisible()
     const width = await iframe.evaluate(el => el.style.width)
-    expect(width).toBe('768px')
+    expect(width).toBe('820px')
   })
 
   test('mobile preview shows iframe at 375px', async ({ page }) => {

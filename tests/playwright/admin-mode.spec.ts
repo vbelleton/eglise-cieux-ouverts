@@ -87,7 +87,7 @@ test.describe('Boutons device — iframe preview', () => {
     await expect(header).toBeVisible()
   })
 
-  test('clic sur bouton tablet affiche une iframe à 768px', async ({ page }) => {
+  test('clic sur bouton tablet affiche une iframe à 820px', async ({ page }) => {
     await loginAsAdmin(page)
 
     const buttons = page.locator('.device-btn')
@@ -98,7 +98,7 @@ test.describe('Boutons device — iframe preview', () => {
     await expect(iframe).toBeVisible()
 
     const width = await iframe.evaluate(el => el.style.width)
-    expect(width).toBe('768px')
+    expect(width).toBe('820px')
   })
 
   test('clic sur bouton mobile affiche une iframe à 375px', async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe('Boutons device — iframe preview', () => {
     await buttons.nth(1).click()
     await page.waitForTimeout(1000)
     await expect(iframe).toBeVisible()
-    expect(await iframe.evaluate(el => el.style.width)).toBe('768px')
+    expect(await iframe.evaluate(el => el.style.width)).toBe('820px')
 
     await buttons.nth(2).click()
     await page.waitForTimeout(1000)
@@ -225,7 +225,7 @@ test.describe('Rendu réel dans l iframe — media queries', () => {
     expect(height).not.toContain('vh')
   })
 
-  test('le rendu tablette est à 768px avec media queries activées', async ({ page }) => {
+  test('le rendu tablette est à 820px avec media queries activées', async ({ page }) => {
     await loginAsAdmin(page)
 
     const buttons = page.locator('.device-btn')
@@ -234,11 +234,12 @@ test.describe('Rendu réel dans l iframe — media queries', () => {
 
     const iframeEl = page.locator('.device-iframe')
     const width = await iframeEl.evaluate(el => el.style.width)
-    expect(width).toBe('768px')
+    expect(width).toBe('820px')
 
+    // À 820 px le site affiche sa navigation de bureau (et non le menu burger du téléphone)
     const iframe = page.frameLocator('.device-iframe')
-    const burger = iframe.locator('.burger')
-    await expect(burger).toBeVisible()
+    await expect(iframe.locator('.nav-desktop').first()).toBeVisible()
+    await expect(iframe.locator('.burger')).toBeHidden()
   })
 })
 

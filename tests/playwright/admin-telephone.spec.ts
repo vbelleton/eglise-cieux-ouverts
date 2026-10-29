@@ -118,6 +118,15 @@ test.describe('Admin sur téléphone', () => {
     await expect(page.locator('.device-iframe.preview-tablet')).toBeVisible()
     const { sw, cw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }))
     expect(sw).toBeLessThanOrEqual(cw)
+    // Une vraie tablette (820 px) : le site applique sa mise en page tablette, pas la mobile
+    const mesure = await page.locator('.device-iframe').evaluate((el: HTMLIFrameElement) => ({
+      largeur: el.contentWindow!.innerWidth,
+      tablette: el.contentWindow!.matchMedia('(min-width: 769px) and (max-width: 1024px)').matches,
+      rendue: Math.round(el.getBoundingClientRect().width),
+    }))
+    expect(mesure.largeur).toBe(820)
+    expect(mesure.tablette).toBe(true)
+    expect(mesure.rendue).toBeLessThanOrEqual(390)
   })
 
   test('zoom au pincement bloqué en admin, rendu en quittant', async ({ page }) => {

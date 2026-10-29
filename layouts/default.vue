@@ -223,7 +223,7 @@ const previewIframeSrc = computed(() => {
 
 const deviceWidth = computed(() => {
     if (previewDevice.value === "mobile") return "375"
-    if (previewDevice.value === "tablet") return "768"
+    if (previewDevice.value === "tablet") return "820"
     return ""
 })
 
@@ -490,7 +490,7 @@ function onFooterClick(e) {
     min-height: 0;
 }
 .admin-preview-frame.preview-tablet {
-    max-width: 768px;
+    max-width: 820px;
     box-shadow: 0 0 0 1px #ddd, 0 4px 24px rgba(0,0,0,0.1);
     border-radius: 12px;
     overflow: hidden;
@@ -515,12 +515,12 @@ function onFooterClick(e) {
 #app-root.is-inner-preview .admin-toolbar {
     display: none !important;
 }
-/* Sur téléphone, l'iframe « tablette » (768 px) est réduite de moitié pour
-   tenir dans l'écran ; la hauteur est doublée pour compenser. */
+/* Sur téléphone, l'iframe « tablette » (820 px) est réduite pour tenir dans
+   l'écran (≈ 350 px) ; la hauteur est agrandie pour compenser. */
 @media (max-width: 768px) {
     .device-iframe.preview-tablet {
-        zoom: 0.5;
-        height: calc((100vh - 48px - 12px) * 2);
+        zoom: 0.43;
+        height: calc((100vh - 48px - 12px) / 0.43);
     }
 }
 .device-iframe {

@@ -38,9 +38,28 @@ test.describe('Admin sur téléphone', () => {
     await expect(page.locator('.admin-toolbar-plus.ouvert')).toHaveCount(0)
   })
 
+  test('toucher un bloc ne l\'ouvre pas : une pastille propose de le modifier', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
+    const pastille = page.locator('.admin-pastille-ouvrir')
+    await expect(pastille).toBeVisible()
+    await expect(pastille).toContainText('Modifier')
+    await expect(page.locator('.admin-sidebar')).toHaveCount(0)
+    // ✕ désélectionne sans ouvrir le panneau
+    await page.locator('.admin-pastille-fermer').click()
+    await expect(page.locator('.admin-pastille-panneau')).toHaveCount(0)
+    await expect(page.locator('.admin-sidebar')).toHaveCount(0)
+    // un autre toucher, puis ouverture explicite
+    await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
+    await pastille.click()
+    await expect(page.locator('.admin-sidebar')).toBeVisible()
+    await expect(page.locator('.admin-pastille-panneau')).toHaveCount(0)
+  })
+
   test('le panneau d\'un bloc s\'ouvre par le bas, en pleine largeur', async ({ page }) => {
     await loginAsAdmin(page)
     await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
+    await page.locator('.admin-pastille-ouvrir').click()
     const panneau = page.locator('.admin-sidebar')
     await expect(panneau).toBeVisible()
     const box = await panneau.boundingBox()
@@ -62,6 +81,7 @@ test.describe('Admin sur téléphone', () => {
   test('choisir une animation réduit le panneau pour montrer l\'aperçu, puis le rétablit', async ({ page }) => {
     await loginAsAdmin(page)
     await page.evaluate(() => (document.querySelector('.block-wrapper[data-block-type="bienvenue"]') as HTMLElement).click())
+    await page.locator('.admin-pastille-ouvrir').click()
     const panneau = page.locator('.admin-sidebar')
     await expect(panneau).toHaveClass(/sidebar-moyen/)
     await page.locator('.admin-sidebar .anim-btn', { hasText: 'Zoom entrant' }).first().click()

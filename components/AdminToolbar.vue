@@ -501,6 +501,7 @@
                     📋
                 </button>
                 <button
+                    v-if="!ecranTelephone"
                     class="admin-action-btn admin-action-template"
                     @click="openTemplateModal"
                     title="Enregistrer ce bloc comme modèle réutilisable (n'enregistre pas la page)"

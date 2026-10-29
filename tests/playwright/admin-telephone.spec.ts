@@ -130,18 +130,11 @@ test.describe('Admin sur téléphone', () => {
     expect(await page.evaluate(() => document.documentElement.style.touchAction)).toBe('')
   })
 
-  test('💾 du panneau propose un modèle dans une modale lisible, sans boîte native', async ({ page }) => {
-    let natif = 0
-    page.on('dialog', async (d) => { natif++; await d.dismiss() })
+  test('pas de bouton « modèle » dans le panneau d\'un bloc sur téléphone', async ({ page }) => {
     await loginAsAdmin(page)
     await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
     await page.locator('.admin-pastille-ouvrir').click()
-    const bouton = page.locator('.admin-action-template')
-    await expect(bouton).toContainText('Modèle')
-    await bouton.click()
-    await expect(page.locator('.admin-modele-modal')).toContainText('La page n\'est pas enregistrée')
-    await page.locator('.admin-modele-modal').getByRole('button', { name: 'Annuler' }).click()
-    await expect(page.locator('.admin-modele-modal')).toHaveCount(0)
-    expect(natif).toBe(0)
+    await expect(page.locator('.admin-action-btn').first()).toBeVisible()
+    await expect(page.locator('.admin-action-template')).toHaveCount(0)
   })
 })

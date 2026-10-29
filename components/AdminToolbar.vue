@@ -484,16 +484,17 @@
                     @click="moveBlock(sidebarBlock.id, -1)"
                     title="Monter"
                 >
-                    ↑
+                    ↑<span class="admin-action-legende">Monter</span>
                 </button>
                 <button
                     class="admin-action-btn"
                     @click="moveBlock(sidebarBlock.id, 1)"
                     title="Descendre"
                 >
-                    ↓
+                    ↓<span class="admin-action-legende">Descendre</span>
                 </button>
                 <button
+                    v-if="!ecranTelephone"
                     class="admin-action-btn admin-action-duplicate"
                     @click="duplicateBlock(sidebarBlock.id)"
                     title="Dupliquer"
@@ -514,7 +515,7 @@
                     @click="removeBlock(sidebarBlock.id)"
                     title="Supprimer"
                 >
-                    🗑
+                    🗑<span class="admin-action-legende">Supprimer</span>
                 </button>
             </div>
         </div>
@@ -554,6 +555,20 @@
                             <span class="block-picker-icon">{{ bt.icon }}</span>
                             <span class="block-picker-label">{{ bt.label }}</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <Teleport to="body">
+        <div v-if="confirmation" class="version-modal-overlay admin-confirm-overlay" @click.self="repondreConfirmation(false)">
+            <div class="version-modal block-picker-modal admin-modele-modal" role="alertdialog" aria-modal="true">
+                <div class="version-modal-body">
+                    <p class="admin-confirm-message">{{ confirmation.message }}</p>
+                    <div class="admin-modele-actions">
+                        <button class="admin-btn" @click="repondreConfirmation(false)">Annuler</button>
+                        <button class="admin-btn admin-confirm-ok" @click="repondreConfirmation(true)">Supprimer</button>
                     </div>
                 </div>
             </div>
@@ -1541,7 +1556,7 @@ async function toggleCommentResolved(resolved) {
 }
 
 async function deleteActiveComment() {
-    if (!activeComment.value || !confirm('Supprimer cette demande ?')) return
+    if (!activeComment.value || !(await confirmer('Supprimer cette demande ?'))) return
     try {
         const token = await getFirebaseToken()
         const res = await fetch(`/api/comments/${activeComment.value.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
@@ -1601,7 +1616,7 @@ async function toggleGlobalCommentResolved(c) {
 }
 
 async function deleteGlobalComment(id) {
-    if (!confirm('Supprimer cette demande ?')) return
+    if (!(await confirmer('Supprimer cette demande ?'))) return
     try {
         const token = await getFirebaseToken()
         const res = await fetch(`/api/comments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
@@ -1743,7 +1758,7 @@ const deletingContactId = ref(null)
 
 async function deleteContactMessage(message) {
     const qui = `${message.prenom} ${message.nom}`.trim() || message.email
-    if (!confirm(`Supprimer définitivement le message de ${qui} ?\n\nCette action est irréversible.`)) return
+    if (!(await confirmer(`Supprimer définitivement le message de ${qui} ? Cette action est irréversible.`))) return
 
     deletingContactId.value = message.id
     try {
@@ -1925,7 +1940,7 @@ function toggleVersionExpand(id) {
 }
 
 async function deleteVersion(versionId) {
-    if (!confirm('Supprimer cette version ?')) return
+    if (!(await confirmer('Supprimer cette version ?'))) return
     deletingVersion.value = versionId
     try {
         const token = await getFirebaseToken()
@@ -2565,6 +2580,17 @@ async function saveFooterChanges() {
     } catch (e) {
         showToast("Erreur lors de la sauvegarde du footer : " + e.message, 'toast-error');
     }
+}
+
+// Confirmation dans la page (les boîtes natives du navigateur sont illisibles sur téléphone)
+const confirmation = ref(null)
+function confirmer(message) {
+    return new Promise((resolve) => { confirmation.value = { message, resolve } })
+}
+function repondreConfirmation(ok) {
+    const c = confirmation.value
+    confirmation.value = null
+    c?.resolve(ok)
 }
 
 const showSaveTemplate = ref(false)
@@ -3565,6 +3591,9 @@ async function saveChanges() {
 
 <style>
 /* Version history modal */
+.version-modal-overlay.admin-confirm-overlay { z-index: 100000; }
+.admin-confirm-message { margin: 0 0 14px; font-size: 16px; }
+.admin-confirm-ok { background: #c0392b; color: #fff; border-color: #c0392b; }
 .admin-modele-label { display: block; font-weight: 600; margin-bottom: 6px; }
 .admin-modele-input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; }
 .admin-modele-partage { display: flex; align-items: center; gap: 8px; margin: 14px 0; }

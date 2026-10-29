@@ -137,4 +137,13 @@ test.describe('Admin sur téléphone', () => {
     await expect(page.locator('.admin-action-btn').first()).toBeVisible()
     await expect(page.locator('.admin-action-template')).toHaveCount(0)
   })
+
+  test('panneau d\'un bloc : actions légendées, pas de « dupliquer »', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
+    await page.locator('.admin-pastille-ouvrir').click()
+    await expect(page.locator('.admin-block-actions .admin-action-btn').filter({ hasText: 'Supprimer' })).toBeVisible()
+    await expect(page.locator('.admin-block-actions .admin-action-btn').filter({ hasText: 'Monter' })).toBeVisible()
+    await expect(page.locator('.admin-action-duplicate')).toHaveCount(0)
+  })
 })

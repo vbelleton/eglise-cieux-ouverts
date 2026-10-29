@@ -501,11 +501,13 @@
                     📋
                 </button>
                 <button
+                    v-if="!ecranTelephone"
                     class="admin-action-btn admin-action-template"
                     @click="openTemplateModal"
-                    title="Sauvegarder template"
+                    title="Enregistrer ce bloc comme modèle réutilisable (n'enregistre pas la page)"
+                    aria-label="Enregistrer ce bloc comme modèle"
                 >
-                    💾
+                    💾<span class="admin-action-legende">Modèle</span>
                 </button>
                 <button
                     class="admin-action-btn admin-action-danger"
@@ -552,6 +554,33 @@
                             <span class="block-picker-icon">{{ bt.icon }}</span>
                             <span class="block-picker-label">{{ bt.label }}</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- Enregistrer le bloc comme modèle (remplace prompt/confirm natifs) -->
+    <Teleport to="body">
+        <div v-if="showSaveTemplate" class="version-modal-overlay" @click.self="showSaveTemplate = false">
+            <div class="version-modal block-picker-modal admin-modele-modal">
+                <div class="version-modal-header">
+                    <div>
+                        <h3>Enregistrer comme modèle</h3>
+                        <p class="block-picker-subtitle">Garde ce bloc pour le réutiliser plus tard. La page n'est pas enregistrée.</p>
+                    </div>
+                    <button class="version-modal-close" @click="showSaveTemplate = false" title="Fermer">✕</button>
+                </div>
+                <div class="version-modal-body">
+                    <label class="admin-modele-label" for="admin-modele-nom">Nom du modèle</label>
+                    <input id="admin-modele-nom" v-model="templateName" class="admin-modele-input" type="text" @keyup.enter="confirmSaveTemplate" />
+                    <label class="admin-modele-partage">
+                        <input type="checkbox" v-model="templateShare" />
+                        Le partager avec les autres administrateurs
+                    </label>
+                    <div class="admin-modele-actions">
+                        <button class="admin-btn" @click="showSaveTemplate = false">Annuler</button>
+                        <button class="admin-btn admin-btn-save" :disabled="!templateName.trim()" @click="confirmSaveTemplate">Enregistrer le modèle</button>
                     </div>
                 </div>
             </div>
@@ -2538,17 +2567,25 @@ async function saveFooterChanges() {
     }
 }
 
-async function openTemplateModal() {
+const showSaveTemplate = ref(false)
+const templateName = ref('')
+const templateShare = ref(false)
+
+function openTemplateModal() {
     if (!sidebarBlock.value) return
-    const name = prompt("Nom du template :", "Template " + (sidebarBlock.value?.type || "inconnu"))
+    templateName.value = "Modèle " + getBlockLabel(sidebarBlock.value.type)
+    templateShare.value = false
+    showSaveTemplate.value = true
+}
+
+async function confirmSaveTemplate() {
+    const name = templateName.value.trim()
     if (!name) return
-    
-    // Ask if user wants to share with other admins
-    const share = confirm("Partager ce template avec les autres admins ?")
-    
+    const share = templateShare.value
+    showSaveTemplate.value = false
     try {
         await saveTemplateBlock(name, share)
-        showToast(`Template sauvé${share ? ' et partagé' : ''} !`, 'toast-success')
+        showToast(`Modèle enregistré${share ? ' et partagé' : ''} !`, 'toast-success')
     } catch (e) {
         showToast("Erreur : " + e.message, 'toast-error')
     }
@@ -3376,6 +3413,7 @@ async function saveChanges() {
     cursor: pointer;
     font-size: 1em;
 }
+.admin-action-legende { display: none; }
 .admin-action-btn:hover {
     background: #f5f5f5;
 }
@@ -3497,6 +3535,11 @@ async function saveChanges() {
     .admin-action-btn {
         min-height: 44px;
     }
+    .admin-action-legende {
+        display: block;
+        font-size: 11px;
+        line-height: 1.1;
+    }
     /* Modales : presque plein écran, sans marge perdue. */
     .version-modal,
     .settings-modal {
@@ -3522,6 +3565,10 @@ async function saveChanges() {
 
 <style>
 /* Version history modal */
+.admin-modele-label { display: block; font-weight: 600; margin-bottom: 6px; }
+.admin-modele-input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; }
+.admin-modele-partage { display: flex; align-items: center; gap: 8px; margin: 14px 0; }
+.admin-modele-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .version-modal-overlay {
     position: fixed;
     top: 0;

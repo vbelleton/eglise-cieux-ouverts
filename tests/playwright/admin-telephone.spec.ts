@@ -129,4 +129,12 @@ test.describe('Admin sur téléphone', () => {
     await expect(page.locator('.admin-toolbar')).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.style.touchAction)).toBe('')
   })
+
+  test('pas de bouton « modèle » dans le panneau d\'un bloc sur téléphone', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.evaluate(() => (document.querySelectorAll('.block-wrapper')[1] as HTMLElement).click())
+    await page.locator('.admin-pastille-ouvrir').click()
+    await expect(page.locator('.admin-action-btn').first()).toBeVisible()
+    await expect(page.locator('.admin-action-template')).toHaveCount(0)
+  })
 })

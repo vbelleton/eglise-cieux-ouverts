@@ -49,8 +49,30 @@ test.describe('Admin sur téléphone', () => {
     expect(box!.y).toBeGreaterThan(150)
 
     await page.locator('.admin-agrandir-btn').click()
-    await expect(panneau).toHaveClass(/sidebar-agrandie/)
+    await expect(panneau).toHaveClass(/sidebar-haut/)
     await expect.poll(async () => (await panneau.boundingBox())!.y).toBeLessThanOrEqual(49)
+
+    // Réduit : seuls l'en-tête et les actions restent, la page est visible
+    await page.locator('.admin-reduire-btn').click()
+    await page.locator('.admin-reduire-btn').click()
+    await expect(panneau).toHaveClass(/sidebar-bas/)
+    await expect.poll(async () => (await panneau.boundingBox())!.height).toBeLessThan(200)
+  })
+
+  test('choisir une animation réduit le panneau pour montrer l\'aperçu, puis le rétablit', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.evaluate(() => (document.querySelector('.block-wrapper[data-block-type="bienvenue"]') as HTMLElement).click())
+    const panneau = page.locator('.admin-sidebar')
+    await expect(panneau).toHaveClass(/sidebar-moyen/)
+    await page.locator('.admin-sidebar .anim-btn', { hasText: 'Zoom entrant' }).first().click()
+    await expect(panneau).toHaveClass(/sidebar-bas/)
+    // le bloc animé n'est plus masqué par le panneau (défilement éventuellement lissé)
+    await expect.poll(async () => {
+      const bloc = await page.locator('.block-wrapper[data-block-type="bienvenue"]').boundingBox()
+      const haut = (await panneau.boundingBox())!.y
+      return bloc!.y >= 48 && bloc!.y < haut - 60
+    }, { timeout: 4000 }).toBe(true)
+    await expect(panneau).toHaveClass(/sidebar-moyen/, { timeout: 5000 })
   })
 
   test('pas de zoom Safari à la saisie en admin, zoom rendu en quittant', async ({ page }) => {

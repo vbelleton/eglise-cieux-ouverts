@@ -276,10 +276,19 @@
 
     <div
         class="admin-sidebar-overlay"
-        v-if="sidebarBlock && user"
+        v-if="panneauVisible"
         @click="positioningElementId ? stopPositioning() : closeSidebar()"
     ></div>
-    <div class="admin-sidebar" v-if="sidebarBlock && user" :class="{ 'positioning-mode': positioningElementId, [`sidebar-${sidebarNiveau}`]: ecranTelephone }">
+    <!-- Sur téléphone, toucher un bloc le sélectionne sans ouvrir le panneau :
+         un simple effleurement en faisant défiler la page ouvrait ce grand
+         panneau à tout bout de champ. On l'ouvre explicitement d'ici. -->
+    <div v-if="pastillePanneau" class="admin-pastille-panneau">
+        <button class="admin-pastille-ouvrir" @click="ouvrirPanneau">
+            ✎ Modifier : {{ getBlockLabel(sidebarBlock.type) }}
+        </button>
+        <button class="admin-pastille-fermer" aria-label="Désélectionner" @click="closeSidebar">✕</button>
+    </div>
+    <div class="admin-sidebar" v-if="panneauVisible" :class="{ 'positioning-mode': positioningElementId, [`sidebar-${sidebarNiveau}`]: ecranTelephone }">
         <div class="admin-sidebar-header">
             <h3>{{ getBlockLabel(sidebarBlock.type) }}</h3>
             <template v-if="ecranTelephone">
@@ -1316,12 +1325,29 @@ function bloquerZoomSaisie(actif) {
         viewportOrigine = null
     }
 }
-// Sur téléphone la sidebar s'ouvre en panneau par le bas : on ramène le
-// bloc sélectionné dans la partie visible au-dessus, sinon on modifie à
-// l'aveugle un bloc caché sous le panneau.
+const panneauMasque = ref(false)
+const panneauVisible = computed(() => {
+    if (!sidebarBlock.value || !user.value) return false
+    // Un élément libre en cours de placement a besoin du panneau (annuler/valider)
+    return !(ecranTelephone.value && panneauMasque.value && !positioningElementId.value)
+})
+const pastillePanneau = computed(() =>
+    !!sidebarBlock.value && !!user.value && ecranTelephone.value && panneauMasque.value && !positioningElementId.value,
+)
+function ouvrirPanneau() {
+    panneauMasque.value = false
+    amenerBlocDansLaVue(sidebarBlock.value?.id)
+}
 watch(() => sidebarBlock.value?.id, (id) => {
     sidebarNiveau.value = 'moyen'
     clearTimeout(timerApercu)
+    panneauMasque.value = !!id && ecranTelephone.value
+})
+watch(ecranTelephone, (tel) => { if (!tel) panneauMasque.value = false })
+// Sur téléphone la sidebar s'ouvre en panneau par le bas : on ramène le
+// bloc sélectionné dans la partie visible au-dessus, sinon on modifie à
+// l'aveugle un bloc caché sous le panneau.
+function amenerBlocDansLaVue(id) {
     if (!id || !ecranTelephone.value || editingFooter.value) return
     nextTick(() => {
         const el = document.querySelector(`.block-wrapper[data-block-id="${CSS.escape(id)}"]`)
@@ -1333,7 +1359,7 @@ watch(() => sidebarBlock.value?.id, (id) => {
             window.scrollTo({ top: window.scrollY + r.top - haut, behavior: 'smooth' })
         }
     })
-})
+}
 
 function setDevice(device) {
   previewDevice.value = device
@@ -3084,6 +3110,39 @@ async function saveChanges() {
 }
 .admin-toolbar-telephone .admin-btn-add-label {
     display: none;
+}
+.admin-pastille-panneau {
+    position: fixed;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    max-width: calc(100vw - 24px);
+    border-radius: 999px;
+    overflow: hidden;
+    background: #1a1a2e;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.admin-pastille-ouvrir,
+.admin-pastille-fermer {
+    min-height: 48px;
+    border: none;
+    background: none;
+    color: #fff;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+}
+.admin-pastille-ouvrir {
+    padding: 0 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-pastille-fermer {
+    min-width: 48px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 .admin-btn-save.a-sauvegarder {
     box-shadow: 0 0 0 2px #fbbf24;

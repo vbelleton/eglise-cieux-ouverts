@@ -1014,6 +1014,17 @@
                         <p class="settings-hint">Décoché : le lien « Espace membre », la page /membre, la création de compte et les candidatures du bloc Louange sont retirés du site public.</p>
                     </div>
                     <div class="settings-field">
+                        <label>Testeurs de l'espace membre (mode test)</label>
+                        <textarea
+                            v-model="testeursMembreText"
+                            rows="2"
+                            placeholder="prenom@example.com, autre@example.com"
+                            class="settings-input settings-textarea"
+                            data-testid="espace-membre-testeurs"
+                        ></textarea>
+                        <p class="settings-hint">Tant que l'espace membre n'est pas activé, ces personnes (et seulement elles) peuvent l'utiliser en allant directement sur /membre. Aucun lien n'apparaît sur le site public. Laisser vide pour fermer complètement.</p>
+                    </div>
+                    <div class="settings-field">
                         <label>Ordre des onglets de l'espace membre (/membre)</label>
                         <p class="settings-hint">Ordre d'affichage des onglets Ressources/Demandes/Mes événements.</p>
                         <div class="member-tab-order-list">
@@ -1093,7 +1104,7 @@ import { SOCIAL_ICONS } from "~/utils/socialIcons.js";
 import { uploadImage, listUploadedImages } from "~/utils/imageUpload.js";
 import { useToast } from '~/composables/useToast'
 
-const { socialLinks: liveSocialLinks, memberTabOrder: liveMemberTabOrder, espaceMembre: liveEspaceMembre, hideEventsPageIfEmpty: liveHideEventsPageIfEmpty } = useSiteSettings()
+const { socialLinks: liveSocialLinks, memberTabOrder: liveMemberTabOrder, espaceMembre: liveEspaceMembre, espaceMembreTest: liveEspaceMembreTest, hideEventsPageIfEmpty: liveHideEventsPageIfEmpty } = useSiteSettings()
 
 const { showToast } = useToast()
 
@@ -1782,6 +1793,11 @@ async function deleteContactMessage(message) {
 const showSettings = ref(false)
 const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
 const contactEmailsText = ref('')
+const testeursMembreText = ref('')
+// Faux tant que la lecture des réglages n'a pas réussi : la sauvegarde
+// remplace tout le document `settings/config`, elle écraserait sinon les vrais
+// réglages (liens, testeurs…) par un formulaire vide.
+const settingsLus = ref(false)
 const socialLinksForm = ref([])
 const etatEmail = ref(null)
 const testEmail = ref(null)
@@ -1817,6 +1833,7 @@ watch(showSettings, async (show) => {
 })
 
 async function loadSettings() {
+  settingsLus.value = false
   try {
     // Token obligatoire : /api/settings est public (les vitrines y lisent
     // socialLinks/memberTabOrder sans authentification) et ne joint
@@ -1831,10 +1848,12 @@ async function loadSettings() {
     const data = await res.json()
     settingsForm.value = { hideEventsPageIfEmpty: data.hideEventsPageIfEmpty === true, espaceMembre: data.espaceMembre === true }
     contactEmailsText.value = (data.contactEmails || []).join(', ')
+    testeursMembreText.value = (data.espaceMembreTesteurs || []).join(', ')
     socialLinksForm.value = Array.isArray(data.socialLinks) ? data.socialLinks.map(l => ({ ...l })) : []
     memberTabOrderForm.value = Array.isArray(data.memberTabOrder) && data.memberTabOrder.length === 3
       ? [...data.memberTabOrder]
       : ['ressources', 'demandes', 'evenements']
+    settingsLus.value = true
   } catch (e) {
     console.error('[admin] load settings failed:', e)
     showToast('Erreur : ' + (e.message || e), 'toast-error')
@@ -1896,13 +1915,18 @@ async function saveSettings() {
     showToast('Au moins un email est requis', 'toast-error')
     return
   }
+  if (!settingsLus.value) {
+    showToast('Réglages non chargés : rouvre la configuration avant d\'enregistrer', 'toast-error')
+    return
+  }
+  const espaceMembreTesteurs = testeursMembreText.value.split(/[,;\s]+/).map(e => e.trim()).filter(Boolean)
   settingsSaving.value = true
   try {
     const token = await getFirebaseToken()
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...settingsForm.value, contactEmails, socialLinks: socialLinksForm.value, memberTabOrder: memberTabOrderForm.value }),
+      body: JSON.stringify({ ...settingsForm.value, contactEmails, espaceMembreTesteurs, socialLinks: socialLinksForm.value, memberTabOrder: memberTabOrderForm.value }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => null)
@@ -1913,6 +1937,7 @@ async function saveSettings() {
     liveSocialLinks.value = socialLinksForm.value.map(l => ({ ...l }))
     liveMemberTabOrder.value = [...memberTabOrderForm.value]
     liveEspaceMembre.value = settingsForm.value.espaceMembre === true
+    liveEspaceMembreTest.value = espaceMembreTesteurs.length > 0
     liveHideEventsPageIfEmpty.value = settingsForm.value.hideEventsPageIfEmpty === true
     showToast('Configuration sauvegardée', 'toast-success')
     showSettings.value = false

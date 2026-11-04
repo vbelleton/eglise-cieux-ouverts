@@ -11,6 +11,9 @@ const user = ref<any>(null)
 const profile = ref<any>(null) // réponse de GET /api/member/me
 const authReady = ref(false)
 const profileLoading = ref(false)
+// Le serveur a refusé ce compte (403) : espace membre en mode test et
+// e-mail absent de la liste des testeurs, ou espace fermé.
+const accesRefuse = ref(false)
 let initialized = false
 
 export function useMemberAuth() {
@@ -24,7 +27,10 @@ export function useMemberAuth() {
       user.value = u
       authReady.value = true
       if (u) fetchProfile()
-      else profile.value = null
+      else {
+        profile.value = null
+        accesRefuse.value = false
+      }
     })
   }
 
@@ -50,8 +56,18 @@ export function useMemberAuth() {
     if (profileLoading.value) return
     profileLoading.value = true
     try {
+      // Espace fermé : le serveur refuserait (403), inutile d'appeler —
+      // un admin connecté déclenchait sinon une erreur console sur chaque page.
+      const { espaceMembre, espaceMembreTest, loadSiteSettings } = useSiteSettings()
+      await loadSiteSettings()
+      if (!espaceMembre.value && !espaceMembreTest.value) {
+        profile.value = null
+        return
+      }
       profile.value = await authedFetch('/api/member/me')
-    } catch (e) {
+      accesRefuse.value = false
+    } catch (e: any) {
+      accesRefuse.value = (e?.statusCode ?? e?.status) === 403
       console.warn('useMemberAuth: fetchProfile failed', e)
       profile.value = null
     } finally {
@@ -80,6 +96,7 @@ export function useMemberAuth() {
     }
     user.value = null
     profile.value = null
+    accesRefuse.value = false
   }
 
   init()
@@ -89,6 +106,7 @@ export function useMemberAuth() {
     profile,
     authReady,
     profileLoading,
+    accesRefuse,
     isLoggedIn: computed(() => !!user.value),
     firstName: computed(() => profile.value?.member?.first_name || user.value?.displayName?.split(' ')[0] || ''),
     getToken,

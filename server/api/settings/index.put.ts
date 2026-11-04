@@ -1,5 +1,6 @@
 import { getFirestoreConfig, getAccessToken, setFirestoreDoc } from '../../utils/firebase'
 import { requireAdmin } from '../../utils/firebase-admin'
+import { normaliserTesteurs } from '../../utils/espace-membre'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -63,12 +64,18 @@ export default defineEventHandler(async (event) => {
 
   const hideEventsPageIfEmpty = body?.hideEventsPageIfEmpty === true // par défaut false (toujours visible)
   const espaceMembre = body?.espaceMembre === true // par défaut false (espace membre masqué)
+  // Testeurs de l'espace membre (mode test, voir server/utils/espace-membre.ts).
+  const espaceMembreTesteurs = normaliserTesteurs(body?.espaceMembreTesteurs)
+  const testeurInvalide = espaceMembreTesteurs.find(e => !EMAIL_RE.test(e))
+  if (testeurInvalide) {
+    throw createError({ statusCode: 400, message: `Email de testeur invalide : ${testeurInvalide}` })
+  }
   const socialLinks = parseSocialLinks(body)
   const memberTabOrder = parseMemberTabOrder(body)
 
   if (isTest) {
     const { setSettings } = await import('../../utils/firestore-mock.js')
-    setSettings({ contactEmails, hideEventsPageIfEmpty, espaceMembre, socialLinks, memberTabOrder })
+    setSettings({ contactEmails, hideEventsPageIfEmpty, espaceMembre, espaceMembreTesteurs, socialLinks, memberTabOrder })
     return { ok: true }
   }
 
@@ -89,6 +96,7 @@ export default defineEventHandler(async (event) => {
       contactEmails: contactEmails,
       hideEventsPageIfEmpty: hideEventsPageIfEmpty,
       espaceMembre: espaceMembre,
+      espaceMembreTesteurs: espaceMembreTesteurs,
       socialLinks: socialLinks,
       memberTabOrder: memberTabOrder,
       updatedAt: new Date().toISOString(),

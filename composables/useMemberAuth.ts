@@ -56,6 +56,14 @@ export function useMemberAuth() {
     if (profileLoading.value) return
     profileLoading.value = true
     try {
+      // Espace fermé : le serveur refuserait (403), inutile d'appeler —
+      // un admin connecté déclenchait sinon une erreur console sur chaque page.
+      const { espaceMembre, espaceMembreTest, loadSiteSettings } = useSiteSettings()
+      await loadSiteSettings()
+      if (!espaceMembre.value && !espaceMembreTest.value) {
+        profile.value = null
+        return
+      }
       profile.value = await authedFetch('/api/member/me')
       accesRefuse.value = false
     } catch (e: any) {

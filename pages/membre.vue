@@ -24,6 +24,15 @@
       </div>
     </div>
 
+    <!-- Compte refusé par le serveur (mode test : e-mail hors liste des testeurs) -->
+    <div v-else-if="accesRefuse" class="login-wrap">
+      <div class="login-card acces-refuse">
+        <h1>Espace membre</h1>
+        <p class="login-intro">L'espace membre n'est pas encore ouvert : il est en test auprès de quelques personnes. Merci de ta patience !</p>
+        <button class="btn-primary" @click="doLogout">Se déconnecter</button>
+      </div>
+    </div>
+
     <!-- Dashboard membre -->
     <div v-else class="dashboard">
       <header class="dash-header">
@@ -142,7 +151,7 @@ useSeoMeta({
 definePageMeta({ middleware: 'espace-membre' })
 
 const {
-  isLoggedIn, profile, firstName, authReady,
+  isLoggedIn, profile, firstName, authReady, accesRefuse,
   authedFetch, fetchProfile, loginEmail, registerEmail, resetPassword, logout,
 } = useMemberAuth()
 
@@ -321,6 +330,14 @@ function loadAll() {
 
 watch(isLoggedIn, (v) => {
   if (v) loadAll()
+})
+// Compte refusé : on vide ce qu'un chargement parallèle aurait pu remplir.
+watch(accesRefuse, (v) => {
+  if (v) {
+    resources.value = []
+    requests.value = []
+    myEvents.value = []
+  }
 })
 
 onMounted(() => {

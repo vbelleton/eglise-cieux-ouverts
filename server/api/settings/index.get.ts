@@ -1,5 +1,6 @@
 import { getFirestoreConfig, getAccessToken, getFirestoreDoc, parseFirestoreDoc } from '../../utils/firebase'
 import { callerIsAdmin } from '../../utils/firebase-admin'
+import { normaliserTesteurs } from '../../utils/espace-membre'
 
 // Cet endpoint est PUBLIC : les pages vitrines y lisent socialLinks,
 // memberTabOrder et hideEventsPageIfEmpty sans être authentifiées. Il
@@ -60,9 +61,15 @@ function buildResponse(data: Record<string, any> | null, isAdmin: boolean) {
     // Espace membre (comptes, /membre) : désactivé tant que l'admin ne l'a
     // pas explicitement activé dans ⚙️ Config.
     espaceMembre: data?.espaceMembre === true,
+    // Mode test (liste de testeurs non vide) : /membre reste joignable par son
+    // adresse, sans lien public. Le public ne reçoit qu'un booléen, jamais
+    // les e-mails ; le filtre réel est server/middleware/espace-membre-acces.ts.
+    espaceMembreTest: normaliserTesteurs(data?.espaceMembreTesteurs).length > 0,
     socialLinks: normalizeSocialLinks(data),
     memberTabOrder: normalizeMemberTabOrder(data),
-    ...(isAdmin ? { contactEmails: normalizeContactEmails(data) } : {}),
+    ...(isAdmin
+      ? { contactEmails: normalizeContactEmails(data), espaceMembreTesteurs: normaliserTesteurs(data?.espaceMembreTesteurs) }
+      : {}),
   }
 }
 

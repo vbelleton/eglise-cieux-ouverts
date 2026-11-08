@@ -6,7 +6,9 @@
     >
         <div class="header-inner">
             <NuxtLink to="/" class="brand" aria-label="Accueil — Cieux Ouverts" @click="onLogoClick">
-                <img src="/logo-nav.png" alt="Cieux Ouverts" class="logo" />
+                <!-- Dimensions réelles du fichier : la place du logo est réservée avant son
+                     arrivée, sinon tout le menu glissait de 110 px vers la droite. -->
+                <img src="/logo-nav.png" alt="Cieux Ouverts" class="logo" width="240" height="113" />
             </NuxtLink>
 
             <nav class="nav-desktop" aria-label="Navigation principale">
@@ -18,6 +20,7 @@
                     <NuxtLink
                         v-if="!isMounted || !adminMode"
                         :to="item.to"
+                        :data-label="item.label"
                         active-class="active"
                         v-on="intentionNavigation(item.to)"
                         :class="{
@@ -31,6 +34,7 @@
                         v-else
                         href="#"
                         class="nav-admin-link"
+                        :data-label="item.label"
                         :class="{ dimmed: !item.visible }"
                         @click.prevent="onNavClick($event, item)"
                         >{{ item.label }}</a
@@ -42,6 +46,7 @@
                                 v-for="sub in item.children"
                                 :key="sub.id"
                                 :to="sub.to"
+                                :data-label="sub.label"
                                 class="sub-link"
                                 v-on="intentionNavigation(sub.to)"
                                 @click="closeMenu"
@@ -54,6 +59,7 @@
                                 :key="sub.id"
                                 href="#"
                                 class="sub-link nav-admin-link"
+                                :data-label="sub.label"
                                 @click.prevent="onNavClick($event, sub)"
                                 >{{ sub.label }}</a
                             >
@@ -220,7 +226,7 @@ const headerStyle = computed(() => ({
     // keep SSR output stable: only apply admin offset after client mount
     top: isMounted.value && adminMode.value ? "48px" : "0px",
 }));
-const { hasEvenements, erreur: evenementsErreur } = useChurchEvents();
+const { hasEvenements, erreur: evenementsErreur, loading: evenementsEnCours } = useChurchEvents();
 // espaceMembre : réglage ⚙️ Config, faux par défaut (lien masqué).
 const { socialLinks, espaceMembre, hideEventsPageIfEmpty, loadSiteSettings } = useSiteSettings();
 // `erreur` inclus volontairement : si le Worker événements ne répond pas, la
@@ -232,11 +238,16 @@ const { socialLinks, espaceMembre, hideEventsPageIfEmpty, loadSiteSettings } = u
 // Sans ce réglage, la page reste utile sans événement (Parcours Alpha,
 // formulaire d'inscription) : la masquer d'office coupait l'accès aux
 // inscriptions, et le lien manquait au rendu serveur (événements chargés au client).
+// `evenementsEnCours` : le serveur rend le lien (les événements ne sont lus
+// qu'au navigateur). Le retirer pendant leur chargement puis le remettre
+// faisait sursauter tout le menu ordinateur à chaque page. On ne le retire
+// qu'une fois l'agenda réellement lu et vide.
 const showBilletterie = computed(
     () =>
         adminMode.value ||
         isAdminRoute.value ||
         !hideEventsPageIfEmpty.value ||
+        evenementsEnCours.value ||
         hasEvenements.value ||
         evenementsErreur.value,
 );
@@ -466,6 +477,26 @@ onUnmounted(() => {
     transition: color 0.2s;
     font-size: 0.95em;
     font-family: Helvetica, Arial, sans-serif;
+}
+
+/* Le lien de la page courante passe en gras : sans réserve, il s'élargissait
+   et tous les liens suivants glissaient à l'arrivée sur la page (16 px pour
+   « Événement sur inscription »). Chaque lien prend d'office la largeur de son
+   libellé en gras (copie invisible, hauteur nulle), et la bordure de la page
+   courante est déjà là, transparente, pour ne rien décaler verticalement. */
+.nav-desktop a[data-label] {
+    display: inline-grid;
+    justify-items: center;
+    border-bottom: 2px solid transparent;
+}
+.nav-desktop a[data-label]::after {
+    content: attr(data-label);
+    font-weight: 600;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
 }
 
 .nav-desktop a:hover,

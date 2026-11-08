@@ -120,7 +120,7 @@
       :src="evt.images[0]"
       :alt="evt.titre"
       class="event-card-img"
-      loading="lazy"
+      decoding="async"
       style="width:100%;height:160px;object-fit:cover; background:#ededed; border-radius:0; box-shadow:none; cursor:pointer;"
       @click.stop="openEventModal(evt, 0)"
     />
@@ -247,11 +247,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import EventModal from '~/components/EventModal.vue'
 import EventImageSlider from '~/components/EventImageSlider.vue'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
-import { isPast } from '~/utils/churchEvents.js'
+import { estTermine } from '~/utils/churchEvents.js'
 
 
 usePageSeo({
@@ -265,6 +265,12 @@ usePageSeo({
 // nextEvents (vue "Prochain") qui applique son propre filtre >= aujourd'hui.
 const { evenements, loading, erreur } = useChurchEvents({ futureOnly: false })
 const currentDate = ref(new Date())
+// Instant de référence de la vue « Prochain », rafraîchi chaque minute : un
+// événement qui se termine pendant qu'on regarde la page en disparaît.
+const maintenant = ref(new Date())
+let minuteurMaintenant = null
+onMounted(() => { minuteurMaintenant = window.setInterval(() => { maintenant.value = new Date() }, 60000) })
+onUnmounted(() => window.clearInterval(minuteurMaintenant))
 const currentView = ref('month')
 
 // --- Agenda personnel du membre connecté ---
@@ -433,18 +439,39 @@ const filteredEvents = computed(() => {
   return filtered
 })
 
+// Vue « Cartes » : les images des événements du mois n'étaient demandées
+// qu'au moment d'ouvrir cette vue (et en `loading="lazy"`), d'où un cadre gris
+// le temps qu'elles arrivent. Dès que l'agenda est chargé, le navigateur les
+// récupère en arrière-plan (au calme, une seule fois chacune) : en passant sur
+// « Cartes », elles sont déjà là.
+const imagesPrechargees = new Set()
+function prechargerImagesCartes() {
+  if (typeof window === 'undefined') return
+  const urls = []
+  for (const evt of filteredEvents.value) {
+    const url = evt.images?.[0]
+    if (url && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
+    if (urls.length >= 12) break
+  }
+  if (!urls.length) return
+  const lancer = () => urls.forEach((url) => { const img = new Image(); img.decoding = 'async'; img.src = url })
+  if ('requestIdleCallback' in window) window.requestIdleCallback(lancer, { timeout: 1500 })
+  else window.setTimeout(lancer, 300)
+}
+watch(filteredEvents, prechargerImagesCartes)
+
 const nextEvents = computed(() => {
   // Vue "Prochain" : seule vue non bornée à un mois/semaine précis — doit
   // rester filtrée aux événements à venir maintenant que evenements inclut
   // aussi le passé (futureOnly: false ci-dessus, pour les vues calendrier).
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Un événement sur plusieurs jours reste « à venir » jusqu'à son dernier
+  // jour ; le jour même, il disparaît une fois son heure de fin passée.
+  const now = maintenant.value
   const seen = new Set()
   const groups = {}
   for (const evt of evenements.value) {
     if (seen.has(evt.id)) continue
-    // Un événement sur plusieurs jours reste « à venir » jusqu'à son dernier jour.
-    if (isPast(evt, today)) continue
+    if (estTermine(evt, now)) continue
     seen.add(evt.id)
     const dateKey = toDate(evt.date).toDateString()
     if (!groups[dateKey]) groups[dateKey] = { date: toDate(evt.date), events: [] }

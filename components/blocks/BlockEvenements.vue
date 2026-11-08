@@ -50,7 +50,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { estTermine } from '~/utils/churchEvents.js'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
 const props = defineProps({
@@ -76,6 +77,12 @@ const props = defineProps({
 })
 
 const { evenements, loading, erreur } = useChurchEvents()
+// Mis à jour chaque minute : une page restée ouverte retire d'elle-même un
+// événement qui vient de se terminer.
+const maintenant = ref(new Date())
+let minuteur = null
+onMounted(() => { minuteur = window.setInterval(() => { maintenant.value = new Date() }, 60000) })
+onUnmounted(() => window.clearInterval(minuteur))
 
 // Un événement récurrent n'apparaît qu'une fois (sa prochaine date) : sans
 // ça, le culte hebdomadaire occuperait à lui seul toutes les places.
@@ -86,6 +93,10 @@ const liste = computed(() => {
     if (props.filter === 'ponctuels' && evt.repeat_period) continue
     if (props.filter === 'reguliers' && !evt.repeat_period) continue
     if (vus.has(evt.id)) continue
+    // Le jour même, un événement dont l'heure de fin est passée n'est plus
+    // « à venir » (la liste ne filtre qu'au jour près) : on passe à la
+    // prochaine occurrence s'il y en a une.
+    if (estTermine(evt, maintenant.value)) continue
     vus.add(evt.id)
     out.push(evt)
     if (out.length >= Math.max(1, props.maxItems || 6)) break

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { buildEventList, expandRecurring, isoDay, lastDay, isPast } from '../../utils/churchEvents.js'
+import { buildEventList, expandRecurring, isoDay, lastDay, isPast, estTermine } from '../../utils/churchEvents.js'
 
 // Le site est consulté en France : les bugs de jour décalé n'apparaissent
 // qu'avec un fuseau en avance sur UTC. Node relit TZ à chaque changement.
@@ -82,5 +82,30 @@ test.describe('utils/churchEvents — exceptions et fuseau horaire', () => {
 
   test('événement annulé : jamais affiché', () => {
     expect(buildEventList([ev({ start_date: '2026-12-01', status: 'cancelled' })], { now: NOW })).toHaveLength(0)
+  })
+})
+
+test.describe('estTermine : heure comprise', () => {
+  const jour = new Date('2026-11-08T00:00:00')
+  const evt = (heure: string | null, fin: string | null = null) => ({ date: jour, dateFin: null, heure, fin })
+  test('heure de fin passée le jour même : terminé', () => {
+    expect(estTermine(evt('10:00', '12:00'), new Date('2026-11-08T12:30:00'))).toBe(true)
+    expect(estTermine(evt('10:00', '12:00'), new Date('2026-11-08T11:30:00'))).toBe(false)
+  })
+  test('sans heure de fin : début + 2 h', () => {
+    expect(estTermine(evt('18:00'), new Date('2026-11-08T19:59:00'))).toBe(false)
+    expect(estTermine(evt('18:00'), new Date('2026-11-08T20:00:00'))).toBe(true)
+  })
+  test('sans heure : jusqu\'à la fin de la journée', () => {
+    expect(estTermine(evt(null), new Date('2026-11-08T23:59:00'))).toBe(false)
+    expect(estTermine(evt(null), new Date('2026-11-09T00:00:00'))).toBe(true)
+  })
+  test('soirée qui finit après minuit', () => {
+    expect(estTermine(evt('22:00', '01:00'), new Date('2026-11-09T00:30:00'))).toBe(false)
+  })
+  test('sur plusieurs jours : compte à partir du dernier jour', () => {
+    const e = { date: jour, dateFin: new Date('2026-11-10T00:00:00'), heure: '10:00', fin: '12:00' }
+    expect(estTermine(e, new Date('2026-11-09T15:00:00'))).toBe(false)
+    expect(estTermine(e, new Date('2026-11-10T12:01:00'))).toBe(true)
   })
 })

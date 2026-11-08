@@ -6,7 +6,21 @@
   >
     <div class="youtube-inner">
       <div class="youtube-player" v-if="videoId && hasValidId" :ref="containerAnim.setRef">
+        <!-- Public : une image légère + bouton. Le vrai lecteur YouTube pèse
+             ~1 Mo de JavaScript et mettait plusieurs secondes à apparaître
+             (cadre blanc) ; il ne se charge qu'au clic. L'admin garde le lecteur. -->
+        <button
+          v-if="!adminMode && !lecteurActif"
+          type="button"
+          class="youtube-facade"
+          :aria-label="`Lire la vidéo : ${title || 'Vidéo'}`"
+          :style="{ backgroundImage: `url(${vignetteUrl})` }"
+          @click="lecteurActif = true"
+        >
+          <span class="youtube-play" aria-hidden="true"></span>
+        </button>
         <iframe
+          v-else
           :src="embedUrl"
           :title="title || 'Video'"
           width="100%"
@@ -14,7 +28,6 @@
           frameborder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
-          loading="lazy"
         ></iframe>
       </div>
       <div v-else class="youtube-placeholder" :ref="containerAnim.setRef">
@@ -25,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useAnimatedElements } from '~/composables/useAnimatedElements'
 
 const props = defineProps({
@@ -37,6 +50,9 @@ const props = defineProps({
   isTriggered: { type: Boolean, default: false },
   blockId: { type: String, default: '' },
 })
+
+const adminMode = inject('isAdmin', ref(false))
+const lecteurActif = ref(false)
 
 const { addElement, blockStates } = useAnimatedElements(props.blockId)
 const containerAnim = addElement('container', { animation: props.animation || 'fadeIn', delay: 0 })
@@ -59,8 +75,13 @@ const extractedId = computed(() => {
 const hasValidId = computed(() => extractedId.value.length > 0)
 
 const embedUrl = computed(() => {
-  return `https://www.youtube.com/embed/${extractedId.value}?rel=0&showinfo=0`
+  // youtube-nocookie : pas de cookie déposé avant la lecture. autoplay : le
+  // visiteur vient de cliquer sur le bouton, la vidéo démarre tout de suite.
+  const auto = !adminMode.value && lecteurActif.value ? '&autoplay=1' : ''
+  return `https://www.youtube-nocookie.com/embed/${extractedId.value}?rel=0${auto}`
 })
+
+const vignetteUrl = computed(() => `https://i.ytimg.com/vi/${extractedId.value}/hqdefault.jpg`)
 
 const placeholderText = 'Aucune vidéo configurée. En mode éditeur, entrez l\'ID YouTube.'
 </script>
@@ -92,6 +113,45 @@ const placeholderText = 'Aucune vidéo configurée. En mode éditeur, entrez l\'
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+.youtube-facade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background-color: #111;
+  background-size: cover;
+  background-position: center;
+}
+
+.youtube-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 68px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  background: rgba(200, 50, 60, 0.92);
+  border-radius: 14px;
+  transition: background 0.2s;
+}
+.youtube-play::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-35%, -50%);
+  border-style: solid;
+  border-width: 10px 0 10px 18px;
+  border-color: transparent transparent transparent #fff;
+}
+.youtube-facade:hover .youtube-play,
+.youtube-facade:focus-visible .youtube-play {
+  background: #c8323c;
 }
 
 .youtube-placeholder {

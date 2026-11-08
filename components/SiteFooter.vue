@@ -29,14 +29,20 @@
 <script setup>
 const titleChars = "Il y a une place pour toi !".split('')
 
+// Chaque lettre apparaît pendant l'entrée du pied de page dans l'écran
+// (`entry`), toujours entièrement parcourue : le pied de page est le dernier
+// élément, on finit forcément par le voir en entier. Les plages étaient en
+// `cover`, dont le bout n'est jamais atteint en bas de page : sur un écran
+// haut (MacBook, 1920×1080), les dernières lettres (« oi ! ») restaient
+// figées en cours d'animation, donc invisibles.
 function getShutterStyle(i) {
   const total = titleChars.length
-  const step = 15 / total
-  const d = i * step
-  const e = d + 2
+  const pas = total > 1 ? 65 / (total - 1) : 0
+  const d = i * pas
   return {
     '--shutter-d': `${d}%`,
-    '--shutter-e': `${e}%`,
+    '--shutter-e': `${d + 30}%`,
+    '--shutter-delay': `${(i * 15 / total) * 0.14}s`,
   }
 }
 </script>
@@ -88,7 +94,7 @@ function getShutterStyle(i) {
       opacity: 0;
       animation-name: reveal;
       animation-timeline: --footer;
-      animation-range: cover var(--shutter-d) cover var(--shutter-e);
+      animation-range: entry var(--shutter-d) entry var(--shutter-e);
       animation-fill-mode: both;
     }
   }

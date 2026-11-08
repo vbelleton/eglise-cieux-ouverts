@@ -270,9 +270,13 @@ const currentView = ref('month')
 // --- Agenda personnel du membre connecté ---
 // Désactivé avec l'espace membre (réglage ⚙️ Config « espaceMembre ») :
 // une session membre restée ouverte ne doit plus rien afficher.
-const { isLoggedIn: membreConnecte, authedFetch } = useMemberAuth()
-const { espaceMembre, loadSiteSettings } = useSiteSettings()
-const memberLoggedIn = computed(() => membreConnecte.value && espaceMembre.value)
+// Mode test (liste de testeurs) : seulement si le serveur a accepté le compte
+// (profil chargé) — un compte hors liste ne voit rien de personnel.
+const { isLoggedIn: membreConnecte, profile: profilMembre, authedFetch } = useMemberAuth()
+const { espaceMembre, espaceMembreTest, loadSiteSettings } = useSiteSettings()
+const memberLoggedIn = computed(() =>
+  membreConnecte.value && (espaceMembre.value || (espaceMembreTest.value && !!profilMembre.value)),
+)
 const myParticipations = ref([])
 
 async function loadMyParticipations() {

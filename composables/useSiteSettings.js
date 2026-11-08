@@ -22,6 +22,9 @@ const socialLinks = ref([
 const memberTabOrder = ref(["ressources", "demandes", "evenements"]);
 // Espace membre (comptes) : masqué par défaut, comme côté serveur.
 const espaceMembre = ref(false);
+// Mode test : /membre joignable par son adresse (sans lien public), réservé
+// côté serveur aux e-mails testeurs (server/middleware/espace-membre-acces.ts).
+const espaceMembreTest = ref(false);
 // « Masquer la page Événements si aucun événement à venir » (⚙️ Config).
 const hideEventsPageIfEmpty = ref(false);
 let _loaded = false;
@@ -38,6 +41,7 @@ async function loadSiteSettings() {
       if (Array.isArray(data.socialLinks)) socialLinks.value = data.socialLinks;
       if (Array.isArray(data.memberTabOrder)) memberTabOrder.value = data.memberTabOrder;
       espaceMembre.value = data.espaceMembre === true;
+      espaceMembreTest.value = data.espaceMembreTest === true;
       hideEventsPageIfEmpty.value = data.hideEventsPageIfEmpty === true;
     } catch (e) {
       console.warn("useSiteSettings: could not load settings", e);
@@ -53,6 +57,7 @@ export function useSiteSettings() {
     socialLinks,
     memberTabOrder,
     espaceMembre,
+    espaceMembreTest,
     hideEventsPageIfEmpty,
     loadSiteSettings,
   };

@@ -308,3 +308,68 @@ test.describe('Espace membre désactivé (réglage par défaut)', () => {
     await page.waitForURL('**/contact', { timeout: 8000 })
   })
 })
+
+// Mode test : espace non activé, mais réservé à une liste d'e-mails testeurs.
+// Le verrou est côté serveur (server/middleware/espace-membre-acces.ts) : le
+// Worker eglise-app crée un membre à la première connexion d'un e-mail
+// inconnu, un visiteur qui devine /membre ne doit donc pas l'atteindre.
+test.describe('Espace membre en mode test (liste de testeurs)', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+    await resetMemberMock(request)
+    const res = await request.put('/api/settings', {
+      data: { contactEmails: ['belletonv@gmail.com'], espaceMembre: false, espaceMembreTesteurs: 'CI-Member@tests.fr' },
+    })
+    if (!res.ok()) throw new Error(`mode test : HTTP ${res.status()}`)
+  })
+
+  test('le public apprend seulement que le mode test existe, jamais la liste', async ({ request }) => {
+    const data = await (await request.get('/api/settings')).json()
+    expect(data.espaceMembre).toBe(false)
+    expect(data.espaceMembreTest).toBe(true)
+    expect(data.espaceMembreTesteurs).toBeUndefined()
+  })
+
+  test('le serveur ne laisse passer que les testeurs', async ({ request }) => {
+    const testeur = await request.get('/api/member/me', { headers: { Authorization: 'Bearer mock-test-token:ci-member@tests.fr' } })
+    expect(testeur.status()).toBe(200)
+    const autre = await request.get('/api/member/me', { headers: { Authorization: 'Bearer mock-test-token:intrus@tests.fr' } })
+    expect(autre.status()).toBe(403)
+    const anonyme = await request.get('/api/member/resources')
+    expect(anonyme.status()).toBe(401)
+  })
+
+  test('un testeur utilise /membre, sans lien public dans le menu', async ({ page }) => {
+    await loginAsMember(page)
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.locator('.nav-membre-link')).toHaveCount(0)
+    await page.goto('/membre')
+    await expect(page.getByRole('heading', { name: /Bonjour/ })).toBeVisible({ timeout: 8000 })
+  })
+
+  test('un compte hors liste voit « pas encore ouvert »', async ({ page }) => {
+    await page.addInitScript(() => {
+      ;(window as unknown as Record<string, unknown>).__MOCK_AUTH_RESULT = {
+        uid: 'cli-test-intrus',
+        email: 'intrus@tests.fr',
+        displayName: 'Ivan Intrus',
+        getIdToken: async () => 'mock-test-token:intrus@tests.fr',
+      }
+    })
+    await page.goto('/membre')
+    await expect(page.getByText(/pas encore ouvert/)).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole('heading', { name: /Bonjour/ })).toHaveCount(0)
+  })
+})
+
+test.describe('Espace membre fermé : verrou serveur', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetMock(request)
+    await resetMemberMock(request)
+  })
+
+  test('les appels /api/member/* sont refusés même connecté', async ({ request }) => {
+    const res = await request.get('/api/member/me', { headers: { Authorization: 'Bearer mock-test-token:ci-member@tests.fr' } })
+    expect(res.status()).toBe(403)
+  })
+})

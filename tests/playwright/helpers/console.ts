@@ -27,8 +27,23 @@ const BRUIT_NAVIGATEUR = [
   'Permissions policy violation',
 ]
 
+// YouTube (vignette du bloc Vidéo, lecteur en admin) est un service externe :
+// sa réponse ne dépend pas de notre code. Une vignette introuvable (404) pour
+// la vidéo de démonstration faisait échouer, selon le jour, toute spec qui
+// passe par /messages ou /test-blocks. On répond localement à sa place.
+const YOUTUBE = /^https:\/\/([a-z0-9-]+\.)?(ytimg\.com|youtube\.com|youtube-nocookie\.com)\//
+const PNG_VIDE = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+)
+
 export function collectErrors(page: Page): string[] {
   const errors: string[] = []
+  void page.route(YOUTUBE, (route) =>
+    /ytimg\.com/.test(route.request().url())
+      ? route.fulfill({ status: 200, contentType: 'image/png', body: PNG_VIDE })
+      : route.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }),
+  )
   page.on('pageerror', (err) => errors.push('pageerror: ' + err.message))
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return

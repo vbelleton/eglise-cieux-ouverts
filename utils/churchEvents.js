@@ -311,3 +311,29 @@ export function buildEventList(allEvents, { futureOnly = true, now: nowArg } = {
 export function isPast(evt, today) {
   return (evt.dateFin || evt.date) < today
 }
+
+// Durée supposée d'un événement sans heure de fin.
+const DUREE_PAR_DEFAUT_H = 2
+
+function heureMinutes(txt) {
+  const m = typeof txt === 'string' && txt.match(/(\d{1,2})\s*[:hH]\s*(\d{2})?/)
+  return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null
+}
+
+/**
+ * Vrai si l'événement (ou l'occurrence) est terminé à l'instant `now`, heure
+ * comprise : le jour même, un événement dont l'heure de fin est passée ne doit
+ * plus figurer parmi les « prochains ». Sans heure de fin : début + 2 h. Sans
+ * aucune heure : fin de journée (comme isPast).
+ */
+export function estTermine(evt, now = new Date()) {
+  const jour = new Date(evt.dateFin || evt.date)
+  jour.setHours(0, 0, 0, 0)
+  const debut = heureMinutes(evt.heure)
+  const fin = heureMinutes(evt.fin)
+  let minutes
+  if (fin != null) minutes = debut != null && fin <= debut && !evt.dateFin ? fin + 24 * 60 : fin
+  else if (debut != null) minutes = debut + DUREE_PAR_DEFAUT_H * 60
+  else minutes = 24 * 60
+  return new Date(jour.getTime() + minutes * 60000) <= now
+}

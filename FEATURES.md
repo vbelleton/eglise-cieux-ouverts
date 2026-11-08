@@ -364,6 +364,8 @@ Cette section documente ce qui peut être modifié depuis la sidebar pour chaque
 | **Note** | Les sous-champs ne bénéficient pas de `fieldFonts` individuels | | |
 
 ### Bloc Vidéo (`youtube`)
+Côté visiteur, le bloc affiche d'abord la vignette YouTube et un bouton ▶ ; le vrai lecteur (`youtube-nocookie.com`, ~1 Mo de JavaScript) ne se charge qu'au clic, ce qui évite le cadre blanc de plusieurs secondes sur `/messages` (`tests/playwright/youtube-facade.spec.ts`). L'admin garde le lecteur réel.
+
 | Champ | Modifiable | Appliqué | Tests |
 |-------|-----------|----------|-------|
 | videoId | ✅ | ✅ | ✅ |

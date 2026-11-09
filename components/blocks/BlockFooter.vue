@@ -1,5 +1,6 @@
 <template>
   <footer
+    ref="footerEl"
     class="site-footer"
     :class="[{ animate: isAnimated }, visibilityClasses]"
     :style="footerBgStyle"
@@ -31,7 +32,7 @@
 </template>
 
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 import { useAnimatedElements } from '~/composables/useAnimatedElements'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
@@ -59,7 +60,35 @@ const props = defineProps({
 const { addElement } = useAnimatedElements(props.blockId)
 const titleAnim = addElement('title', { animation: 'fadeIn', delay: 0 })
 const isEditor = inject('isEditor', ref(false))
-const isAnimated = computed(() => titleAnim.triggered.value || isEditor.value)
+// Pied de page déjà visible au chargement, sans défilement (page courte :
+// page d'erreur, page en panne, grand écran) : le visiteur n'a aucune raison
+// de défiler, or le titre n'apparaît qu'au fil de l'entrée du pied de page
+// dans l'écran — il restait à moitié écrit (« Il y a une pla »), voire
+// invisible. On joue alors l'animation dans le temps, comme dans l'éditeur.
+// Réévalué quand la hauteur de la page change (le layout est persistant :
+// une navigation interne peut passer d'une page longue à une page courte),
+// mais seulement en haut de page, pour ne rien basculer en plein défilement.
+const footerEl = ref(null)
+const visibleSansDefiler = ref(false)
+function evaluerVisibiliteInitiale() {
+  if (!footerEl.value || window.scrollY > 4) return
+  visibleSansDefiler.value = footerEl.value.getBoundingClientRect().top < window.innerHeight
+}
+let observateurHauteur = null
+onMounted(() => {
+  evaluerVisibiliteInitiale()
+  window.addEventListener('resize', evaluerVisibiliteInitiale)
+  if (typeof ResizeObserver !== 'undefined') {
+    observateurHauteur = new ResizeObserver(evaluerVisibiliteInitiale)
+    observateurHauteur.observe(document.getElementById('app-root') || document.body)
+  }
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', evaluerVisibiliteInitiale)
+  observateurHauteur?.disconnect()
+})
+
+const isAnimated = computed(() => titleAnim.triggered.value || isEditor.value || visibleSansDefiler.value)
 
 const visibilityClasses = computed(() => ({
   'hide-mobile': props.visibility?.mobile === false,

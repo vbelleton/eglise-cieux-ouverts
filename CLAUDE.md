@@ -17,7 +17,7 @@ Déploiement auto : push sur **n'importe quelle branche** → Cloudflare Pages b
 
 **L'environnement Preview du dashboard Cloudflare Pages n'a AUCUNE variable configurée** (vérifié via l'API `GET /pages/projects/eglise-cieux-ouverts` — `deployment_configs.preview.env_vars` est vide ; seul `production` a tout). `build.sh` fournit donc un repli — les clés Firebase publiques et l'identité du projet `eglise-cieux-ouverts-rec`, la clé privée restant une valeur factice qui échoue proprement à l'exécution — pour **toute branche différente de `main`**, pas seulement `recette` : une PR qui ne l'obtiendrait pas fait échouer son propre build Preview au démarrage (`nuxt.config.ts` lève si `NUXT_PUBLIC_FIREBASE_API_KEY` manque en CI). Ne jamais revenir à une condition `= "recette"` : la Preview de n'importe quelle branche redeviendrait rouge par construction. Le meta `robots: noindex` (`nuxt.config.ts`) suit la même règle, pour la même raison — une preview de PR a sa propre URL publique et ne doit pas être indexable.
 
-Le site public réel (cieuxouverts.bzh) n'est pas ce déploiement — domaine non attaché à ce projet Cloudflare Pages pour l'instant.
+Domaine personnalisé : **https://www.cieuxouverts.bzh** (CNAME OVH → `eglise-cieux-ouverts.pages.dev`, rattaché dans Cloudflare Pages → Custom domains). Le DNS reste chez OVH : l'apex `cieuxouverts.bzh` ne peut pas être rattaché à Pages sans déplacer la zone chez Cloudflare, il redirige vers www côté OVH. `SITE_URL` (canonical, Open Graph), `public/robots.txt` et `public/sitemap.xml` pointent sur www — l'adresse `pages.dev` reste joignable mais n'est plus l'adresse de référence. Google Sign-In de l'admin exige que le domaine figure dans Firebase → Authentication → Authorized domains.
 
 ## Node.js
 

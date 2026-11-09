@@ -52,3 +52,34 @@ export function anneesDisponibles(videos) {
   }
   return [...annees].sort().reverse()
 }
+
+// Découpe un texte en morceaux { texte, trouve } pour surligner les mots
+// recherchés SANS v-html : la correspondance se fait sur la forme normalisée
+// (sans accents ni casse), le texte affiché reste l'original.
+function caractereNormalise(c) {
+  const base = c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return /^[a-z0-9]$/.test(base) ? base : ' '
+}
+
+export function surligner(texte, requete) {
+  const original = String(texte || '')
+  const mots = motsDe(requete)
+  if (!mots.length || !original) return [{ texte: original, trouve: false }]
+  const chars = [...original]
+  const normalise = chars.map(caractereNormalise).join('')
+  const marque = new Array(chars.length).fill(false)
+  for (const m of mots) {
+    let i = normalise.indexOf(m)
+    while (i !== -1) {
+      for (let k = i; k < i + m.length; k++) marque[k] = true
+      i = normalise.indexOf(m, i + m.length)
+    }
+  }
+  const morceaux = []
+  for (let i = 0; i < chars.length; i++) {
+    const dernier = morceaux[morceaux.length - 1]
+    if (dernier && dernier.trouve === marque[i]) dernier.texte += chars[i]
+    else morceaux.push({ texte: chars[i], trouve: marque[i] })
+  }
+  return morceaux
+}

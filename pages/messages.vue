@@ -1,5 +1,10 @@
 <template>
-  <PageRenderer :blocks="blocks" page-title="Nos messages" />
+  <div>
+    <!-- Recherche cachée des prédications : seulement avec ?recherche dans
+         l'adresse, jamais en admin (l'éditeur garde la page telle quelle). -->
+    <RecherchePredications v-if="rechercheVisible" />
+    <PageRenderer :blocks="blocks" page-title="Nos messages" />
+  </div>
 </template>
 
 <script setup>
@@ -12,6 +17,15 @@ usePageSeo({
 })
 
 const { isAdminMode, enterAdmin, localBlocks, localBlocksPage } = useAdmin()
+
+// `/messages?recherche` : affiche le moteur de recherche des prédications en
+// tête de page. Aucun lien du site n'y mène ; la variante n'est pas indexée
+// (la balise canonical reste /messages, posée par usePageSeo).
+const route = useRoute()
+const rechercheVisible = computed(() => 'recherche' in route.query && !isAdminMode.value)
+useHead(() => ({
+  meta: rechercheVisible.value ? [{ name: 'robots', content: 'noindex, nofollow' }] : [],
+}))
 
 // `echecLecture` : distingue « page réellement vide » (defaults légitimes, on
 // peut sauvegarder) de « lecture impossible » (defaults de secours, sauvegarder

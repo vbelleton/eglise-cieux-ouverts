@@ -165,19 +165,18 @@ export async function chargerVideos(): Promise<ListeVideos> {
   return { videos, source, complete: source === 'api' }
 }
 
-// Cache à l'échelle de l'isolat : c'est la PROMESSE qui est gardée, pour que
-// des requêtes simultanées partagent un seul chargement (même principe que
-// `getAccessToken`). Un échec n'est pas mémorisé.
+// Cache à l'échelle de l'isolat : on garde le RÉSULTAT, jamais une promesse
+// partagée entre requêtes. Sur le runtime Workers, une requête qui attend une
+// promesse née dans une autre requête peut rester suspendue indéfiniment si
+// celle-ci est annulée entre-temps (le visiteur a fermé l'onglet) — la page
+// restait alors bloquée sur « Chargement des vidéos… ». Un échec n'est pas
+// mémorisé.
 const DUREE_CACHE_MS = 30 * 60 * 1000
-let enCache: { promesse: Promise<ListeVideos>, expire: number } | null = null
+let enCache: { liste: ListeVideos, expire: number } | null = null
 
-export function videosEnCache(): Promise<ListeVideos> {
-  const maintenant = Date.now()
-  if (enCache && enCache.expire > maintenant) return enCache.promesse
-  const promesse = chargerVideos()
-  enCache = { promesse, expire: maintenant + DUREE_CACHE_MS }
-  promesse.catch(() => {
-    if (enCache?.promesse === promesse) enCache = null
-  })
-  return promesse
+export async function videosEnCache(): Promise<ListeVideos> {
+  if (enCache && enCache.expire > Date.now()) return enCache.liste
+  const liste = await chargerVideos()
+  enCache = { liste, expire: Date.now() + DUREE_CACHE_MS }
+  return liste
 }

@@ -16,6 +16,12 @@ import { fetchWithTimeout } from './http'
 
 export const HANDLE_CHAINE = 'eglisecieuxouverts'
 
+// Identifiant public de la chaîne (visible dans son adresse YouTube) : évite
+// de le chercher dans la page de la chaîne, que YouTube remplace par un écran
+// de consentement pour les serveurs situés en Europe. `NUXT_YOUTUBE_CHANNEL_ID`
+// le remplace si la chaîne change.
+export const ID_CHAINE_PAR_DEFAUT = 'UCw7Z4T4UyeVainbb4N895mw'
+
 export interface Video {
   id: string
   titre: string
@@ -137,7 +143,7 @@ async function viaRss(idChaine: string): Promise<Video[]> {
 export async function chargerVideos(): Promise<ListeVideos> {
   const cle = (process.env.NUXT_YOUTUBE_API_KEY || '').trim()
   const idEnv = (process.env.NUXT_YOUTUBE_CHANNEL_ID || '').trim()
-  const idChaine = ID_CHAINE.test(idEnv) ? idEnv : ''
+  const idChaine = ID_CHAINE.test(idEnv) ? idEnv : ID_CHAINE_PAR_DEFAUT
 
   let videos: Video[]
   let source: ListeVideos['source']

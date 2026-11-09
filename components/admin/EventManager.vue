@@ -512,7 +512,7 @@ async function api(path, opts = {}) {
 async function fetchEvents() {
   loading.value = true
   try {
-    const res = await api('/api/church-events?include_exceptions=1', { method: 'GET' })
+    const res = await api('/api/church-events?include_exceptions=1&size=100', { method: 'GET' })
     const data = await res.json()
     events.value = (data || []).map(e => ({
       id: e.id, titre: e.title, date: new Date(e.start_date + 'T00:00:00'),

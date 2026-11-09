@@ -28,7 +28,7 @@ export function useChurchEvents(options = {}) {
     loading.value = true
     erreur.value = false
     try {
-      const res = await fetch(`${apiUrl}/api/church-events?include_exceptions=1`, {
+      const res = await fetch(`${apiUrl}/api/church-events?include_exceptions=1&size=100`, {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

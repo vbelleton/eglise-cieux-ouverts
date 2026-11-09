@@ -121,6 +121,7 @@
       :alt="evt.titre"
       class="event-card-img"
       decoding="async"
+      loading="lazy"
       @click.stop="openEventModal(evt, 0)"
     />
   </template>
@@ -461,6 +462,10 @@ const cardEvents = computed(() => {
 const imagesPrechargees = new Set()
 function prechargerImagesCartes() {
   if (typeof window === 'undefined') return
+  // Connexion lente ou économie de données : on ne tire pas des images en
+  // arrière-plan que personne n'a demandées (certaines pèsent plusieurs Mo).
+  const cnx = navigator.connection
+  if (cnx && (cnx.saveData || /(^|-)2g$|3g/.test(cnx.effectiveType || ''))) return
   const urls = []
   for (const evt of cardEvents.value) {
     const url = evt.images?.[0]

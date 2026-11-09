@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   // photos) ne sont pas des "custom pages" supprimables : soft-delete leur
   // doc Firestore effacerait le vrai contenu édité de ces pages (title
   // conservé mais blocks:[] écrasés), pas juste retirer une page fantôme.
-  const reservedSlugs = ['admin', 'api', '_nuxt', 'favicon.ico', 'robots.txt', ...HARDCODED_SLUGS]
+  const reservedSlugs = ['admin', 'api', '_nuxt', 'favicon.ico', 'robots.txt', 'predications', ...HARDCODED_SLUGS]
   if (reservedSlugs.includes(slug)) {
     throw createError({ statusCode: 400, message: 'Impossible de supprimer cette page' })
   }

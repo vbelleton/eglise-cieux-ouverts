@@ -44,15 +44,39 @@ for (const transparent of [false, true]) {
   })
 }
 
-test('image collée par lien externe : proposée à l\'allègement', async ({ page }) => {
+test('image collée par lien externe : allégée automatiquement, sans bouton', async ({ page }) => {
   await page.route('**/api/church-events**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/media/importer', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('89504e470d0a1a0a', 'hex') }))
   await loginAsAdmin(page)
   await page.locator('button[title="Gérer les événements"]').click()
   await page.getByRole('button', { name: /Nouvel événement/ }).click()
-  await page.locator('.event-image-controls input[type=url]').fill('https://s3.amazonaws.com/bucket/img.png')
-  await expect(page.locator('.event-image-distante')).toContainText('Alléger et importer')
-  await page.locator('.event-image-controls input[type=url]').fill('/api/media/uploads/1_a.jpg')
+  const champ = page.locator('.event-image-controls input[type=url]')
+  await champ.fill('https://s3.amazonaws.com/bucket/img.png')
+  await champ.press('Tab')
+  await expect(champ).toHaveValue(/\/api\/media\/uploads\//, { timeout: 15000 })
   await expect(page.locator('.event-image-distante')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Alléger/ })).toHaveCount(0)
+})
+
+test('image distante impossible à importer : lien gardé, enregistrement non bloqué', async ({ page }) => {
+  const envois: any[] = []
+  await page.route('**/api/church-events**', async (route) => {
+    if (route.request().method() === 'POST') { envois.push(route.request().postDataJSON()); return route.fulfill({ json: { id: 99 } }) }
+    return route.fulfill({ json: [] })
+  })
+  await page.route('**/api/media/importer', (route) => route.fulfill({ status: 502, json: { message: 'injoignable' } }))
+  await loginAsAdmin(page)
+  await page.locator('button[title="Gérer les événements"]').click()
+  await page.getByRole('button', { name: /Nouvel événement/ }).click()
+  await page.locator('.event-form input[type=text]').first().fill('Test')
+  await page.locator('.event-form input[type=date]').first().fill('2026-12-01')
+  const champ = page.locator('.event-image-controls input[type=url]')
+  await champ.fill('https://s3.amazonaws.com/bucket/img.png')
+  await champ.press('Tab')
+  await expect(page.locator('.event-image-distante')).toContainText('pas pu être allégée')
+  await page.getByRole('button', { name: 'Créer', exact: true }).click()
+  await expect.poll(() => envois.length).toBe(1)
+  expect(envois[0].image_url).toBe('https://s3.amazonaws.com/bucket/img.png')
 })
 
 test('import d\'image distante : réservé aux admins, adresses contrôlées', async ({ request }) => {

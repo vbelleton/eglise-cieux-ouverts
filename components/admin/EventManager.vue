@@ -138,14 +138,14 @@
             <div class="event-image-section">
               <label class="event-image-label">Image</label>
               <div class="event-image-controls">
-                <input v-model="form.image_url" type="url" placeholder="https://..." />
+                <input v-model="form.image_url" type="url" placeholder="https://..." @change="allegerImage" />
                 <input ref="eventFileInput" type="file" accept="image/*" class="file-input-hidden" @change="onFileSelected" />
                 <button class="event-btn-sec" type="button" :disabled="uploadSaving" @click="eventFileInput?.click()">{{ uploadSaving ? 'Envoi…' : 'Téléverser' }}</button>
                 <button v-if="uploadedImages.length" class="event-btn-sec" type="button" @click="toggleUploadedList">Uploadées ({{ uploadedImages.length }})</button>
               </div>
-              <p v-if="estImageDistante(form.image_url)" class="event-image-distante">
-                Image hébergée ailleurs : elle n'est pas allégée et peut ralentir l'agenda.
-                <button type="button" class="event-btn-sec" :disabled="uploadSaving" @click="allegerImage">{{ uploadSaving ? 'Allègement…' : 'Alléger et importer' }}</button>
+              <p v-if="uploadSaving && estImageDistante(form.image_url)" class="event-image-distante">Allègement de l'image…</p>
+              <p v-else-if="imageNonAllegee && estImageDistante(form.image_url)" class="event-image-distante">
+                Image hébergée ailleurs, pas pu être allégée : elle peut ralentir l'agenda. Mieux vaut la téléverser.
               </p>
               <img v-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
               <div v-if="showUploadedList" class="event-uploaded-list">
@@ -431,12 +431,15 @@ const form = ref({
   exceptions: []
 })
 
+const imageNonAllegee = ref(false)
+
 function resetForm() {
   form.value = { title: '', description: '', start_date: '', end_date: '',
     start_time: '', end_time: '', location: '', repeat_period: '',
     emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
     exceptions: [] }
   formError.value = ''
+  imageNonAllegee.value = false
 }
 
 // Snapshot du formulaire pris à l'ouverture (édition/création) — permet de
@@ -487,6 +490,7 @@ function startEdit(evt) {
     ticket_url: evt.billetterie || '', status: evt.statut || 'active',
     exceptions: evt.exceptions ? evt.exceptions.map(ex => ({ ...ex })) : []
   }
+  imageNonAllegee.value = false
   // Snapshot pour calculer les exceptions ajoutées/supprimées au save.
   originalExceptions.value = (evt.exceptions || []).map(ex => ({ ...ex }))
   formSnapshot.value = JSON.stringify(form.value)
@@ -599,6 +603,7 @@ async function createEvent() {
   if (!form.value.title || !form.value.start_date) { formError.value = 'Titre et date requis'; return }
   saving.value = true; formError.value = ''
   try {
+    if (!imageNonAllegee.value) await allegerImage()
     const res = await api('/api/church-events', { method: 'POST', body: JSON.stringify(eventPayload()) })
     const created = await res.json().catch(() => null)
     if (created?.id) await syncExceptions(created.id)
@@ -610,6 +615,7 @@ async function createEvent() {
 async function updateEvent() {
   saving.value = true; formError.value = ''
   try {
+    if (!imageNonAllegee.value) await allegerImage()
     await api(`/api/church-events/${editing.value}`, { method: 'PUT', body: JSON.stringify(eventPayload()) })
     await syncExceptions(editing.value)
     await fetchEvents(); editing.value = null
@@ -652,18 +658,21 @@ async function onFileSelected(e) {
   }
 }
 
-// Rapatrie dans la médiathèque, allégée, une image collée par lien (anciens
-// visuels S3 jusqu'à 9 Mo, servis sans cache à chaque visite).
+// Toute image collée par lien est rapatriée, allégée, dans la médiathèque —
+// automatiquement, dès la saisie et à l'enregistrement (anciens visuels S3
+// jusqu'à 9 Mo, servis sans cache à chaque visite). En cas d'échec, le lien
+// est gardé tel quel : l'enregistrement de la fiche n'est jamais bloqué.
 async function allegerImage() {
   const url = form.value.image_url
-  if (!estImageDistante(url)) return
+  if (!estImageDistante(url)) { imageNonAllegee.value = false; return }
   uploadSaving.value = true
-  formError.value = ''
   try {
-    form.value.image_url = await importerImageDistante(url)
+    const allegee = await importerImageDistante(url)
+    if (form.value.image_url === url) form.value.image_url = allegee
+    imageNonAllegee.value = false
   } catch (err) {
     console.error('Import image error', err)
-    formError.value = err?.message || "Impossible d'importer cette image"
+    imageNonAllegee.value = true
   } finally {
     uploadSaving.value = false
   }

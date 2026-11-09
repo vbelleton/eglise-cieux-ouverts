@@ -39,6 +39,25 @@ async function chargerBitmap(file, maxDim) {
   }
 }
 
+// Contrôle sur une copie réduite (≤ 256 px) : suffisant pour un fond ou des
+// bords détourés, et rapide même sur une grande image.
+function aDeLaTransparence(source, largeur, hauteur) {
+  try {
+    const e = Math.min(1, 256 / Math.max(largeur, hauteur))
+    const c = document.createElement('canvas')
+    c.width = Math.max(1, Math.round(largeur * e))
+    c.height = Math.max(1, Math.round(hauteur * e))
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return true
+    ctx.drawImage(source, 0, 0, c.width, c.height)
+    const d = ctx.getImageData(0, 0, c.width, c.height).data
+    for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true
+    return false
+  } catch {
+    return true // dans le doute, on garde le PNG
+  }
+}
+
 function chargerImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
@@ -79,7 +98,9 @@ export async function compressImage(file) {
   canvas.height = hauteur
   const ctx = canvas.getContext('2d')
   if (!ctx) return file
-  const png = file.type === 'image/png'
+  // Un PNG sans transparence (visuel, photo exportée) reste énorme en PNG :
+  // seul un logo détouré a besoin de rester en PNG.
+  const png = file.type === 'image/png' && aDeLaTransparence(source, largeur, hauteur)
   if (!png) {
     // JPEG n'a pas de transparence : fond blanc plutôt que noir.
     ctx.fillStyle = '#ffffff'
@@ -219,6 +240,33 @@ export async function uploadImageDetailed(file) {
 /** Compresse puis téléverse une image. Renvoie son URL publique. */
 export async function uploadImage(file) {
   return (await uploadImageDetailed(file)).url
+}
+
+/** Vrai pour une image qui n'est pas dans la médiathèque du site (ni dans public/). */
+export function estImageDistante(url) {
+  return /^https?:\/\//i.test(url || '') && !/^https?:\/\/[^/]*cieuxouverts/i.test(url)
+}
+
+/**
+ * Rapatrie une image hébergée ailleurs dans la médiathèque, allégée comme un
+ * téléversement normal (2000 px max, JPEG). Renvoie la nouvelle URL.
+ */
+export async function importerImageDistante(url) {
+  const token = await jetonAdmin()
+  const res = await fetch('/api/media/importer', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+    signal: AbortSignal.timeout(DELAI_MAX_ENVOI_MS),
+  })
+  if (!res.ok) {
+    const corps = await res.json().catch(() => ({}))
+    throw new Error(corps.message || `Import refusé (HTTP ${res.status})`)
+  }
+  const blob = await res.blob()
+  const base = (url.split('?')[0].split('/').pop() || 'image').replace(/\.[^.]+$/, '')
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }[blob.type] || 'img'
+  return uploadImage(new File([blob], `${base}.${ext}`, { type: blob.type }))
 }
 
 /**

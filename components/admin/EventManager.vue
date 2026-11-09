@@ -143,6 +143,10 @@
                 <button class="event-btn-sec" type="button" :disabled="uploadSaving" @click="eventFileInput?.click()">{{ uploadSaving ? 'Envoi…' : 'Téléverser' }}</button>
                 <button v-if="uploadedImages.length" class="event-btn-sec" type="button" @click="toggleUploadedList">Uploadées ({{ uploadedImages.length }})</button>
               </div>
+              <p v-if="estImageDistante(form.image_url)" class="event-image-distante">
+                Image hébergée ailleurs : elle n'est pas allégée et peut ralentir l'agenda.
+                <button type="button" class="event-btn-sec" :disabled="uploadSaving" @click="allegerImage">{{ uploadSaving ? 'Allègement…' : 'Alléger et importer' }}</button>
+              </p>
               <img v-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
               <div v-if="showUploadedList" class="event-uploaded-list">
                 <div v-if="imagesLoading" class="event-status">Chargement...</div>
@@ -204,7 +208,7 @@
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { expandRecurring, isoDay } from '~/utils/churchEvents.js'
-import { uploadImage, listUploadedImages } from '~/utils/imageUpload.js'
+import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -648,6 +652,23 @@ async function onFileSelected(e) {
   }
 }
 
+// Rapatrie dans la médiathèque, allégée, une image collée par lien (anciens
+// visuels S3 jusqu'à 9 Mo, servis sans cache à chaque visite).
+async function allegerImage() {
+  const url = form.value.image_url
+  if (!estImageDistante(url)) return
+  uploadSaving.value = true
+  formError.value = ''
+  try {
+    form.value.image_url = await importerImageDistante(url)
+  } catch (err) {
+    console.error('Import image error', err)
+    formError.value = err?.message || "Impossible d'importer cette image"
+  } finally {
+    uploadSaving.value = false
+  }
+}
+
 async function loadUploadedImages() {
   imagesLoading.value = true
   try {
@@ -803,6 +824,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 .exception-add button:hover { background: #1d4ed8; }
 
 .event-image-section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.event-image-distante { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.82em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .event-image-label { font-size: 0.85em; font-weight: 600; color: #374151; }
 .event-image-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .event-image-controls input[type="url"] { flex: 1; min-width: 120px; }

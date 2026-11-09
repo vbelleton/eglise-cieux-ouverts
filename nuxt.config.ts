@@ -16,9 +16,10 @@ export default defineNuxtConfig({
   // @ts-expect-error: routeRules valid at runtime but absent from this Nuxt version's InputConfig type
   routeRules: {
     '/billetterie': { redirect: '/event-list' },
-    // Page cachée de recherche des prédications : jamais indexée, même si
-    // un lien vers elle circule (en plus de la balise robots de la page).
-    '/predications': { headers: { 'x-robots-tag': 'noindex, nofollow' } },
+    // Ancienne adresse de la recherche cachée des prédications, désormais
+    // sur /messages?recherche (voir pages/messages.vue). 302 : rien à figer
+    // dans les caches ni chez les moteurs pour une page non publique.
+    '/predications': { redirect: { to: '/messages?recherche', statusCode: 302 } },
     // Source UNIQUE des en-têtes de sécurité : ces règles s'appliquent aux
     // réponses SSR et sont en plus recopiées par Nitro dans le `_headers`
     // final pour les fichiers statiques. Les redéclarer dans `public/_headers`

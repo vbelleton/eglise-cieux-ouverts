@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { rechercherVideos, anneesDisponibles, normaliser } from '../../utils/rechercheVideos.js'
+import { rechercherVideos, anneesDisponibles, normaliser, surligner } from '../../utils/rechercheVideos.js'
 import { lireFluxRss, idChaineDepuisHtml } from '../../server/utils/youtube'
 
 const videos = [
@@ -25,6 +25,17 @@ test.describe('Recherche des prédications', () => {
     expect(rechercherVideos(videos, '  ').map(v => v.id)).toEqual(['a', 'b', 'c'])
     expect(rechercherVideos(videos, '', { annee: '2025' }).map(v => v.id)).toEqual(['c'])
     expect(anneesDisponibles(videos)).toEqual(['2026', '2025'])
+  })
+})
+
+test.describe('Surlignage des mots trouvés', () => {
+  test('garde le texte original, accents compris', () => {
+    const m = surligner("L'Évangile de la grâce", 'evangile grace')
+    expect(m.map(x => x.texte).join('')).toBe("L'Évangile de la grâce")
+    expect(m.filter(x => x.trouve).map(x => x.texte)).toEqual(['Évangile', 'grâce'])
+  })
+  test('sans requête : un seul morceau non surligné', () => {
+    expect(surligner('Titre', '  ')).toEqual([{ texte: 'Titre', trouve: false }])
   })
 })
 

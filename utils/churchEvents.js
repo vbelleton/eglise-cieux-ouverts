@@ -312,7 +312,9 @@ export function buildEventList(allEvents, { futureOnly = true, now: nowArg } = {
     }
   }
 
-  results.sort((a, b) => a.date - b.date)
+  // Même jour : par heure (sans heure en tête) — sinon l'ordre dépendait de
+  // celui des événements en base, et un 21:00 passait avant un 19:30.
+  results.sort((a, b) => (a.date - b.date) || ((heureMinutes(a.heure) ?? -1) - (heureMinutes(b.heure) ?? -1)))
   return results
 }
 

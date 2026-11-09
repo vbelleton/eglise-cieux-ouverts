@@ -104,8 +104,8 @@
           <p v-if="!erreur && nextEvents.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
         <div v-if="currentView === 'cards'" class="events-list">
-          <article v-for="evt in filteredEvents" :key="evt.id" class="event-card" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
-  <div style="position:relative;min-height:160px;width:100%">
+          <article v-for="evt in cardEvents" :key="evt.id" class="event-card" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
+  <div class="event-card-media">
   <template v-if="evt.images && evt.images.length">
     <EventImageSlider
       v-if="evt.images.length > 1"
@@ -121,20 +121,19 @@
       :alt="evt.titre"
       class="event-card-img"
       decoding="async"
-      style="width:100%;height:160px;object-fit:cover; background:#ededed; border-radius:0; box-shadow:none; cursor:pointer;"
       @click.stop="openEventModal(evt, 0)"
     />
   </template>
-  <div v-else style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;background:#ebf0fa;">
-    <svg width="58" height="58" viewBox="0 0 40 40" fill="#b8c7da"><circle cx="20" cy="20" r="18" stroke="#a6bed7" stroke-width="2" fill="#e9f0fa"/><path d="M12.5 27.5L20 15l7.5 12.5h-15z" fill="#b8c7da"/><rect x="17.2" y="18" width="5.6" height="5.5" rx="2.7" fill="#a6bed7"/></svg>
-  </div>
-  <div class="event-date-badge">
-    <span class="badge-day">{{ formatDay(evt.date) }}</span>
-    <span class="badge-month">{{ formatMonth(evt.date) }}</span>
-  </div>
+  <div v-else class="event-card-placeholder" aria-hidden="true"><span>{{ evt.emoji || '✝️' }}</span></div>
 </div>
   <div class="event-body">
-    <h3 class="event-title">{{ evt.titre }}</h3>
+    <div class="event-card-head">
+      <div class="event-date-badge">
+        <span class="badge-day">{{ formatDay(evt.date) }}</span>
+        <span class="badge-month">{{ formatMonth(evt.date) }}</span>
+      </div>
+      <h3 class="event-title">{{ evt.titre }}</h3>
+    </div>
     <div class="event-meta">
       <span v-if="evt.heure">🕙 {{ evt.heure }}</span>
       <span v-if="evt.lieu">📍 {{ evt.lieu }}</span>
@@ -439,6 +438,21 @@ const filteredEvents = computed(() => {
   return filtered
 })
 
+// Vue « Cartes » : une carte par événement. Une série (hebdomadaire…) a
+// plusieurs occurrences dans le mois : on garde la prochaine (ou la première
+// du mois si elles sont toutes passées). Sans ça, la même carte se répétait,
+// avec des clés `evt.id` en double qui faisaient mélanger le contenu des
+// cartes par Vue au changement de mois.
+const cardEvents = computed(() => {
+  const now = maintenant.value
+  const parId = new Map()
+  for (const evt of filteredEvents.value) {
+    const deja = parId.get(evt.id)
+    if (!deja || (estTermine(deja, now) && !estTermine(evt, now))) parId.set(evt.id, evt)
+  }
+  return [...parId.values()].sort((a, b) => toDate(a.date) - toDate(b.date))
+})
+
 // Vue « Cartes » : les images des événements du mois n'étaient demandées
 // qu'au moment d'ouvrir cette vue (et en `loading="lazy"`), d'où un cadre gris
 // le temps qu'elles arrivent. Dès que l'agenda est chargé, le navigateur les
@@ -448,7 +462,7 @@ const imagesPrechargees = new Set()
 function prechargerImagesCartes() {
   if (typeof window === 'undefined') return
   const urls = []
-  for (const evt of filteredEvents.value) {
+  for (const evt of cardEvents.value) {
     const url = evt.images?.[0]
     if (url && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
     if (urls.length >= 12) break
@@ -458,7 +472,7 @@ function prechargerImagesCartes() {
   if ('requestIdleCallback' in window) window.requestIdleCallback(lancer, { timeout: 1500 })
   else window.setTimeout(lancer, 300)
 }
-watch(filteredEvents, prechargerImagesCartes)
+watch(cardEvents, prechargerImagesCartes)
 
 const nextEvents = computed(() => {
   // Vue "Prochain" : seule vue non bornée à un mois/semaine précis — doit
@@ -572,7 +586,7 @@ function formatDayModalDate(date) {
 .view-btn { background: none; border: none; font-size: 0.82em; color: #6b7280; cursor: pointer; padding: 6px 10px; min-height: 28px; border-radius: 6px; white-space: nowrap; transition: all .15s; }
 .view-btn:hover { color: #111827; background: #f9fafb; }
 .view-btn.active { color: #2563eb; background: #eff6ff; font-weight: 600; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .day-header { text-align: center; padding: 10px 4px; font-size: 0.82em; color: #374151; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
 .day-cell { min-height: 90px; padding: 6px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; cursor: pointer; transition: background .15s; }
 .day-cell:nth-child(7n) { border-right: none; }
@@ -631,17 +645,24 @@ function formatDayModalDate(date) {
 /* Cartes */
 .events-list-section { padding: 40px 24px; }
 .events-list-inner { max-width: 800px; margin: 0 auto; }
-.events-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.events-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
 @media (max-width: 900px) { .events-list { grid-template-columns: 1fr 1fr; gap: 18px; } }
 @media (max-width: 600px) { .events-list { grid-template-columns: 1fr; gap: 12px; } }
-.event-card { display: flex; flex-direction: column; gap: 0; background: white; border-radius: 14px; padding: 0 0 18px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; position: relative; min-height: 280px; }
-.event-date-badge { position: absolute; top: 10px; left: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; background: rgba(6,72,134,0.97); border-radius: 9px; padding: 7px 5px 5px 5px; color: white; z-index: 2; box-shadow: 0 2px 10px rgba(6,72,134,0.13); }
+.event-card { display: flex; flex-direction: column; gap: 0; background: white; border-radius: 14px; padding: 0 0 18px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; position: relative; }
+/* Image entière (visuels 16:9 avec du texte dedans) : ni recadrage, ni badge par-dessus. */
+.event-card-media { position: relative; width: 100%; }
+.event-card-placeholder { width: 100%; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8eff9 0%, #d3e1f3 100%); }
+.event-card-placeholder span { font-size: 2.6em; opacity: 0.9; }
+.event-card-head { display: flex; gap: 12px; align-items: center; }
+.event-date-badge { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; background: rgba(6,72,134,0.97); border-radius: 9px; padding: 7px 5px 5px 5px; color: white; box-shadow: 0 2px 10px rgba(6,72,134,0.13); }
 .badge-day { font-size: 1.6em; font-weight: 900; line-height: 1; }
 .badge-month { font-size: 0.65em; font-weight: 700; letter-spacing: 0.06em; opacity: 0.85; text-transform: uppercase; }
 .event-body { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 14px 18px 2px 18px; }
 .event-title { font-size: 1.05em; font-weight: 700; color: #111827; margin: 0; }
 .event-meta { display: flex; gap: 14px; font-size: 0.85em; color: #6b7280; flex-wrap: wrap; }
 .event-desc { font-size: 0.88em; color: #4b5563; line-height: 1.6; margin: 0; }
+/* Cartes : extrait de 4 lignes, le texte complet est dans la fenêtre de l'événement. */
+.event-card .event-desc { display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .event-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 .btn-event { display: inline-block; padding: 8px 18px; background: #2563eb; color: white; font-size: 0.85em; font-weight: 600; border-radius: 8px; text-decoration: none; transition: background 0.2s; }
 .btn-event:hover { background: #1d4ed8; }
@@ -661,7 +682,7 @@ function formatDayModalDate(date) {
 .agenda-desc { font-size: 0.85em; color: #4b5563; margin: 2px 0 0; }
 .empty-msg { text-align: center; color: #6b7280; padding: 40px; font-size: 1em; }
 .loading-msg { text-align: center; padding: 40px; color: #6b7280; font-size: 1em; }
-.event-card-img { width: 100%; height: 160px; object-fit: cover; background: #f3f4f6; display: block; }
+.event-card-img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #f3f4f6; display: block; cursor: pointer; }
 
 /* Day modal */
 .day-modal-overlay {

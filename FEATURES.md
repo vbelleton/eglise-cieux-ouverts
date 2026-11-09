@@ -20,6 +20,7 @@ Chaque page est composée de blocs (voir « Système de blocs »). Le contenu r�
 - **Admin** (`/admin`, `pages/admin.vue`) — page de connexion dédiée, redirige vers `/?admin=true` après authentification. Ce n'est pas un dashboard séparé — toute l'édition se fait en admin mode sur les pages publiques elles-mêmes.
 - **Espace membre** (`/membre`, `pages/membre.vue`) — voir « Espace membre » ci-dessous.
 - **Pages custom** — un admin peut créer des pages additionnelles (slug libre) via le menu ; route catch-all `pages/[slug].vue`.
+- **Pages d'erreur** (`error.vue`) — 404, accès réservé (401/403), panne serveur (5xx) : en-tête et pied de page du site, message adapté au code reçu (prop `error` de Nuxt), bouton « Réessayer » pour les pannes, liens vers Agenda, Événements, Messages et Contact (jamais vers la page cachée `/predications`), `noindex`. Hors ligne : `public/offline.html` (voir PWA).
 
 ## Système de blocs (schema-driven)
 

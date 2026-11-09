@@ -1,5 +1,6 @@
 import { ref, computed, nextTick } from "vue";
 import { BLOCK_TYPES, VISIBILITY_DEFAULTS, champsCommuns } from "~/utils/blockTypes.js";
+import { normalizeBlock } from "~/lib/blocks/renderer";
 import {
   DESIGN_DEFAULTS,
   DESIGN_FIELDS,
@@ -182,11 +183,32 @@ export function useAdmin() {
       const communs = champsCommuns(current?.type);
       const base = {};
       const parFormat = {};
-      for (const [k, v] of Object.entries(props)) (communs.has(k) ? base : parFormat)[k] = v;
+      // L'éditeur automatique renvoie TOUS les champs du bloc (base + surcharges
+      // déjà fusionnées), pas seulement celui qu'on vient de toucher. Sans ce
+      // tri, une seule retouche en mode Mobile copiait chaque champ dans la
+      // surcharge et figeait tout le bloc sur téléphone : vidéo, textes, liens
+      // ne suivaient plus les changements faits sur ordinateur. Ne garder que
+      // ce qui diffère réellement de la base.
+      // Comparé aussi à la base complétée par les valeurs par défaut du type,
+      // telle qu'elle s'affiche (normalizeBlock) : un défaut renvoyé tel quel
+      // n'est pas une modification.
+      const identique = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      const baseAffichee = normalizeBlock(current)?.props || {};
+      for (const [k, v] of Object.entries(props)) {
+        if (communs.has(k)) base[k] = v;
+        else if (!identique(v, current.props?.[k]) && !identique(v, baseAffichee[k])) parFormat[k] = v;
+      }
       const responsive = {};
       for (const [d, o] of Object.entries(current.responsive || {})) {
         const reste = { ...o };
         for (const k of Object.keys(base)) delete reste[k];
+        // Sur le format modifié, un champ ramené à la valeur de base cesse
+        // d'être une surcharge (il suit de nouveau l'ordinateur).
+        if (d === device) {
+          for (const k of Object.keys(props)) {
+            if (k in reste && !(k in parFormat)) delete reste[k];
+          }
+        }
         if (Object.keys(reste).length) responsive[d] = reste;
       }
       if (Object.keys(parFormat).length) {

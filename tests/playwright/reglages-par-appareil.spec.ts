@@ -48,6 +48,9 @@ for (const [appareil, bouton, largeur] of [['mobile', 2, 390], ['tablet', 1, 800
     const b = (apres.blocks || []).find((x: any) => x.type === 'bienvenue')
     expect(b.props.title).toBe(bienvenueAvant.props.title)
     expect(b.responsive?.[appareil]?.title).toBe(NOUVEAU)
+    // Seul le champ touché est surchargé : les autres (sous-titre, liens…)
+    // continuent de suivre l'ordinateur. Avant, l'éditeur les copiait tous.
+    expect(Object.keys(b.responsive?.[appareil] || {})).toEqual(['title'])
     const autre = appareil === 'mobile' ? 'tablet' : 'mobile'
     expect(b.responsive?.[autre]?.title).toBeUndefined()
     expect(b.responsive?.desktop).toBeUndefined()

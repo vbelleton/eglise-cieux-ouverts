@@ -77,6 +77,8 @@ Firebase Auth (email + mot de passe — connexion Google retirée), projet Fireb
 - **Champ newsletter** (`checkbox` dans le formulaire) : booléen capturé lors de la soumission, stocké en Firestore `contacts/{id}` (champ `newsletter`). Permet aux visiteurs de s'abonner directement via le formulaire contact.
 - **Email de destination configurable** : l'adresse qui reçoit les notifications est stockée en Firestore `settings/config` (champ `contactEmail`), modifiable en admin via le bouton «⚙️ Config». Fallback variable d'env `CONTACT_EMAIL` en dev. Utilise ce champ si défini, sinon fallback défaut.
 
+- **Envoi sans JavaScript** : les formulaires de contact et d'inscription Alpha portent `action="/api/contact" method="post"`. Avec JS, `@submit.prevent` garde l'envoi par `$fetch`. Sans JS, le navigateur poste le formulaire (urlencoded) et le serveur répond par une redirection 303 vers la page d'origine (`?envoi=<code>&formulaire=contact|alpha#ancre`, chemin interne uniquement), que `composables/useEnvoiSansJs.js` relit pour afficher succès ou erreur dès le rendu serveur. Anti-robot propre à ce chemin : champ piège rempli, ou envoi moins de 3 s après l'affichage (`ouvert`, heure du rendu serveur), donne une fausse confirmation sans rien enregistrer.
+
 Messages visibles dans l'admin via le bouton toolbar « 📬 Messages » (badge = nombre non lus) — liste en lecture seule (`GET /api/contacts`, admin-only) avec un simple bascule lu/non lu (`PUT /api/contacts/:id`, champ `status`). Volontairement pas de réponse/reply gérée depuis l'admin : le mail de l'expéditeur est un lien `mailto:` cliquable, rien de plus.
 
 ## Animations
@@ -117,6 +119,20 @@ Ces bugs ont causé des pertes de contenu réel ou des blocages de l'admin en pr
 - **Hors ligne** : service worker `public/sw.js`, enregistré par `plugins/pwa.client.ts`. Réseau d'abord pour le HTML et les lectures publiques (`/api/pages`, `menu`, `footer`, `settings`, agenda du Worker) — le cache n'est qu'un repli, la fraîcheur du contenu ne change pas. Bundles `/_nuxt/*` et images servis depuis le cache. Une page jamais visitée affiche `public/offline.html`.
 - **Admin exclu** : jamais servi depuis le cache (`/admin`, `?admin=true`, `preview-inner`, onglet signalé en mode admin, requêtes authentifiées, tout ce qui n'est pas GET).
 - **Notifications push** : étudiées, non retenues pour l'instant (octobre 2026). Possibles plus tard sans refaire la base (Web Push, abonnements à stocker, écran d'envoi admin ; sur iPhone seulement si l'app est installée).
+
+## Sans JavaScript
+
+Le site reste utilisable JavaScript désactivé, sans demander de l'activer sauf là où rien ne peut le remplacer. Mécanisme : `<html class="no-js">`, classe retirée par un script de tête avant le premier affichage (`nuxt.config.ts`) ; tous les replis sont dans `assets/css/no-js.css`. Utilitaires : `.nojs-only` (affiché seulement sans JS, présent dans les deux rendus pour éviter tout écart d'hydratation — pas de `<noscript>` dans les composants) et `.js-only` (l'inverse).
+
+- **Contenu** : animations d'entrée et révélations au défilement forcées dans leur état final ; bloc Aspirations replié quand le navigateur ne gère pas les animations pilotées au scroll (Firefox).
+- **Menu** : visible sur ordinateur même si le menu enregistré n'a pas été lu ; sur téléphone le ☰ devient un lien vers `#mobile-navigation`, ouvert par `:target` (CSS seul).
+- **Formulaires** contact et Alpha : envoyés par le serveur (voir Formulaire de contact).
+- **Agenda / bloc Événements** : chargés par le navigateur depuis le Worker, donc impossibles sans JS : un message renvoie aux horaires du pied de page et à `/contact` au lieu d'un « Chargement… » éternel (`MessageAgendaSansJs.vue`).
+- **Vidéo YouTube, carte** : un lien ouvre la vidéo sur YouTube / la carte dans un nouvel onglet.
+- **Carrousels** (Témoignages, Activités) : flèches et pastilles retirées, barre de défilement rendue.
+- **Connexion** (espace membre, admin) : Firebase s'exécute dans la page, seul cas où l'on explique que JS est nécessaire (`MessageConnexionSansJs.vue`).
+
+Couvert par `tests/playwright/sans-javascript.spec.ts`.
 
 ## Tests
 

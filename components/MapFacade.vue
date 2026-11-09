@@ -11,6 +11,7 @@
       <span class="map-facade-pin" aria-hidden="true">📍</span>
       <span class="map-facade-title">{{ title }}</span>
       <button type="button" class="map-facade-btn" @click="loaded = true">{{ buttonText }}</button>
+      <a class="map-facade-btn nojs-only" :href="src" target="_blank" rel="noopener">{{ buttonText }}</a>
     </template>
   </div>
 </template>

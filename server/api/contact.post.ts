@@ -49,8 +49,61 @@ function assertString(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
+// ─── Envoi sans JavaScript ───
+// Les formulaires (BlockContact, BlockInscriptionAlpha) portent
+// `action="/api/contact" method="post"` : sans JS, le navigateur les poste lui-
+// même en `application/x-www-form-urlencoded`. Le traitement est le même ; seule
+// la réponse change : une redirection 303 vers la page d'origine, avec un code
+// que la page affiche (composables/useEnvoiSansJs.js) au lieu d'un JSON brut.
+const FORMULAIRES_SANS_JS: Record<string, string> = { contact: 'formulaire-contact', alpha: 'inscription-alpha' }
+// Un humain ne remplit pas un formulaire en moins de 3 s : en dessous, ou sans
+// heure d'ouverture valide, c'est un robot. Même idée que le délai côté JS.
+const DELAI_MINIMUM_SANS_JS = 3000
+
+function estEnvoiSansJs(event) {
+  return (getRequestHeader(event, 'content-type') || '').includes('application/x-www-form-urlencoded')
+}
+
+// Chemin interne uniquement (`/…`, jamais `//hote` ni `/\hote`) : sinon la
+// redirection deviendrait un rebond vers n'importe quel site.
+function cheminRetour(valeur: unknown) {
+  const chemin = typeof valeur === 'string' ? valeur.trim() : ''
+  if (!/^\/(?![\/\\])/.test(chemin) || /[\s\\]/.test(chemin)) return '/contact'
+  return chemin.split(/[?#]/)[0].slice(0, 200) || '/'
+}
+
+function codeErreur(err: any) {
+  return err?.data?.code || (err?.statusCode === 429 ? 'limite' : 'serveur')
+}
+
+function refus(statusCode: number, message: string, code: string) {
+  return createError({ statusCode, message, data: { code } })
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
+  if (!estEnvoiSansJs(event)) return enregistrer(event, body)
+
+  const formulaire = Object.hasOwn(FORMULAIRES_SANS_JS, body?.formulaire) ? body.formulaire : 'contact'
+  const ouvert = Number(body?.ouvert)
+  const ecoule = Date.now() - ouvert
+  let code = 'ok'
+  // Robot (champ piège rempli, envoi instantané, heure absente ou inventée) :
+  // on fait comme si tout allait bien, sans rien enregistrer ni lui apprendre
+  // ce qui l'a trahi.
+  const robot = Boolean(assertString(body?.website, 200)) || !Number.isFinite(ouvert) || ecoule < DELAI_MINIMUM_SANS_JS || ecoule > 7 * 24 * 3600 * 1000
+  if (!robot) {
+    try {
+      await enregistrer(event, body)
+    } catch (err) {
+      code = codeErreur(err)
+    }
+  }
+  const query = new URLSearchParams({ envoi: code, formulaire })
+  return sendRedirect(event, `${cheminRetour(body?.retour)}?${query}#${FORMULAIRES_SANS_JS[formulaire]}`, 303)
+})
+
+async function enregistrer(event, body) {
   const isTest = process.env.NODE_ENV === 'test' || process.env.PW_TEST === '1' || process.env.TEST_ENV === '1'
 
   // Rate limiting check (désactivé en test : évite une pollution du compteur
@@ -59,10 +112,7 @@ export default defineEventHandler(async (event) => {
     const rateLimitKey = getRateLimitKey(event)
     const rateCheck = checkRateLimit(rateLimitKey)
     if (!rateCheck.allowed) {
-      throw createError({
-        statusCode: 429,
-        message: `Trop de requêtes. Réessayez dans ${rateCheck.resetIn} secondes.`
-      })
+      throw refus(429, `Trop de requêtes. Réessayez dans ${rateCheck.resetIn} secondes.`, 'limite')
     }
   }
 
@@ -90,26 +140,26 @@ export default defineEventHandler(async (event) => {
   const estInscription = Boolean(parcours)
   
   if (!prenom || !nom || !email || (!message && !estInscription)) {
-    throw createError({ statusCode: 400, message: 'Champs obligatoires manquants.' })
+    throw refus(400, 'Champs obligatoires manquants.', 'champs')
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw createError({ statusCode: 400, message: 'Email invalide.' })
+    throw refus(400, 'Email invalide.', 'email')
   }
   if (estInscription && telephone.replace(/\D/g, '').length < 6) {
-    throw createError({ statusCode: 400, message: 'Merci d\'indiquer un numéro de téléphone.' })
+    throw refus(400, 'Merci d\'indiquer un numéro de téléphone.', 'telephone')
   }
   if (!estInscription && message.length < 10) {
-    throw createError({ statusCode: 400, message: 'Message trop court.' })
+    throw refus(400, 'Message trop court.', 'court')
   }
   if (website) {
-    throw createError({ statusCode: 400, message: 'Envoi bloqué.' })
+    throw refus(400, 'Envoi bloqué.', 'bloque')
   }
 
   if (estInscription) {
     // Parcours complet : refusé côté serveur, le formulaire ne fait que l'afficher.
     const places = await placesAlpha(event, parcours).catch(() => null)
     if (places && places.remaining === 0) {
-      throw createError({ statusCode: 409, message: 'Désolé, ce parcours est complet.' })
+      throw refus(409, 'Désolé, ce parcours est complet.', 'complet')
     }
   }
 
@@ -233,4 +283,4 @@ export default defineEventHandler(async (event) => {
     console.error('Contact API error:', err)
     throw createError({ statusCode: 500, message: err.message || 'Server Error' })
   }
-})
+}

@@ -673,6 +673,10 @@ test.describe('10. Extreme responsive', () => {
     if (await firstBlock.isVisible()) {
       await firstBlock.click()
       await page.waitForTimeout(300)
+      // Sur téléphone, sélectionner un bloc n'ouvre plus le panneau : une
+      // pastille « ✎ Modifier : … » l'ouvre explicitement (AdminToolbar.vue).
+      const pastille = page.locator('.admin-pastille-ouvrir')
+      if (await pastille.isVisible()) await pastille.click()
       const sidebarWidth = await page.locator('.admin-sidebar').evaluate(
         el => el.getBoundingClientRect().width
       )

@@ -89,6 +89,14 @@
             >
                 <span></span><span></span><span></span>
             </button>
+            <!-- Sans JavaScript (no-js.css) : le bouton ci-dessus ne fait rien. Ces
+                 liens ouvrent / ferment le menu par :target, en CSS seul. -->
+            <a href="#mobile-navigation" class="burger-sans-js burger-ouvrir nojs-only" aria-label="Ouvrir le menu">
+                <span></span><span></span><span></span>
+            </a>
+            <a href="#" class="burger-sans-js burger-fermer nojs-only" aria-label="Fermer le menu">
+                <span></span><span></span><span></span>
+            </a>
         </div>
 
         <nav id="mobile-navigation" ref="mobileNavEl" class="nav-mobile" aria-label="Navigation mobile" :style="menuBgStyle">
@@ -414,11 +422,8 @@ onUnmounted(() => {
 .site-header.menu-pending .nav-mobile {
     visibility: hidden;
 }
-/* Sans JavaScript le vrai menu n'arrivera jamais : on montre celui d'origine. */
-:global(html.no-js) .site-header.menu-pending .nav-desktop,
-:global(html.no-js) .site-header.menu-pending .nav-mobile {
-    visibility: visible;
-}
+/* Sans JavaScript : voir assets/css/no-js.css (un `:global(html.no-js) .x`
+   ici compilerait en `html.no-js` seul). */
 
 .site-header {
     position: fixed;

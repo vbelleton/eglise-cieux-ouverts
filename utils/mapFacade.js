@@ -27,6 +27,8 @@ export function facadeMaps(html) {
       `<span class="map-facade-pin" aria-hidden="true">📍</span>` +
       `<span class="map-facade-title">${title}</span>` +
       `<button type="button" class="map-facade-btn">Afficher la carte</button>` +
+      // Sans JavaScript le bouton ne fait rien : ce lien le remplace (no-js.css).
+      `<a class="map-facade-btn nojs-only" href="${esc(src)}" target="_blank" rel="noopener">Afficher la carte</a>` +
       `</div>`
     )
   })

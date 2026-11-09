@@ -11,9 +11,12 @@
       <!-- Les événements viennent du Worker eglise-app, chargés côté client
            (useChurchEvents, onMounted) : au rendu serveur on affiche le
            squelette, jamais « aucun événement ». -->
-      <div v-if="loading" class="evts-grid" aria-busy="true">
-        <div v-for="n in Math.min(maxItems, 3)" :key="n" class="evt-card evt-skeleton" />
-      </div>
+      <template v-if="loading">
+        <div class="evts-grid js-only" aria-busy="true">
+          <div v-for="n in Math.min(maxItems, 3)" :key="n" class="evt-card evt-skeleton" />
+        </div>
+        <MessageAgendaSansJs />
+      </template>
       <p v-else-if="erreur" class="evts-msg">{{ errorText }}</p>
       <p v-else-if="!liste.length" class="evts-msg" data-field-key="emptyText" :style="fieldFontStyle(fieldFonts, 'emptyText', fieldFontSizes)">{{ emptyText }}</p>
       <div v-else class="evts-grid">

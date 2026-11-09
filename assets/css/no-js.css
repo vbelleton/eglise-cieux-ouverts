@@ -62,12 +62,147 @@
   transform: translateY(-50%) !important;
 }
 
-.no-js .nav-desktop {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 4px;
+/* ─── Éléments réservés au mode sans JavaScript ───
+   `.nojs-only` : présent dans le rendu serveur ET dans le rendu client (pas de
+   <noscript> dans les composants : son contenu est lu comme du texte quand JS
+   est actif, d'où des écarts d'hydratation). Le script de tête retire `no-js`
+   avant le premier affichage, donc un visiteur avec JS ne les voit jamais. */
+html:not(.no-js) .nojs-only {
+  display: none !important;
+}
+/* Inverse : ce qui n'a de sens qu'avec JS (indicateur « Chargement… » d'un
+   contenu que seul JS ira chercher). */
+.no-js .js-only {
+  display: none !important;
 }
 
-.no-js .burger {
+/* ─── En-tête ───
+   Le menu définitif (renommé dans l'admin) n'arrivera jamais sans JS quand le
+   serveur n'a pas pu le lire : on montre celui d'origine plutôt que rien.
+   Cette règle vivait dans le <style scoped> de SiteHeader.vue, où
+   `:global(html.no-js) .x` compile en `html.no-js` seul : elle ne faisait rien. */
+.no-js .site-header.menu-pending .nav-desktop,
+.no-js .site-header.menu-pending .nav-mobile {
+  visibility: visible !important;
+}
+
+/* Téléphone : le ☰ est un bouton piloté par JS. Sans JS on le remplace par un
+   lien vers #mobile-navigation, et `:target` ouvre le menu — en CSS seul. */
+.no-js button.burger {
   display: none !important;
+}
+/* Pas la classe .burger (les tests et le JS la visent) : même dessin, recopié. */
+.burger-sans-js {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 10px;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.burger-sans-js span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--text-dark);
+  border-radius: 2px;
+}
+@media (max-width: 768px) {
+  .no-js .burger-ouvrir {
+    display: flex;
+  }
+  .no-js .site-header .nav-mobile:target {
+    display: flex;
+  }
+  .no-js .burger-fermer,
+  .no-js .site-header:has(.nav-mobile:target) .burger-ouvrir,
+  .no-js .site-header:has(.nav-mobile:target) .header-mobile-socials {
+    display: none !important;
+  }
+  .no-js .site-header:has(.nav-mobile:target) .burger-fermer {
+    display: flex !important;
+  }
+  /* Même apparence que le menu ouvert par JS (.menu-open, SiteHeader.vue). */
+  .no-js .site-header:has(.nav-mobile:target) {
+    background: #064886;
+    border-bottom: none;
+  }
+  .no-js .site-header:has(.nav-mobile:target) .logo {
+    filter: brightness(0) invert(1);
+  }
+  .no-js .burger-fermer span {
+    background: white !important;
+  }
+  .no-js .burger-fermer span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .no-js .burger-fermer span:nth-child(2) { opacity: 0; }
+  .no-js .burger-fermer span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+}
+
+/* ─── Aspirations ───
+   Le bloc occupe 300vh pour que sa cascade suive le défilement. Sans
+   animation pilotée au scroll (Firefox) c'est JS qui le replie : sans JS,
+   on le replie ici, comme le fait la classe .triggered. */
+@supports not (animation-timeline: view()) {
+  .no-js .aspirations-viewport {
+    height: auto !important;
+  }
+  .no-js .aspirations-viewport .sticky-box {
+    position: relative !important;
+    top: auto !important;
+    min-height: auto !important;
+    padding: 50px 20px !important;
+  }
+}
+
+/* ─── Façades (vidéo YouTube, carte) ───
+   Sans JS, le bouton « lire » / « Afficher la carte » ne peut rien charger :
+   un lien prend sa place et ouvre la vidéo ou la carte dans un nouvel onglet. */
+.facade-lien-sans-js {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+.no-js button.map-facade-btn {
+  display: none !important;
+}
+a.map-facade-btn {
+  text-decoration: none;
+}
+
+/* Messages affichés à la place d'un contenu chargé par JS (agenda…). */
+.message-sans-js {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ─── Carrousels (Témoignages, Activités) ───
+   Flèches et pastilles font défiler par JS : sans JS elles ne feraient rien.
+   On les retire et on rend la barre de défilement de la piste, masquée
+   d'ordinaire, pour qu'on puisse quand même passer d'une carte à l'autre. */
+.no-js .tem-arrow,
+.no-js .tem-dots,
+.no-js .activity-slider .nav-arrow {
+  display: none !important;
+}
+.no-js .tem-track,
+.no-js .activity-track {
+  scrollbar-width: thin !important;
+}
+.no-js .tem-track::-webkit-scrollbar,
+.no-js .activity-track::-webkit-scrollbar {
+  display: block !important;
+  height: 8px;
 }

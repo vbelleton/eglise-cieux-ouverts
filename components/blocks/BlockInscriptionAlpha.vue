@@ -18,40 +18,42 @@
 
       <p v-else-if="places && places.remaining === 0" class="ia-full" role="status">{{ fullText }}</p>
 
-      <form v-else class="ia-form" @submit.prevent="submitForm">
+      <form v-else class="ia-form" action="/api/contact" method="post" @submit.prevent="submitForm">
         <div class="ia-row">
           <label class="ia-field">
             <span>{{ labelPrenom }} *</span>
-            <input v-model="form.prenom" type="text" autocomplete="given-name" maxlength="80" :disabled="sending" required />
+            <input v-model="form.prenom" name="prenom" type="text" autocomplete="given-name" maxlength="80" :disabled="sending" required />
           </label>
           <label class="ia-field">
             <span>{{ labelNom }} *</span>
-            <input v-model="form.nom" type="text" autocomplete="family-name" maxlength="80" :disabled="sending" required />
+            <input v-model="form.nom" name="nom" type="text" autocomplete="family-name" maxlength="80" :disabled="sending" required />
           </label>
         </div>
         <div class="ia-row">
           <label class="ia-field">
             <span>{{ labelEmail }} *</span>
-            <input v-model="form.email" type="email" autocomplete="email" maxlength="180" :disabled="sending" required />
+            <input v-model="form.email" name="email" type="email" autocomplete="email" maxlength="180" :disabled="sending" required />
           </label>
           <label class="ia-field">
             <span>{{ labelTelephone }} *</span>
-            <input v-model="form.telephone" type="tel" autocomplete="tel" maxlength="40" :disabled="sending" required />
+            <input v-model="form.telephone" name="telephone" type="tel" autocomplete="tel" maxlength="40" :disabled="sending" required />
           </label>
         </div>
         <label v-if="showAddress" class="ia-field">
           <span>{{ labelAdresse }}</span>
-          <input v-model="form.adresse" type="text" autocomplete="street-address" maxlength="300" :disabled="sending" />
+          <input v-model="form.adresse" name="adresse" type="text" autocomplete="street-address" maxlength="300" :disabled="sending" />
         </label>
         <label v-if="showMessage" class="ia-field">
           <span>{{ labelMessage }}</span>
-          <textarea v-model="form.message" rows="3" maxlength="2000" :disabled="sending"></textarea>
+          <textarea v-model="form.message" name="message" rows="3" maxlength="2000" :disabled="sending"></textarea>
         </label>
 
-        <input v-model="form.website" type="text" class="ia-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <input v-model="form.website" name="website" type="text" class="ia-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <input type="hidden" name="parcours" :value="parcours || 'Parcours Alpha'" />
+        <ChampsEnvoiSansJs formulaire="alpha" :ouvert="ouvertSansJs" />
 
         <label class="ia-consent">
-          <input v-model="form.consent" type="checkbox" :disabled="sending" required />
+          <input v-model="form.consent" name="consent" value="1" type="checkbox" :disabled="sending" required />
           <span>{{ consentText }}</span>
         </label>
 
@@ -120,8 +122,20 @@ const visibilityClasses = computed(() => ({
 const vide = () => ({ prenom: '', nom: '', email: '', telephone: '', adresse: '', message: '', consent: false, website: '' })
 const form = ref(vide())
 const sending = ref(false)
-const submitted = ref(false)
-const errorMessage = ref('')
+// Retour d'un envoi fait SANS JavaScript (?envoi=…&formulaire=alpha) :
+// voir composables/useEnvoiSansJs.js.
+const { ouvert: ouvertSansJs, code: codeSansJs } = useEnvoiSansJs('alpha')
+function messageSansJs(code) {
+  if (!code || code === 'ok') return ''
+  if (code === 'champs') return props.errorRequiredText
+  if (code === 'email') return props.errorEmailText
+  if (code === 'telephone') return props.errorPhoneText
+  if (code === 'complet') return props.fullText
+  if (code === 'limite') return 'Trop d\'envois depuis cette connexion. Réessaie dans quelques minutes.'
+  return 'L\'inscription a échoué. Réessaie dans un instant.'
+}
+const submitted = ref(codeSansJs.value === 'ok')
+const errorMessage = ref(messageSansJs(codeSansJs.value))
 const mountedAt = Date.now()
 const places = ref(null)
 

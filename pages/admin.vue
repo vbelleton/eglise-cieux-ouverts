@@ -25,7 +25,8 @@
         <div v-else class="admin-login-actions">
           <p class="admin-login-subtitle">Connectez-vous pour modifier le site</p>
           <template v-if="!user">
-            <form @submit.prevent="doEmailSubmit" class="admin-login-form">
+            <MessageConnexionSansJs />
+            <form @submit.prevent="doEmailSubmit" class="admin-login-form js-only">
               <input v-model="loginEmailInput" type="email" placeholder="Email" required autocomplete="email" />
               <input
                 v-if="loginMode !== 'reset'"

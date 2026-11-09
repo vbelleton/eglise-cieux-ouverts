@@ -5,6 +5,24 @@
 
 import { buildEventList } from '~/utils/churchEvents.js'
 
+// Plusieurs composants montés ensemble demandent la même liste (en-tête du
+// site pour le lien « Événements » + la page agenda) : sans partage, /agenda
+// faisait deux appels identiques au Worker à chaque chargement. On partage la
+// requête EN COURS ; une fois terminée, la suivante repart de zéro, donc
+// `refresh()` et chaque navigation obtiennent toujours des données fraîches.
+let enCours = null
+function chargerListe(url, timeoutMs) {
+  if (enCours && enCours.url === url) return enCours.promesse
+  const promesse = fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    })
+    .finally(() => { if (enCours && enCours.promesse === promesse) enCours = null })
+  enCours = { url, promesse }
+  return promesse
+}
+
 export function useChurchEvents(options = {}) {
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl || 'https://eglise-app.belletonv.workers.dev'
@@ -28,11 +46,7 @@ export function useChurchEvents(options = {}) {
     loading.value = true
     erreur.value = false
     try {
-      const res = await fetch(`${apiUrl}/api/church-events?include_exceptions=1&size=100`, {
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const allEvents = await res.json()
+      const allEvents = await chargerListe(`${apiUrl}/api/church-events?include_exceptions=1&size=100`, TIMEOUT_MS)
 
       evenements.value = buildEventList(allEvents, { futureOnly })
     } catch (e) {

@@ -59,3 +59,13 @@ test('cartes : image entière, date hors de l\'image, pas de hauteur étirée', 
   expect(hFdl).toBeLessThan(500)
   expect(hAutel).toBeLessThan(hFdl)
 })
+
+test('/agenda n\'appelle le Worker événements qu\'une seule fois par chargement', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2030-03-12T10:00:00+01:00'))
+  let appels = 0
+  await page.route('**/api/church-events*', (route) => { appels++; return route.fulfill({ json: EVENEMENTS }) })
+  await page.goto('/agenda')
+  await expect(page.locator('.calendar-grid, .events-list').first()).toBeVisible()
+  await page.waitForTimeout(1000)
+  expect(appels).toBe(1)
+})

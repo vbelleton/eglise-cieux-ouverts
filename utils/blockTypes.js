@@ -529,8 +529,11 @@ export const BLOCK_TYPES = {
       animation: "fadeIn",
     },
     schema: [
-      { key: "videoId", label: "ID ou URL YouTube", type: "text", placeholder: "ID (ex: dQw4w9WgXcQ) ou lien complet youtube.com/watch?v=..." },
-      { key: "title", label: "Titre de la vidéo (lu par les lecteurs d'écran)", type: "text", noStyle: true },
+      // `commun` : même valeur sur ordinateur, tablette et téléphone (voir
+      // champsCommuns). Une vidéo différente selon l'écran n'a pas de sens, et
+      // une surcharge mobile oubliée gardait l'ancienne vidéo sur téléphone.
+      { key: "videoId", label: "ID ou URL YouTube", type: "text", commun: true, placeholder: "ID (ex: dQw4w9WgXcQ) ou lien complet youtube.com/watch?v=..." },
+      { key: "title", label: "Titre de la vidéo (lu par les lecteurs d'écran)", type: "text", commun: true, noStyle: true },
       { key: "backgroundColor", label: "Fond", type: "color" },
       { key: "animation", label: "Animation", type: "animation" },
     ],
@@ -1639,4 +1642,17 @@ export function getDefaultPageBySlug(slug) {
   if (slug === "event-list") return getDefaultBilletteriePage();
   if (slug === "contact") return getDefaultContactPage();
   return [];
+}
+
+/**
+ * Champs d'un type de bloc marqués `commun: true` dans son schema : ils ont la
+ * même valeur sur tous les formats. Une modification faite en mode Tablette ou
+ * Mobile s'écrit sur la valeur de base (useAdmin.updateBlock), et une
+ * surcharge par format déjà enregistrée pour ces champs est ignorée au rendu
+ * (resolveResponsive) comme dans l'éditeur.
+ */
+export function champsCommuns(type) {
+  return new Set(
+    (BLOCK_TYPES[type]?.schema || []).filter((f) => f.commun).map((f) => f.key),
+  );
 }

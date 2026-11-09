@@ -1,4 +1,4 @@
-import { ANIMATIONS, BLOCK_TYPES } from "~/utils/blockTypes.js";
+import { ANIMATIONS, BLOCK_TYPES, champsCommuns } from "~/utils/blockTypes.js";
 import { mergeDesignDefaults } from "~/utils/designDefaults.js";
 import { blockRegistry } from "./registry";
 import {
@@ -107,8 +107,10 @@ export function resolveResponsive(
   if (!block || device === "desktop") return block;
   const overrides = (block as any).responsive?.[device];
   if (!overrides || typeof overrides !== "object") return block;
+  const communs = champsCommuns(block.type);
   const safe: Record<string, any> = {};
   for (const [k, v] of Object.entries(overrides)) {
+    if (communs.has(k)) continue;
     if (v !== "" && v !== null && v !== undefined) safe[k] = v;
   }
   if (Object.keys(safe).length === 0) return block;

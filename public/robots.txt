@@ -1,4 +1,4 @@
 User-Agent: *
 Disallow:
 
-Sitemap: https://eglise-cieux-ouverts.pages.dev/sitemap.xml
+Sitemap: https://www.cieuxouverts.bzh/sitemap.xml

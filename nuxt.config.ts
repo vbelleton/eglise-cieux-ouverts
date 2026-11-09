@@ -36,9 +36,9 @@ export default defineNuxtConfig({
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'strict-origin-when-cross-origin',
         'permissions-policy': 'camera=(), microphone=(), geolocation=()',
-        // Sans `includeSubDomains` : le domaine cieuxouverts.bzh n'est pas
-        // encore rattaché à ce projet Pages, et rien ne garantit que tous ses
-        // futurs sous-domaines seront en HTTPS.
+        // Sans `includeSubDomains` : seul www.cieuxouverts.bzh est servi par
+        // ce projet Pages, rien ne garantit que les autres sous-domaines du
+        // domaine (OVH) seront en HTTPS.
         'strict-transport-security': 'max-age=15552000',
       },
     },
@@ -121,9 +121,9 @@ export default defineNuxtConfig({
       FIREBASE_STORAGE_BUCKET: process.env.NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       FIREBASE_MESSAGING_SENDER_ID: process.env.NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       // Adresse publique du site : balise canonical, Open Graph, données
-      // structurées. À changer (NUXT_PUBLIC_SITE_URL) quand cieuxouverts.bzh
-      // sera rattaché à ce projet Pages.
-      SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || 'https://eglise-cieux-ouverts.pages.dev',
+      // structurées. Domaine personnalisé rattaché au projet Pages ; l'apex
+      // cieuxouverts.bzh redirige vers www (redirection OVH, hors de ce dépôt).
+      SITE_URL: process.env.NUXT_PUBLIC_SITE_URL || 'https://www.cieuxouverts.bzh',
       FIREBASE_APP_ID: process.env.NUXT_PUBLIC_FIREBASE_APP_ID,
       apiUrl: process.env.PUBLIC_API_URL || process.env.NUXT_PUBLIC_API_URL
     }

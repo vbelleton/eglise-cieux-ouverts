@@ -130,3 +130,12 @@ test.describe('utils/churchEvents — série mensuelle un 29, 30 ou 31', () => {
     expect(dates.some(d => d.endsWith('-02') && d !== '2026-01-02')).toBe(false)
   })
 })
+
+test('même jour : rangés par heure, sans heure en tête', () => {
+  const list = buildEventList([
+    ev({ id: 1, start_date: '2026-11-12', start_time: '21:00' }),
+    ev({ id: 2, start_date: '2026-11-12', start_time: '19:30' }),
+    ev({ id: 3, start_date: '2026-11-12' }),
+  ], { now: '2026-11-09T12:00:00' })
+  expect(list.map(e => e.id)).toEqual([3, 2, 1])
+})

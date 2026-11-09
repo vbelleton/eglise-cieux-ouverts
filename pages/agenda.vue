@@ -572,7 +572,7 @@ function formatDayModalDate(date) {
 .view-btn { background: none; border: none; font-size: 0.82em; color: #6b7280; cursor: pointer; padding: 6px 10px; min-height: 28px; border-radius: 6px; white-space: nowrap; transition: all .15s; }
 .view-btn:hover { color: #111827; background: #f9fafb; }
 .view-btn.active { color: #2563eb; background: #eff6ff; font-weight: 600; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .day-header { text-align: center; padding: 10px 4px; font-size: 0.82em; color: #374151; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
 .day-cell { min-height: 90px; padding: 6px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; cursor: pointer; transition: background .15s; }
 .day-cell:nth-child(7n) { border-right: none; }

@@ -40,6 +40,7 @@
                   <span v-if="evt.heure">{{ evt.heure }}</span>
                   <span v-if="evt.lieu">{{ evt.lieu }}</span>
                   <span v-if="evt.repeat_period" class="event-badge">{{ formatRepeatPeriod(evt.repeat_period) }}</span>
+                  <span v-if="evt.repeat_period && serieTerminee(evt.end_date, evt.date)" class="event-badge event-badge-terminee" title="Date de fin passée : la série n'apparaît plus sur le site">Terminée le {{ formatDateCourte(evt.end_date) }}</span>
                 </div>
               </div>
               <button class="event-delete-btn" @click.stop="deleting = evt" title="Supprimer">&times;</button>
@@ -56,8 +57,19 @@
             <label>Description <textarea v-model="form.description" rows="3"></textarea></label>
             <div class="event-form-row">
               <label>Date début * <input v-model="form.start_date" type="date" /></label>
-              <label :title="form.repeat_period ? 'Dernière date de la série : aucune occurrence ne sera affichée après.' : 'Dernier jour de l\'événement : il disparaît de l\'agenda le lendemain.'">{{ form.repeat_period ? 'Fin de la série' : 'Date fin' }} <input v-model="form.end_date" type="date" :min="form.start_date || undefined" /></label>
+              <label :title="form.repeat_period ? 'Dernière date de la série : aucune occurrence ne sera affichée après.' : 'Dernier jour de l\'événement : il disparaît de l\'agenda le lendemain.'">{{ form.repeat_period ? 'Fin de la série' : 'Date fin' }}
+                <span class="date-fin-champ">
+                  <input v-model="form.end_date" type="date" :min="form.start_date || undefined" />
+                  <button v-if="form.end_date" type="button" class="date-fin-effacer" :title="form.repeat_period ? 'Retirer la date de fin : la série continue sans limite' : 'Retirer la date de fin'" @click.prevent="form.end_date = ''">{{ form.repeat_period ? 'Sans fin' : 'Effacer' }}</button>
+                </span>
+              </label>
             </div>
+            <p v-if="form.repeat_period && !form.end_date" class="event-aide-fin">Série sans date de fin : elle continue jusqu'à ce que vous en fixiez une.</p>
+            <p v-else-if="form.repeat_period && !serieTerminee(form.end_date, form.start_date)" class="event-aide-fin">Aucune séance ne sera affichée après le {{ formatDateCourte(form.end_date) }}.</p>
+            <p v-if="form.repeat_period && serieTerminee(form.end_date, form.start_date)" class="event-alerte-fin">
+              Cette série s'est terminée le {{ formatDateCourte(form.end_date) }} : elle n'apparaît plus sur le site.
+              <button type="button" @click="form.end_date = ''">La faire continuer</button>
+            </p>
             <div class="event-form-row">
               <label>Heure <input v-model="form.start_time" type="time" /></label>
               <label>Fin <input v-model="form.end_time" type="time" /></label>
@@ -460,7 +472,11 @@ function startEdit(evt) {
   const d = evt.date instanceof Date ? evt.date : new Date(evt.date + 'T00:00:00')
   form.value = {
     title: evt.titre || '', description: evt.description || '',
-    start_date: isoDay(d), end_date: evt.end_date || '',
+    // Série dont la « fin » est égale ou antérieure au début : le site
+    // l'ignore déjà (utils/churchEvents.js lastDay) ; l'afficher faisait
+    // croire à une série arrêtée. Le champ s'ouvre vide (= sans fin).
+    start_date: isoDay(d),
+    end_date: evt.end_date && !(evt.repeat_period && evt.end_date <= isoDay(d)) ? evt.end_date : '',
     start_time: evt.heure || '', end_time: evt.fin || '', location: evt.lieu || '',
     repeat_period: evt.repeat_period || '', emoji: evt.emoji || '',
     image_url: evt.image_url || '', link: evt.lien || '',
@@ -547,6 +563,20 @@ async function syncExceptions(eventId) {
       }) })
     }
   }
+}
+
+// Une date de fin de série passée retire la série du site sans autre signe
+// dans l'admin (cas réels : Réunion de Prières, Agape, Groupe de Marche).
+function serieTerminee(endDate, startDate) {
+  if (!endDate) return false
+  const debut = startDate instanceof Date ? isoDay(startDate) : startDate
+  if (debut && endDate <= debut) return false // ignorée par le site, cf. startEdit
+  return endDate < isoDay(new Date())
+}
+function formatDateCourte(iso) {
+  if (!iso) return ''
+  const [a, m, j] = iso.split('-')
+  return `${j}/${m}/${a}`
 }
 
 function eventPayload() {
@@ -741,6 +771,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 }
 .event-form-row { display: flex; gap: 12px; }
 .event-form-row label { flex: 1; }
+.event-aide-fin { margin: -4px 0 0; font-size: 0.8em; color: #6b7280; }
+.date-fin-champ { display: flex; gap: 6px; align-items: center; }
+.date-fin-champ input { flex: 1; min-width: 0; }
+.date-fin-effacer { flex-shrink: 0; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; font-size: 0.85em; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.date-fin-effacer:hover { background: #f3f4f6; }
+.event-alerte-fin { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.85em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.event-alerte-fin button { padding: 5px 10px; border: none; border-radius: 6px; background: #92400e; color: #fff; font-weight: 600; cursor: pointer; }
+.event-badge.event-badge-terminee { background: #fee2e2; color: #991b1b; }
 .event-form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .event-btn {
   padding: 10px 20px; background: #2563eb; color: #fff;

@@ -52,6 +52,17 @@ function getException(ev, dateStr, type) {
   return ev.exceptions.find(ex => ex.exception_date === dateStr && ex.type === type) || null
 }
 
+/**
+ * Même jour du mois, `k` mois après `start`, ramené au dernier jour du mois
+ * quand il n'existe pas. Jamais `setMonth()` en boucle : le 30 janvier + 1 mois
+ * donnait le « 30 février », soit le 2 mars, et toute la série glissait au 2.
+ */
+export function addMonths(start, k) {
+  const y = start.getFullYear(), m = start.getMonth() + k
+  const dernier = new Date(y, m + 1, 0).getDate()
+  return new Date(y, m, Math.min(start.getDate(), dernier))
+}
+
 export function getNthWeekdayOfMonth(year, month, weekday, ordinal) {
   if (ordinal === -1) {
     const last = new Date(year, month + 1, 0)
@@ -139,12 +150,11 @@ export function expandRecurring(ev, now, maxCount) {
   }
 
   if (rp === 'month') {
-    const d = new Date(start)
-    while (d < now) d.setMonth(d.getMonth() + 1)
+    let k = 0
+    while (addMonths(start, k) < now && k < 1200) k++
     let safety = 0
     while (results.length < maxCount && safety++ < 500) {
-      if (!push(d)) break
-      d.setMonth(d.getMonth() + 1)
+      if (!push(addMonths(start, k++))) break
     }
 
   } else if (isWeekly(rp)) {
@@ -217,12 +227,11 @@ export function expandPastRecurring(ev, rangeStart, rangeEnd) {
   }
 
   if (rp === 'month') {
-    const d = new Date(start)
-    while (d < from) d.setMonth(d.getMonth() + 1)
+    let k = 0
+    while (addMonths(start, k) < from && k < 1200) k++
     let safety = 0
-    while (d < until && safety++ < 500) {
+    for (let d = addMonths(start, k); d < until && safety++ < 500; d = addMonths(start, ++k)) {
       pushOccurrence(d)
-      d.setMonth(d.getMonth() + 1)
     }
 
   } else if (isWeekly(rp)) {

@@ -109,3 +109,24 @@ test.describe('estTermine : heure comprise', () => {
     expect(estTermine(e, new Date('2026-11-10T12:01:00'))).toBe(true)
   })
 })
+
+test.describe('utils/churchEvents — série mensuelle un 29, 30 ou 31', () => {
+  // Cas réel : « Soirée Cieux Ouverts », chaque mois depuis le 30/01/2026.
+  // `setMonth()` en boucle passait du 30 janvier au « 30 février » = 2 mars,
+  // et toute la série s'affichait ensuite le 2 du mois.
+  const soiree = ev({ start_date: '2026-01-30', end_date: '2026-01-30', repeat_period: 'month' })
+
+  test('prochaines occurrences : toujours le 30, ou le dernier jour du mois', () => {
+    const occ = expandRecurring(soiree, new Date('2026-11-09T00:00:00'), 4)
+    expect(jours(occ)).toEqual(['2026-11-30', '2026-12-30', '2027-01-30', '2027-02-28'])
+  })
+
+  test('historique de l\'agenda : février ramené au 28, puis retour au 30', () => {
+    const list = buildEventList([soiree], { now: '2026-11-09T12:00:00', futureOnly: false })
+    const dates = jours(list)
+    expect(dates).toContain('2026-02-28')
+    expect(dates).toContain('2026-03-30')
+    expect(dates).toContain('2026-11-30')
+    expect(dates.some(d => d.endsWith('-02') && d !== '2026-01-02')).toBe(false)
+  })
+})

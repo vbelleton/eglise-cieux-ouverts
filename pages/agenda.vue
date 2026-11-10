@@ -5,7 +5,7 @@
       <p class="agenda-subtitle">Retrouvez tous les événements à venir</p>
     </section>
 
-    <section class="agenda-calendar">
+    <section class="agenda-calendar js-only">
       <div class="calendar-nav">
         <button class="nav-btn" @click="prev">&#8249;</button>
         <h2 class="calendar-month">{{ periodLabel }}</h2>
@@ -164,7 +164,10 @@
       </div>
     </section>
 
-    <div v-if="loading" class="loading-msg">Chargement des événements...</div>
+    <template v-if="loading">
+      <div class="loading-msg js-only">Chargement des événements...</div>
+      <MessageAgendaSansJs />
+    </template>
     <!-- Hors des vues (mois/semaine/cartes/…) : le message doit apparaître
          quelle que soit celle affichée, et la vue par défaut est « mois », où
          aucune liste — donc aucun message de liste vide — n'est rendue. -->

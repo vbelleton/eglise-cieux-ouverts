@@ -20,38 +20,39 @@
         <div class="contact-page-card">
           <div class="contact-page-card-inner">
             <div class="contact-page-form-col">
-              <form class="contact-page-form" @submit.prevent="submitForm">
+              <form id="formulaire-contact" class="contact-page-form" action="/api/contact" method="post" @submit.prevent="submitForm">
                 <p v-if="requiredNote" class="contact-required-note" data-field-key="requiredNote" :style="fieldFontStyle(fieldFonts, 'requiredNote', fieldFontSizes)">{{ requiredNote }}</p>
                 <div class="contact-page-row">
                   <label class="contact-page-field">
                     <span>{{ labelPrenom }} *</span>
-                    <input v-model="form.prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
+                    <input v-model="form.prenom" name="prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                   <label class="contact-page-field">
                     <span>{{ labelNom }} *</span>
-                    <input v-model="form.nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
+                    <input v-model="form.nom" name="nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
                   </label>
                 </div>
 
                 <label v-if="showVille" class="contact-page-field">
                   <span>{{ labelVille }}</span>
-                  <input v-model="form.ville" type="text" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
+                  <input v-model="form.ville" name="ville" type="text" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
                 </label>
 
                 <label class="contact-page-field">
                   <span>{{ labelEmail }} *</span>
-                  <input v-model="form.email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
+                  <input v-model="form.email" name="email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
                 </label>
 
                 <label class="contact-page-field">
                   <span>{{ labelMessage }} *</span>
-                  <textarea v-model="form.message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" maxlength="4000" :disabled="isFormDisabled" required rows="6"></textarea>
+                  <textarea v-model="form.message" name="message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" maxlength="4000" :disabled="isFormDisabled" required rows="6"></textarea>
                 </label>
 
-                <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+                <input v-model="form.website" name="website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+                <ChampsEnvoiSansJs formulaire="contact" :ouvert="ouvertSansJs" />
 
                 <label v-if="showNewsletter" class="contact-page-checkbox">
-                  <input type="checkbox" v-model="form.newsletter" :disabled="isFormDisabled" />
+                  <input type="checkbox" v-model="form.newsletter" name="newsletter" value="1" :disabled="isFormDisabled" />
                   <span>{{ newsletterText }}</span>
                 </label>
 
@@ -96,18 +97,19 @@
               <p v-if="question3" data-field-key="question3" :style="fieldFontStyle(fieldFonts, 'question3', fieldFontSizes)">{{ question3 }}</p>
             </template>
           </div>
-          <form class="contact-form" @submit.prevent="submitForm">
+          <form id="formulaire-contact" class="contact-form" action="/api/contact" method="post" @submit.prevent="submitForm">
             <p v-if="requiredNote" class="contact-required-note" data-field-key="requiredNote" :style="fieldFontStyle(fieldFonts, 'requiredNote', fieldFontSizes)">{{ requiredNote }}</p>
             <div class="form-row">
-              <input v-model="form.prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
-              <input v-model="form.nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.prenom" name="prenom" data-champ="prenom" :aria-invalid="invalide('prenom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelPrenom} *`" :aria-label="labelPrenom" autocomplete="given-name" maxlength="80" :disabled="isFormDisabled" required />
+              <input v-model="form.nom" name="nom" data-champ="nom" :aria-invalid="invalide('nom') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="text" :placeholder="`${labelNom} *`" :aria-label="labelNom" autocomplete="family-name" maxlength="80" :disabled="isFormDisabled" required />
             </div>
-            <input v-if="showVille" v-model="form.ville" type="text" :placeholder="labelVille" :aria-label="labelVille" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
-            <input v-model="form.email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" :placeholder="`${labelEmail} *`" :aria-label="labelEmail" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
-            <textarea v-model="form.message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" :placeholder="`${labelMessage} *`" :aria-label="labelMessage" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
-            <input v-model="form.website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <input v-if="showVille" v-model="form.ville" name="ville" type="text" :placeholder="labelVille" :aria-label="labelVille" autocomplete="address-level2" maxlength="120" :disabled="isFormDisabled" />
+            <input v-model="form.email" name="email" data-champ="email" :aria-invalid="invalide('email') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" type="email" :placeholder="`${labelEmail} *`" :aria-label="labelEmail" autocomplete="email" maxlength="180" :disabled="isFormDisabled" required />
+            <textarea v-model="form.message" name="message" data-champ="message" :aria-invalid="invalide('message') || undefined" :aria-describedby="errorMessage ? 'contact-erreur-' + uid : undefined" :placeholder="`${labelMessage} *`" :aria-label="labelMessage" maxlength="4000" :disabled="isFormDisabled" required rows="5"></textarea>
+            <input v-model="form.website" name="website" type="text" class="contact-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <ChampsEnvoiSansJs formulaire="contact" :ouvert="ouvertSansJs" />
             <label v-if="showNewsletter" class="checkbox-label">
-              <input type="checkbox" v-model="form.newsletter" :disabled="isFormDisabled" />
+              <input type="checkbox" v-model="form.newsletter" name="newsletter" value="1" :disabled="isFormDisabled" />
               {{ newsletterText }}
             </label>
             <p class="editor-msg" v-if="isEditor">Le formulaire est désactivé dans l'admin. Teste-le sur le site public.</p>
@@ -218,8 +220,21 @@ const rootEl = ref(null)
 const uid = Math.random().toString(36).slice(2, 8)
 const form = ref({ prenom: '', nom: '', ville: '', email: '', message: '', newsletter: false, website: '' })
 const sending = ref(false)
-const submitted = ref(false)
-const errorMessage = ref('')
+// Retour d'un envoi fait SANS JavaScript (le serveur redirige ici avec
+// ?envoi=…&formulaire=contact) : affiché dès le rendu serveur.
+const { ouvert: ouvertSansJs, code: codeSansJs } = useEnvoiSansJs('contact')
+function messageSansJs(code) {
+  if (!code || code === 'ok') return ''
+  if (code === 'champs') return errorRequiredText
+  if (code === 'email') return errorEmailText
+  if (code === 'court') return errorShortText
+  if (code === 'limite') return 'Trop de messages envoyés depuis cette connexion. Réessaie dans quelques minutes.'
+  return 'L\'envoi a échoué. Réessaie dans un instant, ou écris-nous directement par email.'
+}
+const submitted = ref(codeSansJs.value === 'ok')
+const errorMessage = ref(messageSansJs(codeSansJs.value))
+// Après une redirection, les champs sont vides : ne pas tous les marquer en erreur.
+const erreurDeRedirection = ref(Boolean(errorMessage.value))
 const mountedAt = Date.now()
 
 const isFormDisabled = computed(() => sending.value)
@@ -269,7 +284,7 @@ function focusFirstInvalid(data) {
   if (!cle) return
   nextTick(() => rootEl.value?.querySelector(`[data-champ="${cle}"]`)?.focus())
 }
-const invalide = (cle) => Boolean(errorMessage.value) && (
+const invalide = (cle) => Boolean(errorMessage.value) && !erreurDeRedirection.value && (
   cle === 'email' ? (!form.value.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email.trim()))
   : cle === 'message' ? (!form.value.message.trim() || form.value.message.trim().length < 10)
   : !form.value[cle].trim()
@@ -280,6 +295,7 @@ async function submitForm() {
   const data = normalizeForm()
   const validationError = validateForm(data)
   if (validationError) {
+    erreurDeRedirection.value = false
     errorMessage.value = validationError
     focusFirstInvalid(data)
     return
@@ -287,6 +303,7 @@ async function submitForm() {
 
   sending.value = true
   errorMessage.value = ''
+  erreurDeRedirection.value = false
   submitted.value = false
   try {
     await $fetch('/api/contact', {

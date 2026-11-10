@@ -19,6 +19,15 @@
         >
           <span class="youtube-play" aria-hidden="true"></span>
         </button>
+        <!-- Sans JavaScript le bouton ne peut pas charger le lecteur : ce lien,
+             posé par-dessus (no-js.css), ouvre la vidéo sur YouTube. -->
+        <a
+          v-if="!adminMode && !lecteurActif"
+          class="facade-lien-sans-js nojs-only"
+          :href="`https://www.youtube.com/watch?v=${extractedId}`"
+          target="_blank"
+          rel="noopener"
+        >{{ lienYoutubeText }}</a>
         <iframe
           v-else
           :src="embedUrl"
@@ -84,6 +93,7 @@ const embedUrl = computed(() => {
 const vignetteUrl = computed(() => `https://i.ytimg.com/vi/${extractedId.value}/hqdefault.jpg`)
 
 const placeholderText = 'Aucune vidéo configurée. En mode éditeur, entrez l\'ID YouTube.'
+const lienYoutubeText = 'Voir la vidéo sur YouTube'
 </script>
 
 <style scoped>

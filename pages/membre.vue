@@ -6,7 +6,8 @@
         <h1>Espace membre</h1>
         <p class="login-intro">Connecte-toi pour accéder à tes ressources, tes demandes et tes événements.</p>
 
-        <form @submit.prevent="doEmailSubmit" class="login-form">
+        <MessageConnexionSansJs />
+        <form @submit.prevent="doEmailSubmit" class="login-form js-only">
           <input v-model="email" type="email" placeholder="Email" required autocomplete="email" />
           <input v-if="mode !== 'reset'" v-model="password" type="password" :placeholder="mode === 'register' ? 'Choisis un mot de passe' : 'Mot de passe'" required minlength="6" :autocomplete="mode === 'register' ? 'new-password' : 'current-password'" />
           <button type="submit" class="btn-primary" :disabled="busy">
@@ -16,7 +17,7 @@
 
         <p v-if="feedback" class="login-feedback" :class="{ error: feedbackError }">{{ feedback }}</p>
 
-        <div class="login-links">
+        <div class="login-links js-only">
           <a v-if="mode !== 'login'" href="#" @click.prevent="switchMode('login')">J'ai déjà un compte</a>
           <a v-if="mode !== 'register'" href="#" @click.prevent="switchMode('register')">Créer un compte</a>
           <a v-if="mode !== 'reset'" href="#" @click.prevent="switchMode('reset')">Mot de passe oublié ?</a>

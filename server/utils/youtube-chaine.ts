@@ -70,7 +70,9 @@ export async function urlConnexion(event: any): Promise<string> {
     response_type: 'code',
     scope: PORTEE,
     access_type: 'offline',
-    prompt: 'consent',
+    // select_account : Google propose toujours le choix du compte et de la
+    // chaîne (compte de marque) au lieu de reprendre le compte déjà ouvert.
+    prompt: 'select_account consent',
     include_granted_scopes: 'true',
     state,
   })
@@ -107,9 +109,15 @@ export async function terminerConnexion(event: any, code: string, state: string)
     headers: { authorization: `Bearer ${data.access_token}` },
   })
   const chaines: any = await r.json().catch(() => ({}))
-  const ids: string[] = (chaines?.items || []).map((c: any) => c.id)
-  if (!ids.includes(idChaineConfigure())) {
-    return { ok: false, message: "Ce compte Google ne gère pas la chaîne de l'église. Recommencez en choisissant la chaîne « Cieux Ouverts » lors de la connexion." }
+  const items: any[] = chaines?.items || []
+  if (!items.some((c: any) => c.id === idChaineConfigure())) {
+    const trouvees = items.map((c: any) => `« ${c?.snippet?.title || c.id} »`).join(', ')
+    return {
+      ok: false,
+      message: "Ce compte Google ne gère pas la chaîne de l'église"
+        + (trouvees ? ` (chaîne choisie : ${trouvees})` : " (aucune chaîne YouTube sur le compte choisi)")
+        + ". Recommencez en choisissant la chaîne « Cieux Ouverts » lors de la connexion, ou faites la connexion depuis le compte qui en est propriétaire.",
+    }
   }
   await ecrireJson(event, CLE_OAUTH, { refreshToken: data.refresh_token, date: new Date().toISOString() })
   jetonEnCache = null

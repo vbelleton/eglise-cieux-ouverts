@@ -1056,6 +1056,39 @@
                             @click="socialLinksForm.push({ platform: 'instagram', url: '' })"
                         >+ Ajouter un réseau</button>
                     </div>
+                    <div class="settings-field youtube-paroles">
+                        <label>Recherche dans les paroles des prédications</label>
+                        <p class="settings-hint">Page cachée <code>/messages?recherche</code> : avec la chaîne YouTube connectée, on peut y chercher un mot dans ce qui est dit, et ouvrir la vidéo au bon moment.</p>
+                        <p v-if="!etatYoutube" class="settings-hint">Chargement…</p>
+                        <template v-else>
+                            <p v-if="!etatYoutube.configure" class="settings-hint youtube-etat youtube-etat-ko">
+                                ⚠️ À régler d'abord dans Cloudflare Pages (Production) : NUXT_YOUTUBE_OAUTH_CLIENT_ID et NUXT_YOUTUBE_OAUTH_CLIENT_SECRET.
+                            </p>
+                            <template v-else-if="!etatYoutube.connecte">
+                                <p class="settings-hint">Chaîne non connectée.</p>
+                                <button type="button" class="settings-test-email-btn" :disabled="youtubeEnCours" @click="connecterYoutube">Connecter la chaîne YouTube</button>
+                            </template>
+                            <template v-else>
+                                <p class="settings-hint youtube-etat youtube-etat-ok">
+                                    ✅ Chaîne connectée : paroles disponibles pour {{ etatYoutube.avecParoles }} vidéo{{ etatYoutube.avecParoles > 1 ? 's' : '' }}<template v-if="etatYoutube.restantes">, {{ etatYoutube.restantes }} encore à traiter</template>.
+                                </p>
+                                <p v-if="etatYoutube.pauseQuota" class="settings-hint">
+                                    Limite quotidienne de YouTube atteinte : la suite reprendra seule après {{ new Date(etatYoutube.pauseQuota).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}, au fil des visites.
+                                </p>
+                                <div class="youtube-actions">
+                                    <button
+                                        v-if="etatYoutube.restantes && !etatYoutube.pauseQuota"
+                                        type="button"
+                                        class="settings-test-email-btn"
+                                        :disabled="youtubeEnCours"
+                                        @click="recupererSousTitres"
+                                    >{{ youtubeEnCours ? 'Récupération en cours…' : 'Récupérer les sous-titres' }}</button>
+                                    <button type="button" class="youtube-deconnecter" :disabled="youtubeEnCours" @click="deconnecterYoutube">Déconnecter</button>
+                                </div>
+                            </template>
+                            <p v-if="etatYoutube.derniereErreur" class="settings-hint youtube-etat youtube-etat-ko">{{ etatYoutube.derniereErreur }}</p>
+                        </template>
+                    </div>
                 </div>
                 <div class="settings-modal-footer">
                     <button class="btn-cancel" @click="showSettings = false">Annuler</button>
@@ -1813,8 +1846,75 @@ watch(showSettings, async (show) => {
     await loadSettings()
     testEmail.value = null
     await chargerEtatEmail()
+    chargerEtatYoutube()
   }
 })
+
+// ── Chaîne YouTube : recherche dans les paroles (/messages?recherche) ──
+const etatYoutube = ref(null)
+const youtubeEnCours = ref(false)
+
+async function appelYoutube(chemin, methode = 'GET') {
+  const token = await getFirebaseToken()
+  const res = await fetch(`/api/admin/youtube/${chemin}`, {
+    method: methode,
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(60000),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`)
+  return data
+}
+
+async function chargerEtatYoutube() {
+  try {
+    etatYoutube.value = await appelYoutube('etat')
+  } catch (e) {
+    etatYoutube.value = { configure: true, connecte: false, derniereErreur: e.message || String(e) }
+  }
+}
+
+async function connecterYoutube() {
+  youtubeEnCours.value = true
+  try {
+    const { url } = await appelYoutube('connexion', 'POST')
+    // Page de Google, qui revient ensuite sur /api/youtube/oauth.
+    window.location.href = url
+  } catch (e) {
+    showToast(`Connexion impossible : ${e.message || e}`, 'toast-error')
+    youtubeEnCours.value = false
+  }
+}
+
+async function recupererSousTitres() {
+  youtubeEnCours.value = true
+  try {
+    // Quelques vidéos par appel ; on enchaîne tant qu'il en reste, que la
+    // modale est ouverte et que YouTube ne signale ni quota ni erreur.
+    for (let i = 0; i < 200 && showSettings.value; i++) {
+      const etat = await appelYoutube('indexer', 'POST')
+      etatYoutube.value = etat
+      if (!etat.restantes || etat.pauseQuota || etat.derniereErreur || !etat.connecte) break
+    }
+  } catch (e) {
+    etatYoutube.value = { ...(etatYoutube.value || {}), derniereErreur: e.message || String(e) }
+  } finally {
+    youtubeEnCours.value = false
+  }
+}
+
+async function deconnecterYoutube() {
+  if (!(await confirmer('Déconnecter la chaîne YouTube ? Les paroles déjà récupérées restent consultables.'))) return
+  youtubeEnCours.value = true
+  try {
+    await appelYoutube('connexion', 'DELETE')
+    await chargerEtatYoutube()
+  } catch (e) {
+    showToast(`Échec : ${e.message || e}`, 'toast-error')
+  } finally {
+    youtubeEnCours.value = false
+  }
+}
 
 async function loadSettings() {
   try {
@@ -4165,6 +4265,22 @@ async function saveChanges() {
     opacity: 0.35;
     cursor: default;
 }
+.youtube-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.youtube-deconnecter {
+    margin-top: 6px;
+    padding: 6px 4px;
+    border: 0;
+    background: none;
+    color: #b42318;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
 .settings-test-email-btn {
     margin-top: 6px;
     padding: 6px 12px;
@@ -4183,10 +4299,12 @@ async function saveChanges() {
     color: #6b7280;
     word-break: break-word;
 }
-.settings-hint.email-etat-ok {
+.settings-hint.email-etat-ok,
+.settings-hint.youtube-etat-ok {
     color: #15803d;
 }
-.settings-hint.email-etat-ko {
+.settings-hint.email-etat-ko,
+.settings-hint.youtube-etat-ko {
     color: #b45309;
 }
 .settings-checkbox-label {

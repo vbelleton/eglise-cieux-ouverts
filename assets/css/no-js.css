@@ -206,3 +206,17 @@ a.map-facade-btn {
   display: block !important;
   height: 8px;
 }
+
+/* Recherche cachée des prédications (components/RecherchePredications.vue) :
+   sans JavaScript, lien vers la chaîne YouTube au lieu d'un chargement.
+   `html.` : doit l'emporter sur les règles scoped du composant (même
+   spécificité sinon, et le CSS du composant arrive après). */
+html.no-js .rp-sans-js {
+  display: block;
+}
+
+html.no-js .rp-avec-js,
+html.no-js .rp-recherche,
+html.no-js .rp-sous-titre {
+  display: none;
+}

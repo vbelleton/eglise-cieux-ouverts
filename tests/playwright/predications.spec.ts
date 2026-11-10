@@ -82,4 +82,31 @@ test.describe('Recherche cachée des prédications', () => {
     await expect(page.getByRole('searchbox')).toBeHidden()
     await ctx.close()
   })
+  test('paroles : nombre de fois, moments dépliables, lecture au bon moment', async ({ page }) => {
+    await page.goto('/messages?recherche&q=pardon')
+    const cartes = page.locator('.rp-carte')
+    // « Louange du dimanche » n'a « pardon » que dans ses paroles.
+    await expect(cartes).toHaveCount(2)
+    const louange = cartes.filter({ hasText: 'Louange du dimanche' })
+    const compteur = louange.getByRole('button', { name: /Dit 2 fois/ })
+    await expect(compteur).toHaveAttribute('aria-expanded', 'false')
+    await compteur.click()
+    await expect(compteur).toHaveAttribute('aria-expanded', 'true')
+    const moments = louange.locator('.rp-moment')
+    await expect(moments).toHaveCount(2)
+    await expect(moments.nth(1)).toContainText('12:34')
+    await expect(moments.nth(1).locator('mark')).toHaveText('pardon')
+
+    await moments.nth(1).click()
+    const dialogue = page.locator('dialog.rp-dialogue')
+    await expect(dialogue.locator('iframe')).toHaveAttribute('src', /embed\/aaaaaaaaaa3\?.*start=754/)
+    await expect(dialogue).toContainText('à partir de 12:34')
+  })
+
+  test('« foi » ne compte pas « fois », et la version périmée est ignorée', async ({ page }) => {
+    await page.goto('/messages?recherche&q=foi')
+    const carte = page.locator('.rp-carte').filter({ hasText: 'La foi qui déplace' })
+    await expect(carte.getByRole('button', { name: /Dit 3 fois/ })).toBeVisible()
+    await expect(page.locator('.rp-carte').filter({ hasText: 'Louange du dimanche' })).toHaveCount(0)
+  })
 })

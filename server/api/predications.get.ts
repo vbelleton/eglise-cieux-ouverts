@@ -1,4 +1,5 @@
 import { videosEnCache } from '../utils/youtube'
+import { jetonAcces, indexerEnArrierePlan } from '../utils/youtube-chaine'
 
 // Vidéos de la chaîne YouTube pour la page cachée /predications.
 // Lecture publique (les vidéos le sont déjà sur YouTube), pas de Firestore.
@@ -9,8 +10,11 @@ export default defineEventHandler(async (event) => {
     return { videos: VIDEOS_TEST, source: 'api', complete: true }
   }
   try {
-    const liste = await videosEnCache()
+    // Chaîne connectée : liste complète même sans clé API.
+    const liste = await videosEnCache(() => jetonAcces(event).catch(() => null))
     setHeader(event, 'cache-control', 'public, max-age=600')
+    // Récupère au passage les sous-titres d'une vidéo pas encore traitée.
+    indexerEnArrierePlan(event)
     return liste
   } catch (err: any) {
     // La cause est renvoyée telle quelle (statut YouTube, délai dépassé…) :

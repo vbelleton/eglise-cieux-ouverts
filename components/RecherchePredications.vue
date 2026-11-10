@@ -80,22 +80,53 @@
             <strong>{{ videos.length }}</strong> vidéo{{ videos.length > 1 ? 's' : '' }}, de la plus récente à la plus ancienne
           </template>
         </p>
+        <p v-if="requete.trim() && parolesEtat === 'chargement'" class="rp-paroles-info">Recherche aussi dans les paroles des prédications…</p>
+        <p v-else-if="requete.trim() && parolesEtat === 'ok' && parolesIndex.size" class="rp-paroles-info">
+          Recherche aussi dans ce qui est dit, sur {{ parolesIndex.size }} vidéo{{ parolesIndex.size > 1 ? 's' : '' }}.
+        </p>
         <p v-if="liste && !liste.complete" class="rp-avertissement">
           Seules les 15 dernières vidéos de la chaîne sont consultables ici pour le moment.
         </p>
 
         <ul v-if="resultats.length" class="rp-grille">
-          <li v-for="v in affiches" :key="v.id" class="rp-carte">
-            <button type="button" class="rp-carte-bouton" @click="ouvrir(v)">
-              <span class="rp-vignette">
-                <img :src="v.vignette" alt="" loading="lazy" width="320" height="180" />
-                <span class="rp-play" aria-hidden="true"></span>
-              </span>
-              <span class="rp-carte-texte">
-                <span class="rp-carte-date">{{ formaterDate(v.date) }}</span>
-                <span class="rp-carte-titre"><template v-for="(m, i) in surligner(v.titre, requete)" :key="i"><mark v-if="m.trouve">{{ m.texte }}</mark><template v-else>{{ m.texte }}</template></template></span>
-              </span>
-            </button>
+          <li v-for="r in affiches" :key="r.video.id" class="rp-carte">
+            <div class="rp-carte-cadre">
+              <button type="button" class="rp-carte-bouton" @click="ouvrir(r.video)">
+                <span class="rp-vignette">
+                  <img :src="r.video.vignette" alt="" loading="lazy" width="320" height="180" />
+                  <span class="rp-play" aria-hidden="true"></span>
+                </span>
+                <span class="rp-carte-texte">
+                  <span class="rp-carte-date">{{ formaterDate(r.video.date) }}</span>
+                  <span class="rp-carte-titre"><template v-for="(m, i) in surligner(r.video.titre, requete)" :key="i"><mark v-if="m.trouve">{{ m.texte }}</mark><template v-else>{{ m.texte }}</template></template></span>
+                </span>
+              </button>
+
+              <!-- Nombre de fois où l'expression est dite, puis les moments :
+                   un clic ouvre la vidéo à cet endroit. -->
+              <div v-if="r.moments.length" class="rp-moments">
+                <button
+                  type="button"
+                  class="rp-moments-bouton"
+                  :aria-expanded="momentsOuverts.has(r.video.id)"
+                  :aria-controls="`rp-moments-${r.video.id}`"
+                  @click="basculerMoments(r.video.id)"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>
+                  <span>Dit <strong>{{ r.moments.length }}</strong> fois dans la vidéo</span>
+                  <svg class="rp-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <ol v-if="momentsOuverts.has(r.video.id)" :id="`rp-moments-${r.video.id}`" class="rp-moments-liste">
+                  <li v-for="(m, i) in r.moments.slice(0, MAX_MOMENTS)" :key="i">
+                    <button type="button" class="rp-moment" :aria-label="`Écouter à ${formaterMoment(m.t)}`" @click="ouvrir(r.video, m.t)">
+                      <span class="rp-moment-temps">{{ formaterMoment(m.t) }}</span>
+                      <span class="rp-moment-extrait">« <template v-for="(x, j) in surligner(m.extrait, requete)" :key="j"><mark v-if="x.trouve">{{ x.texte }}</mark><template v-else>{{ x.texte }}</template></template> »</span>
+                    </button>
+                  </li>
+                  <li v-if="r.moments.length > MAX_MOMENTS" class="rp-moments-reste">… et {{ r.moments.length - MAX_MOMENTS }} autres moments</li>
+                </ol>
+              </div>
+            </div>
           </li>
         </ul>
 
@@ -122,7 +153,7 @@
         </button>
         <div class="rp-lecteur">
           <iframe
-            :src="`https://www.youtube-nocookie.com/embed/${videoOuverte.id}?rel=0&autoplay=1`"
+            :src="`https://www.youtube-nocookie.com/embed/${videoOuverte.id}?rel=0&autoplay=1${debutOuvert ? `&start=${debutOuvert}` : ''}`"
             :title="videoOuverte.titre"
             frameborder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -130,10 +161,10 @@
           ></iframe>
         </div>
         <div class="rp-dialogue-texte">
-          <p class="rp-carte-date">{{ formaterDate(videoOuverte.date) }}</p>
+          <p class="rp-carte-date">{{ formaterDate(videoOuverte.date) }}<template v-if="debutOuvert"> · lecture à partir de {{ formaterMoment(debutOuvert) }}</template></p>
           <h2>{{ videoOuverte.titre }}</h2>
           <p v-if="videoOuverte.description" class="rp-description">{{ videoOuverte.description }}</p>
-          <a class="rp-lien" :href="`https://www.youtube.com/watch?v=${videoOuverte.id}`" target="_blank" rel="noopener">Ouvrir sur YouTube</a>
+          <a class="rp-lien" :href="`https://www.youtube.com/watch?v=${videoOuverte.id}${debutOuvert ? `&t=${debutOuvert}s` : ''}`" target="_blank" rel="noopener">Ouvrir sur YouTube</a>
         </div>
       </div>
     </dialog>
@@ -141,8 +172,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { rechercherVideos, anneesDisponibles, surligner } from '~/utils/rechercheVideos.js'
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { rechercherAvecParoles, anneesDisponibles, surligner, indexerParoles, formaterMoment } from '~/utils/rechercheVideos.js'
 
 // Recherche cachée des prédications, affichée en tête de /messages quand
 // l'adresse contient `?recherche` (pages/messages.vue). Rien ne la signale
@@ -150,6 +181,7 @@ import { rechercherVideos, anneesDisponibles, surligner } from '~/utils/recherch
 
 const URL_CHAINE = 'https://www.youtube.com/@eglisecieuxouverts'
 const PAR_PAGE = 24
+const MAX_MOMENTS = 50
 // Au-delà, on affiche l'erreur et « Réessayer » plutôt qu'un chargement sans
 // fin. Le premier appel interroge YouTube (plusieurs pages pour une grosse
 // chaîne) : on laisse de la marge.
@@ -183,7 +215,38 @@ onMounted(charger)
 
 const videos = computed(() => liste.value?.videos || [])
 const annees = computed(() => anneesDisponibles(videos.value))
-const resultats = computed(() => rechercherVideos(videos.value, requete.value, { annee: annee.value }))
+// Paroles (sous-titres) : chargées une seule fois, à la première recherche
+// tapée — inutile de les télécharger pour simplement parcourir la liste.
+const parolesEtat = ref('aucune')
+const parolesIndex = shallowRef(new Map())
+async function chargerParoles() {
+  if (parolesEtat.value !== 'aucune') return
+  parolesEtat.value = 'chargement'
+  try {
+    const texte = await $fetch('/api/predications/paroles', { responseType: 'text', timeout: 30000, retry: 0 })
+    parolesIndex.value = indexerParoles(texte)
+    parolesEtat.value = 'ok'
+  } catch {
+    // Sans paroles, la recherche continue sur les titres et descriptions.
+    parolesEtat.value = 'erreur'
+  }
+}
+watch([requete, etat], () => {
+  if (etat.value === 'ok' && requete.value.trim()) chargerParoles()
+}, { immediate: true })
+
+const resultats = computed(() => rechercherAvecParoles(videos.value, requete.value, {
+  annee: annee.value,
+  paroles: parolesEtat.value === 'ok' ? parolesIndex.value : null,
+}))
+
+const momentsOuverts = ref(new Set())
+function basculerMoments(id) {
+  const s = new Set(momentsOuverts.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  momentsOuverts.value = s
+}
 const affiches = computed(() => resultats.value.slice(0, limite.value))
 const filtreActif = computed(() => Boolean(requete.value.trim() || annee.value))
 
@@ -226,8 +289,10 @@ function formaterDate(iso) {
 
 const dialogue = ref(null)
 const videoOuverte = ref(null)
-async function ouvrir(v) {
+const debutOuvert = ref(0)
+async function ouvrir(v, debut = 0) {
   videoOuverte.value = v
+  debutOuvert.value = Math.max(0, Math.floor(debut))
   await nextTick()
   dialogue.value?.showModal?.()
 }
@@ -392,27 +457,133 @@ function fermer() {
   gap: 24px;
 }
 
-.rp-carte-bouton {
+.rp-carte-cadre {
   display: flex;
   flex-direction: column;
-  width: 100%;
   height: 100%;
-  padding: 0;
-  text-align: left;
-  font: inherit;
-  color: inherit;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 16px;
   overflow: hidden;
-  cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.rp-carte-bouton:hover,
-.rp-carte-bouton:focus-visible {
+.rp-carte-cadre:hover,
+.rp-carte-cadre:focus-within {
   transform: translateY(-4px);
   box-shadow: 0 14px 30px rgba(6, 72, 134, 0.16);
+}
+
+.rp-carte-bouton {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.rp-carte-bouton:focus-visible {
+  outline: 3px solid var(--primary-blue);
+  outline-offset: -3px;
+}
+
+/* Moments où l'expression est dite */
+.rp-moments {
+  border-top: 1px solid var(--border-light);
+}
+
+.rp-moments-bouton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--primary-blue);
+  background: #f3f7fc;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rp-moments-bouton span {
+  flex: 1;
+}
+
+.rp-chevron {
+  transition: transform 0.2s;
+}
+
+.rp-moments-bouton[aria-expanded="true"] .rp-chevron {
+  transform: rotate(180deg);
+}
+
+.rp-moments-liste {
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #f3f7fc;
+}
+
+.rp-moment {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  color: var(--text-gray);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rp-moment:hover,
+.rp-moment:focus-visible {
+  background: #fff;
+}
+
+.rp-moment-temps {
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary-blue);
+  color: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.rp-moment-extrait mark {
+  background: rgba(217, 119, 119, 0.22);
+  color: inherit;
+  border-radius: 3px;
+}
+
+.rp-moments-reste {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
+.rp-paroles-info {
+  text-align: center;
+  margin: -12px 0 20px;
+  font-size: 0.88rem;
+  color: var(--text-light);
 }
 
 .rp-vignette {
@@ -431,7 +602,7 @@ function fermer() {
   transition: transform 0.35s;
 }
 
-.rp-carte-bouton:hover .rp-vignette img {
+.rp-carte-cadre:hover .rp-vignette img {
   transform: scale(1.04);
 }
 
@@ -459,7 +630,7 @@ function fermer() {
   border-color: transparent transparent transparent var(--primary-blue);
 }
 
-.rp-carte-bouton:hover .rp-play {
+.rp-carte-cadre:hover .rp-play {
   transform: translate(-50%, -50%) scale(1.08);
 }
 
@@ -660,18 +831,9 @@ function fermer() {
   margin: 0 0 14px;
 }
 
-/* Repli sans JavaScript : <html class="no-js"> (nuxt.config.ts) */
+/* Repli sans JavaScript : règles .no-js dans assets/css/no-js.css (jamais
+   dans un style scoped, voir CLAUDE.md). */
 .rp-sans-js {
-  display: none;
-}
-
-:global(.no-js .rp-sans-js) {
-  display: block;
-}
-
-:global(.no-js .rp-avec-js),
-:global(.no-js .rp-recherche),
-:global(.no-js .rp-sous-titre) {
   display: none;
 }
 

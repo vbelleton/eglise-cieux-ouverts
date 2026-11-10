@@ -24,7 +24,7 @@
 // Changer VERSION à chaque modification de ce fichier qui touche aux caches :
 // l'activation supprime les caches d'une autre version.
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const CACHE_PAGES = `pages-${VERSION}`
 const CACHE_ASSETS = `assets-${VERSION}`
 const CACHE_DATA = `data-${VERSION}`
@@ -82,6 +82,9 @@ self.addEventListener('message', (event) => {
 
 function urlAdmin(url) {
   return url.pathname === '/admin' || url.pathname.startsWith('/admin/')
+    // Retour de Google après « Connecter la chaîne YouTube » (⚙ Config) :
+    // jamais une copie en cache à la place de l'échange du code.
+    || url.pathname.startsWith('/api/youtube/')
     || url.searchParams.has('admin') || url.searchParams.has('preview-inner')
 }
 

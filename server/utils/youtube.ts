@@ -79,8 +79,8 @@ export function idChaineDepuisHtml(html: string): string {
   return m ? m[1] : ''
 }
 
-async function json(url: string): Promise<any> {
-  const r = await fetchWithTimeout(url)
+async function json(url: string, headers: Record<string, string> = {}): Promise<any> {
+  const r = await fetchWithTimeout(url, { headers })
   if (!r.ok) {
     // Le corps d'erreur de Google donne la raison (clé refusée, API non
     // activée, quota) — utile dans les logs, sans la clé (retirée de l'URL).
@@ -90,10 +90,14 @@ async function json(url: string): Promise<any> {
   return r.json()
 }
 
-async function viaApi(cle: string, idChaine: string): Promise<Video[]> {
-  const k = encodeURIComponent(cle)
+/** Accès à l'API YouTube Data : clé API, ou jeton OAuth de la chaîne connectée. */
+export interface AccesApi { cle?: string, jeton?: string }
+
+async function viaApi(acces: AccesApi, idChaine: string): Promise<Video[]> {
+  const k = acces.cle ? `&key=${encodeURIComponent(acces.cle)}` : ''
+  const entetes: Record<string, string> = acces.jeton ? { authorization: `Bearer ${acces.jeton}` } : {}
   const filtre = idChaine ? `id=${idChaine}` : `forHandle=${HANDLE_CHAINE}`
-  const chaine = await json(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&${filtre}&key=${k}`)
+  const chaine = await json(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&${filtre}${k}`, entetes)
   const uploads = chaine?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
   if (!uploads) throw new Error('Chaîne YouTube introuvable')
 
@@ -104,7 +108,8 @@ async function viaApi(cle: string, idChaine: string): Promise<Video[]> {
   for (let i = 0; i < 40; i++) {
     const data = await json(
       `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploads}`
-      + (page ? `&pageToken=${encodeURIComponent(page)}` : '') + `&key=${k}`,
+      + (page ? `&pageToken=${encodeURIComponent(page)}` : '') + k,
+      entetes,
     )
     for (const it of data?.items || []) {
       const s = it.snippet || {}
@@ -140,27 +145,43 @@ async function viaRss(idChaine: string): Promise<Video[]> {
   return lireFluxRss(await r.text())
 }
 
-export async function chargerVideos(): Promise<ListeVideos> {
-  const cle = (process.env.NUXT_YOUTUBE_API_KEY || '').trim()
+export function idChaineConfigure(): string {
   const idEnv = (process.env.NUXT_YOUTUBE_CHANNEL_ID || '').trim()
-  const idChaine = ID_CHAINE.test(idEnv) ? idEnv : ID_CHAINE_PAR_DEFAUT
+  return ID_CHAINE.test(idEnv) ? idEnv : ID_CHAINE_PAR_DEFAUT
+}
 
-  let videos: Video[]
-  let source: ListeVideos['source']
-  if (cle) {
+/**
+ * `jetonOAuth` : renvoie le jeton d'accès de la chaîne connectée (ou null).
+ * Il donne la liste complète même sans clé API.
+ */
+export async function chargerVideos(jetonOAuth?: () => Promise<string | null>): Promise<ListeVideos> {
+  const cle = (process.env.NUXT_YOUTUBE_API_KEY || '').trim()
+  const idChaine = idChaineConfigure()
+
+  let videos: Video[] | null = null
+  let source: ListeVideos['source'] = 'rss'
+  // Clé API d'abord, puis jeton de la chaîne connectée (demandé seulement si
+  // besoin : chaque jeton coûte un aller-retour vers Google), puis flux RSS.
+  const essais: Array<() => Promise<AccesApi | null>> = [
+    async () => (cle ? { cle } : null),
+    async () => {
+      const jeton = jetonOAuth ? await jetonOAuth().catch(() => null) : null
+      return jeton ? { jeton } : null
+    },
+  ]
+  for (const essai of essais) {
+    const acces = await essai()
+    if (!acces) continue
     try {
-      videos = await viaApi(cle, idChaine)
+      videos = await viaApi(acces, idChaine)
       source = 'api'
+      break
     } catch (err) {
-      // Clé mal configurée : on garde au moins les dernières vidéos.
-      console.error('[predications] API YouTube en échec, repli sur le flux RSS :', err)
-      videos = await viaRss(idChaine)
-      source = 'rss'
+      // Accès mal configuré : on essaie le suivant, puis le flux RSS.
+      console.error('[predications] API YouTube en échec :', err)
     }
-  } else {
-    videos = await viaRss(idChaine)
-    source = 'rss'
   }
+  if (!videos) videos = await viaRss(idChaine)
   videos.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
   return { videos, source, complete: source === 'api' }
 }
@@ -174,9 +195,14 @@ export async function chargerVideos(): Promise<ListeVideos> {
 const DUREE_CACHE_MS = 30 * 60 * 1000
 let enCache: { liste: ListeVideos, expire: number } | null = null
 
-export async function videosEnCache(): Promise<ListeVideos> {
+export async function videosEnCache(jetonOAuth?: () => Promise<string | null>): Promise<ListeVideos> {
+  if (process.env.PW_TEST === '1' || process.env.NODE_ENV === 'test') {
+    // Tests : jamais d'appel à YouTube.
+    const { VIDEOS_TEST } = await import('./youtube-mock.js')
+    return { videos: VIDEOS_TEST, source: 'api', complete: true }
+  }
   if (enCache && enCache.expire > Date.now()) return enCache.liste
-  const liste = await chargerVideos()
+  const liste = await chargerVideos(jetonOAuth)
   enCache = { liste, expire: Date.now() + DUREE_CACHE_MS }
   return liste
 }

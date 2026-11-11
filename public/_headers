@@ -31,6 +31,11 @@
 /photos/*
   cache-control: public, max-age=2592000
 
+# Bible Louis Segond 1910 du mode VR (scripts/construire-bible.mjs) : texte
+# figé, un fichier par livre.
+/bible/*
+  cache-control: public, max-age=2592000
+
 # Images à la racine de public/, énumérées une par une plutôt que par un
 # joker : `/*.png` matcherait aussi `/_nuxt/*.png` et Cloudflare joindrait les
 # deux `cache-control` par une virgule (piège n°1 ci-dessus). Conséquence à

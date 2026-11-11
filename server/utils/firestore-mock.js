@@ -166,6 +166,7 @@ export function resetMock() {
   MENU = { menuItems: null, menuBgImage: '' }
   FOOTER = null
   TACHES = {}
+  VR_REGLAGES = null
 }
 
 export function getPages() {
@@ -283,6 +284,15 @@ let SETTINGS = { config: { contactEmails: ['belletonv@gmail.com'] } }
 
 export function getSettings() {
   return SETTINGS.config ? JSON.parse(JSON.stringify(SETTINGS.config)) : { contactEmails: ['belletonv@gmail.com'] }
+}
+
+// Réglages du mode VR (settings/vr) : null = jamais enregistrés.
+let VR_REGLAGES = null
+export function getVrReglages() {
+  return VR_REGLAGES ? JSON.parse(JSON.stringify(VR_REGLAGES)) : null
+}
+export function setVrReglages(data) {
+  VR_REGLAGES = JSON.parse(JSON.stringify(data))
 }
 
 export function setSettings(data) {

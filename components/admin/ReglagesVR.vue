@@ -65,6 +65,22 @@
       </fieldset>
 
       <fieldset class="reglages-vr-groupe">
+        <legend>Fond musical</legend>
+        <label class="reglages-vr-champ">
+          Musique à l'arrivée
+          <select v-model="form.musique">
+            <option :value="null">Aucune</option>
+            <option v-for="a in AMBIANCES" :key="a.id" :value="a.id">{{ a.nom }} — {{ a.description }}</option>
+          </select>
+        </label>
+        <p class="settings-hint">
+          Nappes douces jouées en direct par l'appareil, sans droits d'auteur. Elles démarrent au premier geste du visiteur, se taisent
+          pendant une prédication et se font discrètes pendant la lecture de la Bible. Chaque visiteur peut en changer (son choix est
+          retenu sur son appareil).
+        </p>
+      </fieldset>
+
+      <fieldset class="reglages-vr-groupe">
         <legend>Contenu des panneaux</legend>
         <label class="settings-checkbox-label">
           <input v-model="form.agenda" type="checkbox" class="settings-checkbox" />
@@ -81,6 +97,10 @@
         <label class="settings-checkbox-label">
           <input v-model="form.photosSite" type="checkbox" class="settings-checkbox" />
           Inclure les photos des activités du site
+        </label>
+        <label class="settings-checkbox-label">
+          <input v-model="form.tableaux" type="checkbox" class="settings-checkbox" />
+          Ajouter des tableaux de maîtres (domaine public) liés au passage ouvert
         </label>
         <p class="settings-hint">Photos choisies pour la salle (médiathèque ou téléversement, {{ VR_MAX_PHOTOS }} au plus) :</p>
         <FieldImages :value="form.photos" :field="{ key: 'photos' }" @change="(v) => (form.photos = v.filter(Boolean))" />
@@ -99,6 +119,7 @@ import FieldImages from '~/components/editor/fields/FieldImages.vue'
 import { normaliserReglagesVR, VR_DUREE_MIN, VR_DUREE_MAX, VR_MAX_PHOTOS } from '~/utils/vrReglages.js'
 import { trouverPassages, nomPassage } from '~/utils/livresBible.js'
 import { LIEUX } from '~/lib/vr/lieux/index.js'
+import { AMBIANCES } from '~/lib/vr/musique.js'
 
 const props = defineProps({ jeton: { type: Function, required: true } })
 

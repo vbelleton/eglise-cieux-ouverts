@@ -2,7 +2,9 @@
   <div class="vr-page">
     <div ref="conteneur" class="vr-scene" :class="{ 'vr-scene--prete': pret }" />
 
-    <p class="vr-sr" aria-live="polite">{{ passageOuvert && `Bible ouverte : ${passageOuvert}` }}</p>
+    <p class="vr-sr" aria-live="polite">
+      {{ lectureBible && versetLu ? `Lecture : ${passageOuvert}, verset ${versetLu}` : passageOuvert && `Bible ouverte : ${passageOuvert}` }}
+    </p>
 
     <noscript>
       <p class="vr-message">Cette salle de prière en réalité virtuelle a besoin de JavaScript.</p>
@@ -28,6 +30,13 @@
             <span class="vr-lieu-libelle">Lieu</span>
             <select :value="lieu" aria-label="Lieu de prière" @change="choisirLieu($event.target.value)">
               <option v-for="l in lieuxProposes" :key="l.id" :value="l.id">{{ l.nom }}</option>
+            </select>
+          </label>
+          <label class="vr-lieu">
+            <span class="vr-lieu-libelle">Musique</span>
+            <select :value="musique || ''" aria-label="Fond musical" @change="choisirMusique($event.target.value || null)">
+              <option value="">Aucune</option>
+              <option v-for="a in AMBIANCES" :key="a.id" :value="a.id">{{ a.nom }}</option>
             </select>
           </label>
           <NuxtLink to="/" class="vr-quitter" aria-label="Quitter la salle de prière et revenir au site">✕</NuxtLink>
@@ -118,6 +127,8 @@ import { trouverPassages } from '~/utils/livresBible.js'
 import { normaliserReglagesVR } from '~/utils/vrReglages.js'
 import { useChurchEvents } from '~/composables/useChurchEvents.js'
 import { LIEUX } from '~/lib/vr/lieux/index.js'
+import { AMBIANCES } from '~/lib/vr/musique.js'
+import { tableauxPour, creditTableau } from '~/utils/vrTableaux.js'
 
 definePageMeta({ layout: false })
 
@@ -148,7 +159,43 @@ const requete = ref('')
 const champRecherche = ref(null)
 const ecoute = ref(null)
 const lecteurEcoute = ref(null)
+const lectureBible = ref(false)
+const versetLu = ref(null)
 let minuterieRecherche = null
+
+// Fond musical (lib/vr/musique.js) : choisi par le visiteur (retenu sur son
+// appareil), sinon celui réglé dans l'admin. Le son ne peut démarrer qu'après
+// un geste : le premier clic ou toucher dans la page le lance.
+const CLE_MUSIQUE = 'vr-musique'
+const musique = ref(null)
+let lecteurMusique = null
+function musiqueMemorisee() {
+  try {
+    const m = localStorage.getItem(CLE_MUSIQUE)
+    return m === null ? undefined : m || null
+  } catch {
+    return undefined
+  }
+}
+function choisirMusique(id) {
+  musique.value = AMBIANCES.some((a) => a.id === id) ? id : null
+  try {
+    localStorage.setItem(CLE_MUSIQUE, musique.value || '')
+  } catch {
+    // Navigation privée : choix non retenu.
+  }
+  lecteurMusique?.jouer(musique.value)
+}
+function premierGeste() {
+  document.removeEventListener('pointerdown', premierGeste)
+  document.removeEventListener('keydown', premierGeste)
+  lecteurMusique?.jouer(musique.value)
+}
+// La musique se tait pendant une prédication, se fait discrète sous la lecture de la Bible.
+function majVolumeMusique() {
+  lecteurMusique?.attenuer(ecoute.value || lecture.value ? 0 : lectureBible.value ? 0.3 : 1)
+}
+watch(musique, (m) => salle.value?.definirMusique(m))
 
 function lancerRecherche(immediat) {
   clearTimeout(minuterieRecherche)
@@ -164,6 +211,7 @@ function lancerRecherche(immediat) {
 let numeroEcoute = 0
 function demarrerEcoute(video, debut = 0) {
   lecture.value = null
+  salle.value?.arreterLecture()
   ecoute.value = { id: video.id, titre: video.titre, debut: Math.max(0, Math.floor(debut)), enCours: true, cle: ++numeroEcoute }
 }
 function commanderLecteur(func) {
@@ -182,6 +230,7 @@ watch(ecoute, (e) => salle.value?.definirEcoute(e ? { id: e.id, enCours: e.enCou
 watch(lecture, (l) => {
   if (l) ecoute.value = null
 })
+watch([ecoute, lecture, lectureBible], majVolumeMusique)
 const lieu = ref('chapelle')
 const lieuxProposes = ref(LIEUX)
 
@@ -218,6 +267,32 @@ const { evenements, loading: agendaChargement, erreur: agendaErreur } = useChurc
 let reglages = normaliserReglagesVR(null)
 
 let scene = null
+
+// Tableaux du domaine public liés au passage ouvert (utils/vrTableaux.js),
+// glissés dans la spirale là où elle passe sous les yeux. On n'ajoute que
+// ceux dont l'image a pu être chargée.
+let photosBase = []
+let clesTableaux = ''
+function chargerImage(src) {
+  return new Promise((ok) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => ok(true)
+    img.onerror = () => ok(false)
+    img.src = src
+  })
+}
+async function majTableaux(passage) {
+  if (!reglages.tableaux || !scene) return
+  const liste = tableauxPour(passage)
+  const cles = liste.map((t) => t.cle).join()
+  if (cles === clesTableaux) return
+  clesTableaux = cles
+  const elements = liste.map((t) => ({ type: 'photo', image: `/api/vr/tableau/${t.cle}`, titre: t.titre, sousTitre: creditTableau(t) }))
+  const charges = await Promise.all(elements.map((e) => chargerImage(e.image)))
+  if (cles !== clesTableaux || !scene) return
+  scene.definirElements(photosBase, { devant: elements.filter((_, i) => charges[i]) })
+}
 
 function videoDepuis(v) {
   return {
@@ -264,8 +339,19 @@ watch([evenements, agendaChargement, agendaErreur], majAgenda)
 onMounted(async () => {
   tactile.value = window.matchMedia('(pointer: coarse)').matches
   try {
-    const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }] = await Promise.all([import('~/lib/vr/scene.js'), import('~/lib/vr/salle.js'), chargerReglages()])
+    const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }, { creerMusique }] = await Promise.all([
+      import('~/lib/vr/scene.js'),
+      import('~/lib/vr/salle.js'),
+      import('~/lib/vr/musique.js'),
+      chargerReglages(),
+    ])
+    lecteurMusique = creerMusique()
+    const memoMusique = musiqueMemorisee()
+    musique.value = memoMusique === undefined ? reglages.musique : memoMusique
+    document.addEventListener('pointerdown', premierGeste)
+    document.addEventListener('keydown', premierGeste)
     const photos = [...(reglages.photosSite ? PHOTOS_VR : []), ...reglages.photos.map((image) => ({ type: 'photo', image, titre: '' }))]
+    photosBase = photos
     const memorise = lieuMemorise()
     titre.value = reglages.titre
     lieuxProposes.value = LIEUX.filter((l) => reglages.lieux.includes(l.id))
@@ -278,7 +364,7 @@ onMounted(async () => {
           lieu.value = e.lieu
           salle.value?.lieuChange()
         }
-        if ('element' in e) photo.value = e.element ? e.element.titre || '' : null
+        if ('element' in e) photo.value = e.element ? [e.element.titre, e.element.sousTitre].filter(Boolean).join(' — ') : null
         if ('vr' in e) enVR.value = e.vr
       },
     })
@@ -292,16 +378,27 @@ onMounted(async () => {
           if (!a.actif) requete.value = ''
           else if (a.requete) requete.value = a.requete
         }
-        if (a.type === 'passage') passageOuvert.value = a.nom
+        if (a.type === 'passage') {
+          passageOuvert.value = a.nom
+          majTableaux(a.passage)
+        }
         if (a.type === 'ecouter') demarrerEcoute(a.video, a.debut)
         if (a.type === 'pause') basculerPause()
         if (a.type === 'lieu') memoriserLieu(a.id)
+        if (a.type === 'musique') choisirMusique(a.id)
+        if (a.type === 'verset') versetLu.value = a.n
+        if (a.type === 'lecture') {
+          lectureBible.value = a.actif
+          versetLu.value = null
+          if (a.actif) ecoute.value = null
+        }
         if (a.type === 'priere') {
           enPriere.value = a.actif
           video.value = null
         }
       },
     })
+    salle.value.definirMusique(musique.value)
     majAgenda()
     pret.value = true
     vrOk.value = await scene.vrDisponible()
@@ -326,6 +423,11 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearTimeout(minuterieRecherche)
   document.removeEventListener('fullscreenchange', surPleinEcran)
+  document.removeEventListener('pointerdown', premierGeste)
+  document.removeEventListener('keydown', premierGeste)
+  lecteurMusique?.detruire()
+  lecteurMusique = null
+  salle.value?.detruire()
   scene?.detruire()
   scene = null
   salle.value = null
@@ -458,6 +560,29 @@ function quitterCarton() {
   .vr-titre span,
   .vr-lieu-libelle {
     display: none;
+  }
+  /* Titre, lieu, musique et ✕ tiennent sur une ligne de téléphone. */
+  .vr-entete {
+    gap: 6px;
+  }
+  .vr-titre {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 15px;
+  }
+  .vr-lieu {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-right: 0;
+    padding: 4px;
+  }
+  .vr-lieu select {
+    min-width: 0;
+    max-width: 27vw;
+    text-overflow: ellipsis;
+  }
+  .vr-quitter {
+    flex: none;
   }
 }
 .vr-quitter {

@@ -9,6 +9,21 @@ export const VR_LIEUX = ['chapelle', 'salle', 'jardin', 'mer', 'chambre', 'ciel'
 /** Identifiants des fonds musicaux de lib/vr/musique.js (vérifié par un test). */
 export const VR_MUSIQUES = ['repos', 'attente', 'lumiere', 'nuit']
 
+/**
+ * Photos des activités du site proposées dans la salle (fichiers de public/).
+ * Chacune peut être retirée dans l'admin (`photosSiteMasquees`) ; elles
+ * apparaissent dans la médiathèque avec l'usage « Salle VR ».
+ */
+export const VR_PHOTOS_SITE = [
+  { image: '/images/activites-celebration.jpg', titre: 'Le culte du dimanche' },
+  { image: '/images/activites-priere.jpg', titre: 'La prière' },
+  { image: '/images/activites-jeunesse.jpeg', titre: 'La jeunesse' },
+  { image: '/images/activites-maison.jpeg', titre: 'Les groupes de maison' },
+  { image: '/images/activites-repas.jpg', titre: 'Les repas' },
+  { image: '/images/activites-femmes.jpeg', titre: 'Les femmes' },
+  { image: '/images/activites-marche.jpeg', titre: 'Le groupe de marche' },
+]
+
 export const VR_REGLAGES_DEFAUT = {
   titre: 'salle de prière', // affiché en haut de l'écran et dans l'onglet
   lieux: [...VR_LIEUX], // lieux proposés aux visiteurs
@@ -19,7 +34,8 @@ export const VR_REGLAGES_DEFAUT = {
   tableaux: true, // tableaux du domaine public selon le passage ouvert (lib/vr/tableaux.js)
   agenda: true, // prochains événements (Worker eglise-app)
   predications: true, // dernières vidéos YouTube (/api/predications)
-  photosSite: true, // photos des activités (lib/vr/scene.js → PHOTOS_VR)
+  photosSite: true, // photos des activités (VR_PHOTOS_SITE)
+  photosSiteMasquees: [], // photos des activités retirées une à une
   photos: [], // photos choisies dans la médiathèque
 }
 
@@ -52,5 +68,14 @@ export function normaliserReglagesVR(data) {
     predications: bool(data?.predications, VR_REGLAGES_DEFAUT.predications),
     photosSite: bool(data?.photosSite, VR_REGLAGES_DEFAUT.photosSite),
     photos,
+    photosSiteMasquees: Array.isArray(data?.photosSiteMasquees)
+      ? VR_PHOTOS_SITE.map((p) => p.image).filter((u) => data.photosSiteMasquees.includes(u))
+      : [],
   }
+}
+
+/** Photos affichées dans la salle, dans l'ordre des réglages : { image, titre }. */
+export function photosDeLaSalle(reglages) {
+  const site = reglages.photosSite ? VR_PHOTOS_SITE.filter((p) => !reglages.photosSiteMasquees.includes(p.image)) : []
+  return [...site, ...reglages.photos.map((image) => ({ image, titre: '' }))]
 }

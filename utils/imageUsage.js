@@ -7,6 +7,7 @@
 // « /api/media/uploads/123_photo.jpg ») à la liste des endroits qui l'utilisent.
 import { BLOCK_TYPES, normalizePageBlocks } from '~/utils/blockTypes.js'
 import { normalizeBlock } from '~/lib/blocks/renderer'
+import { normaliserReglagesVR, photosDeLaSalle } from '~/utils/vrReglages.js'
 
 const PAGES_DU_SITE = ['accueil', 'messages', 'agenda', 'event-list', 'contact', 'photos']
 const MOTIF_IMAGE = /\/[A-Za-z0-9._\/-]+\.(?:png|jpe?g|webp|gif|svg|avif)/gi
@@ -57,6 +58,15 @@ export async function calculerUsageImages() {
 
   const footer = await lireJson('/api/footer')
   ajouter(usage, { type: 'footer', props: footer?.props || {} }, 'Pied de page (toutes les pages)')
+
+  // Salle de prière VR (/vr) : photos des activités et photos choisies.
+  const vr = await lireJson('/api/vr/reglages')
+  if (vr && vr.lu !== false) {
+    for (const { image } of photosDeLaSalle(normaliserReglagesVR(vr))) {
+      if (!usage.has(image)) usage.set(image, [])
+      usage.get(image).push({ page: 'Salle VR', bloc: 'Photos' })
+    }
+  }
   return usage
 }
 

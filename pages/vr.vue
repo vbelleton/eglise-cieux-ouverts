@@ -3,7 +3,7 @@
     <div ref="conteneur" class="vr-scene" :class="{ 'vr-scene--prete': pret }" />
 
     <p class="vr-sr" aria-live="polite">
-      {{ lectureBible && versetLu ? `Lecture : ${passageOuvert}, verset ${versetLu}` : passageOuvert && `Bible ouverte : ${passageOuvert}` }}
+      {{ enLecture && versetLu ? `Lecture : ${passageOuvert}, verset ${versetLu}` : passageOuvert && `Bible ouverte : ${passageOuvert}` }}
     </p>
 
     <noscript>
@@ -54,9 +54,29 @@
               @input="lancerRecherche(false)"
             />
           </form>
-          <div v-if="ecoute && !enPriere" class="vr-ecoute" aria-live="polite">
+          <div v-if="ecoute && !enPriere" class="vr-ecoute">
             <span class="vr-ecoute-titre">🎧 {{ ecoute.titre }}</span>
+            <span class="vr-ecoute-position">
+              <span class="vr-ecoute-temps">{{ formaterMoment(ecoute.temps) }}</span>
+              <input
+                type="range"
+                min="0"
+                :max="Math.max(1, Math.floor(ecoute.duree))"
+                step="1"
+                :value="Math.floor(ecoute.temps)"
+                :disabled="!ecoute.duree"
+                aria-label="Position dans la prédication"
+                :aria-valuetext="`${formaterMoment(ecoute.temps)} sur ${formaterMoment(ecoute.duree)}`"
+                @change="allerA(Number($event.target.value))"
+              />
+              <span class="vr-ecoute-temps">{{ ecoute.duree ? formaterMoment(ecoute.duree) : '–:––' }}</span>
+            </span>
+            <button type="button" class="vr-bouton" aria-label="Reculer de 30 secondes" @click="allerA(ecoute.temps - 30)">−30 s</button>
             <button type="button" class="vr-bouton" @click="basculerPause">{{ ecoute.enCours ? 'Pause' : 'Reprendre' }}</button>
+            <button type="button" class="vr-bouton" aria-label="Avancer de 30 secondes" @click="allerA(ecoute.temps + 30)">+30 s</button>
+            <button type="button" class="vr-bouton" :aria-label="`Vitesse ${formatVitesse(ecoute.vitesse)}, changer`" @click="changerVitesse">
+              {{ formatVitesse(ecoute.vitesse) }}
+            </button>
             <button type="button" class="vr-bouton" @click="arreterEcoute">Arrêter</button>
           </div>
           <p v-if="enPriere" class="vr-aide" aria-live="polite">Temps de prière : laissez venir les versets.</p>
@@ -64,7 +84,12 @@
             <p class="vr-carte-titre">{{ video.titre }}</p>
             <div class="vr-boutons">
               <button type="button" class="vr-bouton vr-bouton--principal" @click="lecture = video">Regarder la vidéo</button>
-              <button v-if="ecoute?.id !== video.id" type="button" class="vr-bouton" @click="demarrerEcoute(video)">Écouter</button>
+              <template v-if="ecoute?.id !== video.id">
+                <button v-if="reprise(video.id)" type="button" class="vr-bouton" @click="demarrerEcoute(video)">
+                  Reprendre à {{ formaterMoment(reprise(video.id)) }}
+                </button>
+                <button type="button" class="vr-bouton" @click="demarrerEcoute(video, 0)">{{ reprise(video.id) ? 'Du début' : 'Écouter' }}</button>
+              </template>
               <button type="button" class="vr-bouton" @click="video = null">Fermer</button>
             </div>
           </div>
@@ -95,6 +120,7 @@
       :key="ecoute.cle"
       ref="lecteurEcoute"
       class="vr-ecoute-lecteur"
+      @load="lecteurPret"
       :src="`https://www.youtube-nocookie.com/embed/${ecoute.id}?autoplay=1&start=${ecoute.debut}&enablejsapi=1&playsinline=1&rel=0`"
       allow="autoplay; encrypted-media"
       title="Écoute de la prédication"
@@ -124,7 +150,8 @@
 // /api/vr/reglages).
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { trouverPassages } from '~/utils/livresBible.js'
-import { normaliserReglagesVR } from '~/utils/vrReglages.js'
+import { formaterMoment } from '~/utils/rechercheVideos.js'
+import { normaliserReglagesVR, photosDeLaSalle } from '~/utils/vrReglages.js'
 import { useChurchEvents } from '~/composables/useChurchEvents.js'
 import { LIEUX } from '~/lib/vr/lieux/index.js'
 import { AMBIANCES } from '~/lib/vr/musique.js'
@@ -159,13 +186,30 @@ const requete = ref('')
 const champRecherche = ref(null)
 const ecoute = ref(null)
 const lecteurEcoute = ref(null)
-const lectureBible = ref(false)
+const lectureBible = ref(false) // lecture avec la voix
+const enLecture = ref(false) // lecture, avec ou sans voix
 const versetLu = ref(null)
 let minuterieRecherche = null
 
 // Fond musical (lib/vr/musique.js) : choisi par le visiteur (retenu sur son
 // appareil), sinon celui réglé dans l'admin. Le son ne peut démarrer qu'après
 // un geste : le premier clic ou toucher dans la page le lance.
+// Lecture de la Bible : avec la voix (par défaut) ou surlignage seul, retenu aussi.
+const CLE_VOIX = 'vr-voix'
+function voixMemorisee() {
+  try {
+    return localStorage.getItem(CLE_VOIX) !== '0'
+  } catch {
+    return true
+  }
+}
+function memoriserVoix(actif) {
+  try {
+    localStorage.setItem(CLE_VOIX, actif ? '1' : '0')
+  } catch {
+    // Navigation privée : choix non retenu.
+  }
+}
 const CLE_MUSIQUE = 'vr-musique'
 const musique = ref(null)
 let lecteurMusique = null
@@ -206,29 +250,132 @@ function lancerRecherche(immediat) {
   } else minuterieRecherche = setTimeout(faire, 250)
 }
 
-// Écoute : le lecteur est (re)créé à chaque départ ; pause et reprise par
-// l'API iframe de YouTube.
+// Écoute : le lecteur est (re)créé à chaque départ ; il est piloté par l'API
+// iframe de YouTube (postMessage) : pause, position, vitesse. Le lecteur
+// renvoie sa position (« infoDelivery ») ; on retient sur l'appareil où
+// chaque prédication a été laissée, pour la reprendre là.
+const YT = 'https://www.youtube-nocookie.com'
+const CLE_ECOUTES = 'vr-ecoutes'
+const VITESSES = [1, 1.25, 1.5, 0.75]
+const progressions = ref({})
+function lireProgressions() {
+  try {
+    const p = JSON.parse(localStorage.getItem(CLE_ECOUTES) || '{}')
+    return p && typeof p === 'object' ? p : {}
+  } catch {
+    return {}
+  }
+}
+function retenirProgression(id, t, d) {
+  const p = { ...progressions.value }
+  // Finie (ou presque) : rien à reprendre.
+  if (d && t > d - 20) delete p[id]
+  else if (t > 15) p[id] = { t: Math.floor(t), d: Math.floor(d || 0), le: Date.now() }
+  else return
+  // Les 30 plus récentes suffisent.
+  const garder = Object.entries(p)
+    .sort((a, b) => (b[1].le || 0) - (a[1].le || 0))
+    .slice(0, 30)
+  progressions.value = Object.fromEntries(garder)
+  try {
+    localStorage.setItem(CLE_ECOUTES, JSON.stringify(progressions.value))
+  } catch {
+    // Navigation privée : pas de reprise, sans gêner.
+  }
+}
+/** Position de reprise d'une prédication (0 si rien à reprendre). */
+function reprise(id) {
+  const p = progressions.value[id]
+  return p && p.t > 15 && (!p.d || p.t < p.d - 20) ? p.t : 0
+}
+
 let numeroEcoute = 0
-function demarrerEcoute(video, debut = 0) {
+/** `debut` null : là où on l'avait laissée. */
+function demarrerEcoute(video, debut = null) {
   lecture.value = null
   salle.value?.arreterLecture()
-  ecoute.value = { id: video.id, titre: video.titre, debut: Math.max(0, Math.floor(debut)), enCours: true, cle: ++numeroEcoute }
+  if (ecoute.value) retenirProgression(ecoute.value.id, ecoute.value.temps, ecoute.value.duree)
+  // On reprend 3 secondes avant, pour retrouver le fil.
+  const depart = debut == null ? Math.max(0, reprise(video.id) - 3) : Math.max(0, Math.floor(debut))
+  const duree = progressions.value[video.id]?.d || 0
+  ecoute.value = { id: video.id, titre: video.titre, debut: depart, temps: depart, duree, vitesse: 1, enCours: true, cle: ++numeroEcoute }
 }
-function commanderLecteur(func) {
-  lecteurEcoute.value?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube-nocookie.com')
+function commanderLecteur(func, args = []) {
+  lecteurEcoute.value?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), YT)
+}
+// Sans ce message, le lecteur n'envoie pas sa position.
+function lecteurPret() {
+  lecteurEcoute.value?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: numeroEcoute, channel: 'widget' }), YT)
+}
+function surMessageLecteur(e) {
+  if (e.origin !== YT || !ecoute.value) return
+  let data
+  try {
+    data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+  } catch {
+    return
+  }
+  const info = data?.event === 'infoDelivery' ? data.info : null
+  if (!info) return
+  const e2 = { ...ecoute.value }
+  let change = false
+  if (typeof info.duration === 'number' && info.duration > 0 && Math.floor(info.duration) !== Math.floor(e2.duree)) {
+    e2.duree = info.duration
+    change = true
+  }
+  if (typeof info.currentTime === 'number' && Math.floor(info.currentTime) !== Math.floor(e2.temps)) {
+    e2.temps = info.currentTime
+    change = true
+    // Retenue toutes les 5 secondes.
+    if (Math.floor(info.currentTime) % 5 === 0) retenirProgression(e2.id, e2.temps, e2.duree)
+  }
+  if (typeof info.playbackRate === 'number' && info.playbackRate !== e2.vitesse) {
+    e2.vitesse = info.playbackRate
+    change = true
+  }
+  if (info.playerState === 0) {
+    // Finie : plus rien à reprendre.
+    retenirProgression(e2.id, e2.duree || e2.temps, e2.duree || e2.temps)
+    ecoute.value = null
+    return
+  }
+  if (info.playerState === 1 || info.playerState === 2) {
+    const enCours = info.playerState === 1
+    if (enCours !== e2.enCours) {
+      e2.enCours = enCours
+      change = true
+    }
+  }
+  if (change) ecoute.value = e2
 }
 function basculerPause() {
   if (!ecoute.value) return
   commanderLecteur(ecoute.value.enCours ? 'pauseVideo' : 'playVideo')
   ecoute.value = { ...ecoute.value, enCours: !ecoute.value.enCours }
 }
+function allerA(t) {
+  if (!ecoute.value) return
+  const max = ecoute.value.duree ? ecoute.value.duree - 1 : Infinity
+  const cible = Math.max(0, Math.min(max, t))
+  commanderLecteur('seekTo', [cible, true])
+  ecoute.value = { ...ecoute.value, temps: cible }
+}
+function changerVitesse() {
+  if (!ecoute.value) return
+  const v = VITESSES[(VITESSES.indexOf(ecoute.value.vitesse) + 1) % VITESSES.length]
+  commanderLecteur('setPlaybackRate', [v])
+  ecoute.value = { ...ecoute.value, vitesse: v }
+}
 function arreterEcoute() {
+  if (ecoute.value) retenirProgression(ecoute.value.id, ecoute.value.temps, ecoute.value.duree)
   ecoute.value = null
 }
-watch(ecoute, (e) => salle.value?.definirEcoute(e ? { id: e.id, enCours: e.enCours } : null))
-// Regarder la vidéo coupe l'écoute.
+const formatVitesse = (v) => `${String(v).replace('.', ',')}×`
+watch(ecoute, (e) => salle.value?.definirEcoute(e ? { id: e.id, enCours: e.enCours, temps: e.temps, duree: e.duree } : null))
+watch(progressions, (p) => salle.value?.definirProgressions(p))
+// Regarder la vidéo coupe l'écoute (en retenant où on en était).
 watch(lecture, (l) => {
-  if (l) ecoute.value = null
+  if (l) arreterEcoute()
 })
 watch([ecoute, lecture, lectureBible], majVolumeMusique)
 const lieu = ref('chapelle')
@@ -339,7 +486,7 @@ watch([evenements, agendaChargement, agendaErreur], majAgenda)
 onMounted(async () => {
   tactile.value = window.matchMedia('(pointer: coarse)').matches
   try {
-    const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }, { creerMusique }] = await Promise.all([
+    const [{ creerSceneVR }, { creerSalle }, { creerMusique }] = await Promise.all([
       import('~/lib/vr/scene.js'),
       import('~/lib/vr/salle.js'),
       import('~/lib/vr/musique.js'),
@@ -350,7 +497,7 @@ onMounted(async () => {
     musique.value = memoMusique === undefined ? reglages.musique : memoMusique
     document.addEventListener('pointerdown', premierGeste)
     document.addEventListener('keydown', premierGeste)
-    const photos = [...(reglages.photosSite ? PHOTOS_VR : []), ...reglages.photos.map((image) => ({ type: 'photo', image, titre: '' }))]
+    const photos = photosDeLaSalle(reglages).map((p) => ({ type: 'photo', ...p }))
     photosBase = photos
     const memorise = lieuMemorise()
     titre.value = reglages.titre
@@ -384,13 +531,18 @@ onMounted(async () => {
         }
         if (a.type === 'ecouter') demarrerEcoute(a.video, a.debut)
         if (a.type === 'pause') basculerPause()
+        if (a.type === 'aller') allerA(a.t)
+        if (a.type === 'deplacer') allerA((ecoute.value?.temps || 0) + a.delta)
         if (a.type === 'lieu') memoriserLieu(a.id)
         if (a.type === 'musique') choisirMusique(a.id)
         if (a.type === 'verset') versetLu.value = a.n
+        if (a.type === 'voix') memoriserVoix(a.actif)
         if (a.type === 'lecture') {
-          lectureBible.value = a.actif
+          // Sans voix, rien à couvrir : la musique garde son volume.
+          enLecture.value = a.actif
+          lectureBible.value = a.actif && a.voix
           versetLu.value = null
-          if (a.actif) ecoute.value = null
+          if (a.actif) arreterEcoute()
         }
         if (a.type === 'priere') {
           enPriere.value = a.actif
@@ -398,7 +550,11 @@ onMounted(async () => {
         }
       },
     })
+    progressions.value = lireProgressions()
+    salle.value.definirProgressions(progressions.value)
+    window.addEventListener('message', surMessageLecteur)
     salle.value.definirMusique(musique.value)
+    salle.value.definirVoix(voixMemorisee())
     majAgenda()
     pret.value = true
     vrOk.value = await scene.vrDisponible()
@@ -425,6 +581,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', surPleinEcran)
   document.removeEventListener('pointerdown', premierGeste)
   document.removeEventListener('keydown', premierGeste)
+  window.removeEventListener('message', surMessageLecteur)
+  if (ecoute.value) retenirProgression(ecoute.value.id, ecoute.value.temps, ecoute.value.duree)
   lecteurMusique?.detruire()
   lecteurMusique = null
   salle.value?.detruire()
@@ -765,14 +923,35 @@ function quitterCarton() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  max-width: 34rem;
-  padding: 6px 8px 6px 16px;
-  border-radius: 999px;
+  max-width: 36rem;
+  padding: 8px 12px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
 }
+.vr-ecoute .vr-bouton {
+  order: 2;
+}
+.vr-ecoute-position {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 8px;
+  order: 1;
+}
+.vr-ecoute-position input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--primary-pink);
+}
+.vr-ecoute-temps {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
 .vr-ecoute-titre {
-  max-width: 18rem;
+  flex: 1 1 100%;
+  max-width: 100%;
+  text-align: center;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

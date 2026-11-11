@@ -98,6 +98,21 @@
           <input v-model="form.photosSite" type="checkbox" class="settings-checkbox" />
           Inclure les photos des activités du site
         </label>
+        <ul v-if="form.photosSite" class="reglages-vr-photos" aria-label="Photos des activités dans la salle">
+          <li v-for="p in VR_PHOTOS_SITE" :key="p.image" :class="{ 'reglages-vr-photo--retiree': form.photosSiteMasquees.includes(p.image) }">
+            <label>
+              <img :src="p.image" :alt="p.titre" loading="lazy" />
+              <span>
+                <input
+                  type="checkbox"
+                  :checked="!form.photosSiteMasquees.includes(p.image)"
+                  @change="basculerPhotoSite(p.image, $event.target.checked)"
+                />
+                {{ p.titre }}
+              </span>
+            </label>
+          </li>
+        </ul>
         <label class="settings-checkbox-label">
           <input v-model="form.tableaux" type="checkbox" class="settings-checkbox" />
           Ajouter des tableaux de maîtres (domaine public) liés au passage ouvert
@@ -116,7 +131,7 @@
 // (AdminToolbar appelle `enregistrer()`).
 import { ref, computed, watch, onMounted } from 'vue'
 import FieldImages from '~/components/editor/fields/FieldImages.vue'
-import { normaliserReglagesVR, VR_DUREE_MIN, VR_DUREE_MAX, VR_MAX_PHOTOS } from '~/utils/vrReglages.js'
+import { normaliserReglagesVR, VR_DUREE_MIN, VR_DUREE_MAX, VR_MAX_PHOTOS, VR_PHOTOS_SITE } from '~/utils/vrReglages.js'
 import { trouverPassages, nomPassage } from '~/utils/livresBible.js'
 import { LIEUX } from '~/lib/vr/lieux/index.js'
 import { AMBIANCES } from '~/lib/vr/musique.js'
@@ -132,6 +147,11 @@ const lieuxProposes = computed(() => LIEUX.filter((l) => form.value.lieux.includ
 const passageTrouve = computed(() => trouverPassages(form.value.passage)[0] || null)
 const passageInvalide = computed(() => Boolean(form.value.passage.trim()) && !passageTrouve.value)
 const passageReconnu = computed(() => (passageTrouve.value ? nomPassage(passageTrouve.value) : ''))
+
+function basculerPhotoSite(image, gardee) {
+  const m = form.value.photosSiteMasquees.filter((u) => u !== image)
+  form.value.photosSiteMasquees = gardee ? m : [...m, image]
+}
 
 function basculerLieu(id, coche) {
   const lieux = coche ? [...form.value.lieux, id] : form.value.lieux.filter((x) => x !== id)
@@ -232,6 +252,31 @@ onMounted(charger)
 }
 .reglages-vr-duree input {
   width: 5em;
+}
+.reglages-vr-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.reglages-vr-photos label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.reglages-vr-photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.reglages-vr-photo--retiree img {
+  opacity: 0.35;
+  filter: grayscale(1);
 }
 .reglages-vr-erreur {
   color: #b42318;

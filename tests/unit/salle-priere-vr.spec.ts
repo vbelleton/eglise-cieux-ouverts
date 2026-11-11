@@ -66,6 +66,7 @@ test.describe('Réglages de la salle de prière', () => {
       predications: true,
       photosSite: true,
       photos: [],
+      photosSiteMasquees: [],
     })
   })
 

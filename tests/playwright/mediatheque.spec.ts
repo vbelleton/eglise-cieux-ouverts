@@ -58,6 +58,10 @@ test('médiathèque : chaque image indique où elle est affichée, et le filtre 
   await expect(tuile.locator('.imglib-usage')).toHaveAttribute('title', /Accueil \(Hero/)
   await tuile.click()
   await expect(dialog.locator('.imglib-count')).toContainText('Affichée sur :')
+
+  // Les photos de la salle de prière VR le disent aussi.
+  const photoVR = dialog.locator('.imglib-item[title="images/activites-repas.jpg"]')
+  await expect(photoVR.locator('.imglib-usage')).toHaveAttribute('title', /Salle VR \(Photos\)/)
   await expect(dialog.locator('.imglib-count')).toContainText('Accueil (Hero')
 
   // Filtre « Non utilisées » : plus aucune image affichée sur l'accueil.

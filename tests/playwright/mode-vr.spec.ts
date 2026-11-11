@@ -167,6 +167,31 @@ test.describe('Salle de prière VR', () => {
     expect(erreurs).toEqual([])
   })
 
+  test('prédication laissée en cours : on la reprend là où on l’avait laissée', async ({ page }) => {
+    await page.addInitScript(() => {
+      // Le script tourne aussi dans le cadre YouTube, où localStorage est refusé.
+      if (window === window.top) localStorage.setItem('vr-ecoutes', JSON.stringify({ aaaaaaaaaa2: { t: 600, d: 1800, le: 1 } }))
+    })
+    const erreurs = await ouvrirSalle(page)
+    await tournerVersPredications(page)
+    await page.mouse.click(812, 355) // « L'enfant prodigue »
+    const carte = page.locator('.vr-carte')
+    await carte.getByRole('button', { name: 'Reprendre à 10:00' }).click()
+    // Trois secondes avant, pour retrouver le fil.
+    await expect(page.locator('.vr-ecoute-lecteur')).toHaveAttribute('src', /start=597&/)
+    const position = page.getByRole('slider', { name: 'Position dans la prédication' })
+    await expect(position).toHaveAttribute('max', '1800')
+    await page.getByRole('button', { name: 'Avancer de 30 secondes' }).click()
+    await expect(position).toHaveValue('627')
+    await page.getByRole('button', { name: /Vitesse 1×/ }).click()
+    await expect(page.getByRole('button', { name: /Vitesse 1,25×/ })).toBeVisible()
+    // Arrêter retient la position.
+    await page.locator('.vr-ecoute').getByRole('button', { name: 'Arrêter' }).click()
+    const memo = await page.evaluate(() => JSON.parse(localStorage.getItem('vr-ecoutes') || '{}'))
+    expect(memo.aaaaaaaaaa2.t).toBe(627)
+    expect(erreurs).toEqual([])
+  })
+
   test('rechercher dans les prédications et écouter au bon moment', async ({ page }) => {
     const erreurs = await ouvrirSalle(page)
     await tournerVersPredications(page)
@@ -190,6 +215,27 @@ test.describe('Salle de prière VR', () => {
     await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
     await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Arrêter »
     await expect(page.locator('.vr-sr')).not.toContainText('verset')
+    expect(erreurs).toEqual([])
+  })
+
+  test('surlignage seul : le verset défile sans voix, choix retenu', async ({ page }) => {
+    // Une voix est présente, mais on choisit le surlignage seul : elle ne doit pas parler.
+    await page.addInitScript(voixFactice)
+    await page.addInitScript(() => {
+      ;(window as any).paroles = 0
+      const speak = window.speechSynthesis.speak.bind(window.speechSynthesis)
+      window.speechSynthesis.speak = (u: any) => ((window as any).paroles++, speak(u))
+    })
+    const erreurs = await ouvrirSalle(page)
+    await page.mouse.click(PUPITRE.lieux.x, PUPITRE.lieux.y)
+    await page.waitForTimeout(500)
+    await page.mouse.click(688, 632) // « Surlignage seul »
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('vr-voix'))).toBe('0')
+    await page.mouse.click(640, 684) // « Retour au texte »
+    await page.waitForTimeout(500)
+    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Suivre »
+    await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
+    expect(await page.evaluate(() => (window as any).paroles)).toBe(0)
     expect(erreurs).toEqual([])
   })
 
@@ -227,6 +273,8 @@ test.describe('Salle de prière VR', () => {
     // Ne proposer que la salle de l'église et le jardin, arrivée au jardin.
     for (const nom of ['La chapelle', 'Le bord de mer', 'La chambre', 'Au-dessus des nuages']) await section.locator('label', { hasText: nom }).locator('input').uncheck()
     await section.getByLabel("Lieu de prière à l'arrivée").selectOption('jardin')
+    // Retirer une photo des activités, une seule.
+    await section.locator('.reglages-vr-photos label', { hasText: 'Les repas' }).locator('input').uncheck()
     await section.getByRole('button', { name: 'Ajouter une image par URL' }).click()
     await section.getByPlaceholder('URL image').fill('/photos/salle.jpg')
     await fenetre.getByRole('button', { name: 'Sauvegarder' }).click()
@@ -240,6 +288,7 @@ test.describe('Salle de prière VR', () => {
       predications: true,
       photosSite: true,
       photos: ['/photos/salle.jpg'],
+      photosSiteMasquees: ['/images/activites-repas.jpg'],
       lieux: ['salle', 'jardin'],
       lieu: 'jardin',
     })

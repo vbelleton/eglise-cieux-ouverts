@@ -78,8 +78,8 @@ test.describe('Salle de prière VR', () => {
     await expect(lieu).toHaveValue('chapelle')
     await page.mouse.click(PUPITRE.lieux.x, PUPITRE.lieux.y)
     await page.waitForTimeout(500)
-    await page.mouse.click(745, 370) // carte « Le jardin d’oliviers »
-    await expect(lieu).toHaveValue('jardin')
+    await page.mouse.click(725, 320) // 2e carte : « Notre salle »
+    await expect(lieu).toHaveValue('salle')
     await lieu.selectOption('mer')
     await page.waitForTimeout(1500)
     expect(await page.evaluate(() => localStorage.getItem('vr-lieu'))).toBe('mer')

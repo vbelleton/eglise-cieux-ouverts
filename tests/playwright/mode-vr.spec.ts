@@ -41,6 +41,15 @@ async function ouvrirSalle(page: Page) {
   return erreurs
 }
 
+/** Se tourner vers le panneau des prédications (à droite). */
+async function tournerVersPredications(page: Page) {
+  await page.mouse.move(640, 400)
+  await page.mouse.down()
+  await page.mouse.move(240, 400, { steps: 8 })
+  await page.mouse.up()
+  await page.waitForTimeout(500)
+}
+
 test.describe('Salle de prière VR', () => {
   test.beforeEach(async ({ request }) => {
     await resetMock(request)
@@ -102,18 +111,39 @@ test.describe('Salle de prière VR', () => {
     await requete
   })
 
-  test('une prédication propose sa vidéo', async ({ page }) => {
-    await ouvrirSalle(page)
-    // Se tourner vers le panneau des prédications (à droite).
-    await page.mouse.move(640, 400)
-    await page.mouse.down()
-    await page.mouse.move(240, 400, { steps: 8 })
-    await page.mouse.up()
-    await page.waitForTimeout(500)
+  test('une prédication : ses passages, son écoute, sa vidéo', async ({ page }) => {
+    const erreurs = await ouvrirSalle(page)
+    await tournerVersPredications(page)
     await page.mouse.click(812, 355) // « L'enfant prodigue »
     await expect(page.locator('.vr-carte')).toContainText("L'enfant prodigue")
+    // La Bible s'ouvre sur le premier passage cité ; une pastille par passage.
+    await expect(page.locator('.vr-sr')).toContainText('Luc 15')
+    await page.mouse.click(765, 375) // pastille « Matthieu 18.12-14 »
+    await expect(page.locator('.vr-sr')).toContainText('Matthieu 18')
+    // Écouter : lecteur YouTube invisible, commandable.
+    await page.locator('.vr-carte').getByRole('button', { name: 'Écouter' }).click()
+    await expect(page.locator('.vr-ecoute-lecteur')).toHaveAttribute('src', /embed\/aaaaaaaaaa2.*enablejsapi=1/)
+    await expect(page.locator('.vr-ecoute').getByRole('button', { name: 'Pause' })).toBeVisible()
+    // Regarder la vidéo arrête l'écoute.
     await page.getByRole('button', { name: 'Regarder la vidéo' }).click()
     await expect(page.locator('.vr-lecteur iframe')).toHaveAttribute('src', /youtube-nocookie\.com\/embed\/aaaaaaaaaa2/)
+    await expect(page.locator('.vr-ecoute-lecteur')).toHaveCount(0)
+    expect(erreurs).toEqual([])
+  })
+
+  test('rechercher dans les prédications et écouter au bon moment', async ({ page }) => {
+    const erreurs = await ouvrirSalle(page)
+    await tournerVersPredications(page)
+    await page.mouse.click(815, 537) // « Rechercher »
+    const champ = page.getByRole('searchbox', { name: 'Rechercher dans les prédications' })
+    await expect(champ).toBeVisible()
+    await champ.fill('pardon')
+    await page.waitForTimeout(1500)
+    await page.mouse.click(821, 386) // premier résultat
+    await expect(page.locator('.vr-carte')).toContainText('Louange du dimanche')
+    await page.mouse.click(820, 389) // moment « 12:34 »
+    await expect(page.locator('.vr-ecoute-lecteur')).toHaveAttribute('src', /start=(12|754)&/)
+    expect(erreurs).toEqual([])
   })
 
   test('aucun lien du site ne mène à la salle', async ({ page, request }) => {

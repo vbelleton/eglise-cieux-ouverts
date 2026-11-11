@@ -2,6 +2,8 @@
   <div class="vr-page">
     <div ref="conteneur" class="vr-scene" :class="{ 'vr-scene--prete': pret }" />
 
+    <p class="vr-sr" aria-live="polite">{{ passageOuvert && `Bible ouverte : ${passageOuvert}` }}</p>
+
     <noscript>
       <p class="vr-message">Cette salle de prière en réalité virtuelle a besoin de JavaScript.</p>
     </noscript>
@@ -32,11 +34,28 @@
         </header>
 
         <div class="vr-actions">
+          <form v-if="rechercheActive && !enPriere" class="vr-recherche" role="search" @submit.prevent="lancerRecherche(true)">
+            <input
+              ref="champRecherche"
+              v-model="requete"
+              type="search"
+              enterkeyhint="search"
+              placeholder="Un mot, une expression…"
+              aria-label="Rechercher dans les prédications"
+              @input="lancerRecherche(false)"
+            />
+          </form>
+          <div v-if="ecoute && !enPriere" class="vr-ecoute" aria-live="polite">
+            <span class="vr-ecoute-titre">🎧 {{ ecoute.titre }}</span>
+            <button type="button" class="vr-bouton" @click="basculerPause">{{ ecoute.enCours ? 'Pause' : 'Reprendre' }}</button>
+            <button type="button" class="vr-bouton" @click="arreterEcoute">Arrêter</button>
+          </div>
           <p v-if="enPriere" class="vr-aide" aria-live="polite">Temps de prière : laissez venir les versets.</p>
           <div v-else-if="video" class="vr-carte" aria-live="polite">
             <p class="vr-carte-titre">{{ video.titre }}</p>
             <div class="vr-boutons">
               <button type="button" class="vr-bouton vr-bouton--principal" @click="lecture = video">Regarder la vidéo</button>
+              <button v-if="ecoute?.id !== video.id" type="button" class="vr-bouton" @click="demarrerEcoute(video)">Écouter</button>
               <button type="button" class="vr-bouton" @click="video = null">Fermer</button>
             </div>
           </div>
@@ -59,6 +78,20 @@
         </div>
       </template>
     </template>
+
+    <!-- Écoute d'une prédication : lecteur YouTube invisible (le son seul),
+         qui continue au casque. Piloté par postMessage (enablejsapi). -->
+    <iframe
+      v-if="ecoute"
+      :key="ecoute.cle"
+      ref="lecteurEcoute"
+      class="vr-ecoute-lecteur"
+      :src="`https://www.youtube-nocookie.com/embed/${ecoute.id}?autoplay=1&start=${ecoute.debut}&enablejsapi=1&playsinline=1&rel=0`"
+      allow="autoplay; encrypted-media"
+      title="Écoute de la prédication"
+      tabindex="-1"
+      aria-hidden="true"
+    />
 
     <div v-if="lecture" class="vr-lecteur" role="dialog" aria-modal="true" :aria-label="lecture.titre" @click.self="lecture = null">
       <div class="vr-lecteur-cadre">
@@ -109,6 +142,46 @@ const video = ref(null)
 const lecture = ref(null)
 const enPriere = ref(false)
 const salle = ref(null)
+const rechercheActive = ref(false)
+const passageOuvert = ref('')
+const requete = ref('')
+const champRecherche = ref(null)
+const ecoute = ref(null)
+const lecteurEcoute = ref(null)
+let minuterieRecherche = null
+
+function lancerRecherche(immediat) {
+  clearTimeout(minuterieRecherche)
+  const faire = () => salle.value?.rechercher(requete.value)
+  if (immediat) {
+    faire()
+    champRecherche.value?.blur()
+  } else minuterieRecherche = setTimeout(faire, 250)
+}
+
+// Écoute : le lecteur est (re)créé à chaque départ ; pause et reprise par
+// l'API iframe de YouTube.
+let numeroEcoute = 0
+function demarrerEcoute(video, debut = 0) {
+  lecture.value = null
+  ecoute.value = { id: video.id, titre: video.titre, debut: Math.max(0, Math.floor(debut)), enCours: true, cle: ++numeroEcoute }
+}
+function commanderLecteur(func) {
+  lecteurEcoute.value?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube-nocookie.com')
+}
+function basculerPause() {
+  if (!ecoute.value) return
+  commanderLecteur(ecoute.value.enCours ? 'pauseVideo' : 'playVideo')
+  ecoute.value = { ...ecoute.value, enCours: !ecoute.value.enCours }
+}
+function arreterEcoute() {
+  ecoute.value = null
+}
+watch(ecoute, (e) => salle.value?.definirEcoute(e ? { id: e.id, enCours: e.enCours } : null))
+// Regarder la vidéo coupe l'écoute.
+watch(lecture, (l) => {
+  if (l) ecoute.value = null
+})
 const lieu = ref('chapelle')
 const lieuxProposes = ref(LIEUX)
 
@@ -151,6 +224,7 @@ function videoDepuis(v) {
     id: v.id,
     titre: v.titre,
     date: v.date,
+    description: v.description || '',
     image: `/api/vr/vignette/${v.id}`,
     passages: trouverPassages(`${v.titre} ${v.description || ''}`),
   }
@@ -170,7 +244,6 @@ async function chargerPredications() {
     return (res?.videos || [])
       .slice()
       .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-      .slice(0, 5)
       .map(videoDepuis)
   } catch (e) {
     console.error('[vr] prédications', e)
@@ -214,6 +287,14 @@ onMounted(async () => {
       dureePriere: reglages.dureePriere * 60,
       surAction: (a) => {
         if (a.type === 'predication') video.value = a.video
+        if (a.type === 'recherche') {
+          rechercheActive.value = a.actif
+          if (!a.actif) requete.value = ''
+          else if (a.requete) requete.value = a.requete
+        }
+        if (a.type === 'passage') passageOuvert.value = a.nom
+        if (a.type === 'ecouter') demarrerEcoute(a.video, a.debut)
+        if (a.type === 'pause') basculerPause()
         if (a.type === 'lieu') memoriserLieu(a.id)
         if (a.type === 'priere') {
           enPriere.value = a.actif
@@ -243,6 +324,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(minuterieRecherche)
   document.removeEventListener('fullscreenchange', surPleinEcran)
   scene?.detruire()
   scene = null
@@ -522,6 +604,66 @@ function quitterCarton() {
   justify-content: center;
   padding: 16px;
   text-align: center;
+}
+
+.vr-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.vr-recherche {
+  pointer-events: auto;
+  width: min(30rem, 100%);
+}
+.vr-recherche input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 2px solid var(--primary-blue);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--primary-blue);
+  font: inherit;
+  font-size: 1rem;
+}
+.vr-recherche input:focus-visible {
+  outline: 3px solid var(--primary-pink);
+  outline-offset: 2px;
+}
+.vr-ecoute {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 34rem;
+  padding: 6px 8px 6px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+}
+.vr-ecoute-titre {
+  max-width: 18rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+/* Invisible mais « affiché » : un lecteur masqué (display: none) ne joue pas
+   partout. */
+.vr-ecoute-lecteur {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 200px;
+  height: 113px;
+  border: 0;
+  opacity: 0.01;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

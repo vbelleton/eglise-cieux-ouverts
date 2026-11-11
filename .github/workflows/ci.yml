@@ -30,8 +30,9 @@ jobs:
         # Les dépendances système (polices surtout) viennent d'apt : quand les
         # miroirs Ubuntu du runner sont injoignables, l'installation échouait
         # avant le moindre test. L'image du runner a déjà de quoi lancer
-        # Chromium : on retombe alors sur le navigateur seul.
-        run: npx playwright install --with-deps chromium || npx playwright install chromium
+        # Chromium : on retombe alors sur le navigateur seul, sans attendre les
+        # nouvelles tentatives d'apt (plus de 10 min, de quoi dépasser le délai du job).
+        run: timeout 180 npx playwright install --with-deps chromium || npx playwright install chromium
 
       - name: Run E2E tests
         run: npx playwright test --reporter=line

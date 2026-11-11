@@ -1056,6 +1056,7 @@
                             @click="socialLinksForm.push({ platform: 'instagram', url: '' })"
                         >+ Ajouter un réseau</button>
                     </div>
+                    <ReglagesVR ref="reglagesVR" :jeton="getFirebaseToken" />
                     <div class="settings-field youtube-paroles">
                         <label>Recherche dans les paroles des prédications</label>
                         <p class="settings-hint">Page cachée <code>/messages?recherche</code> : avec la chaîne YouTube connectée, on peut y chercher un mot dans ce qui est dit, et ouvrir la vidéo au bon moment.</p>
@@ -1122,6 +1123,7 @@ import {
     onAuthStateChanged,
 } from "firebase/auth";
 import { BLOCK_TYPES, ANIMATIONS, HARDCODED_SLUGS } from "~/utils/blockTypes.js";
+import ReglagesVR from "~/components/admin/ReglagesVR.vue";
 import { SOCIAL_ICONS } from "~/utils/socialIcons.js";
 import { uploadImage, listUploadedImages } from "~/utils/imageUpload.js";
 import { useToast } from '~/composables/useToast'
@@ -1814,6 +1816,7 @@ async function deleteContactMessage(message) {
 // Settings
 const showSettings = ref(false)
 const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
+const reglagesVR = ref(null)
 const contactEmailsText = ref('')
 const socialLinksForm = ref([])
 const etatEmail = ref(null)
@@ -1998,6 +2001,9 @@ async function saveSettings() {
   }
   settingsSaving.value = true
   try {
+    // Salle de prière VR : document séparé (settings/vr), enregistré d'abord
+    // pour que son erreur éventuelle ne ferme pas la modale.
+    if (reglagesVR.value && !(await reglagesVR.value.enregistrer())) throw new Error('réglages de la salle de prière VR non enregistrés')
     const token = await getFirebaseToken()
     const res = await fetch('/api/settings', {
       method: 'PUT',

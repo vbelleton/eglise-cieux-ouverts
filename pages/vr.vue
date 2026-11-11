@@ -3,7 +3,7 @@
     <div ref="conteneur" class="vr-scene" :class="{ 'vr-scene--prete': pret }" />
 
     <noscript>
-      <p class="vr-message">Cette visite en réalité virtuelle a besoin de JavaScript.</p>
+      <p class="vr-message">Cette salle de prière en réalité virtuelle a besoin de JavaScript.</p>
     </noscript>
 
     <p v-if="erreur" class="vr-message" role="alert">
@@ -12,8 +12,7 @@
     </p>
 
     <template v-else-if="!enVR">
-      <!-- Mode carton : seul un petit bouton reste, au centre, pour sortir. -->
-<template v-if="carton">
+      <template v-if="carton">
         <!-- Point de visée de chaque œil : toucher l'écran vise ce qui est au centre. -->
         <span class="vr-viseur" style="left: 25%" aria-hidden="true" />
         <span class="vr-viseur" style="left: 75%" aria-hidden="true" />
@@ -22,39 +21,68 @@
 
       <template v-else>
         <header class="vr-entete">
-          <p class="vr-titre">Cieux Ouverts <span>· VR</span></p>
-          <NuxtLink to="/" class="vr-quitter" aria-label="Quitter la visite et revenir au site">✕</NuxtLink>
+          <p class="vr-titre">Cieux Ouverts <span>· salle de prière</span></p>
+          <NuxtLink to="/" class="vr-quitter" aria-label="Quitter la salle de prière et revenir au site">✕</NuxtLink>
         </header>
 
         <div class="vr-actions">
-          <p v-if="photo" class="vr-photo" aria-live="polite">
-            {{ photo }} <span>· {{ tactile ? 'touchez' : 'cliquez' }} à nouveau pour la remettre en place</span>
+          <p v-if="enPriere" class="vr-aide" aria-live="polite">Temps de prière : laissez venir les versets.</p>
+          <div v-else-if="video" class="vr-carte" aria-live="polite">
+            <p class="vr-carte-titre">{{ video.titre }}</p>
+            <div class="vr-boutons">
+              <button type="button" class="vr-bouton vr-bouton--principal" @click="lecture = video">Regarder la vidéo</button>
+              <button type="button" class="vr-bouton" @click="video = null">Fermer</button>
+            </div>
+          </div>
+          <p v-else-if="photo" class="vr-aide" aria-live="polite">
+            {{ photo }}{{ photo ? ' · ' : '' }}{{ tactile ? 'touchez' : 'cliquez' }} à nouveau pour la remettre en place
           </p>
           <p v-else class="vr-aide">{{ aide }}</p>
           <div class="vr-boutons">
-            <button v-if="vrOk" type="button" class="vr-bouton vr-bouton--principal" @click="entrerVR">
-              Entrer en réalité virtuelle
-            </button>
-            <button v-if="tactile" type="button" class="vr-bouton" @click="basculerGyro">
-              {{ gyro ? 'Arrêter le gyroscope' : 'Bouger le téléphone pour regarder' }}
-            </button>
-            <button v-if="tactile" type="button" class="vr-bouton" @click="entrerCarton">Mode casque carton</button>
+            <button v-if="enPriere" type="button" class="vr-bouton" @click="salle?.terminerPriere()">Terminer le temps de prière</button>
+            <template v-else>
+              <button v-if="vrOk" type="button" class="vr-bouton vr-bouton--principal" @click="entrerVR">
+                Entrer en réalité virtuelle
+              </button>
+              <button v-if="tactile" type="button" class="vr-bouton" @click="basculerGyro">
+                {{ gyro ? 'Arrêter le gyroscope' : 'Bouger le téléphone pour regarder' }}
+              </button>
+              <button v-if="tactile" type="button" class="vr-bouton" @click="entrerCarton">Mode casque carton</button>
+            </template>
           </div>
         </div>
       </template>
     </template>
+
+    <div v-if="lecture" class="vr-lecteur" role="dialog" aria-modal="true" :aria-label="lecture.titre" @click.self="lecture = null">
+      <div class="vr-lecteur-cadre">
+        <iframe
+          :src="`https://www.youtube-nocookie.com/embed/${lecture.id}?autoplay=1&rel=0`"
+          :title="lecture.titre"
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowfullscreen
+        />
+        <button type="button" class="vr-bouton" @click="lecture = null">Fermer la vidéo</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-// Mode VR caché : aucun lien du site n'y mène, page non indexée.
-// La scène elle-même est dans lib/vr/scene.js (three.js chargé à la demande).
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+// Salle de prière en réalité virtuelle, cachée : aucun lien du site n'y mène,
+// page non indexée. Le monde est dans lib/vr/scene.js, la salle (Bible,
+// agenda, prédications, temps de prière) dans lib/vr/salle.js ; three.js n'est
+// chargé qu'ici, à la demande. Contenu réglable dans ⚙ Config (« Mode VR »,
+// /api/vr/reglages).
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { trouverPassages } from '~/utils/livresBible.js'
+import { normaliserReglagesVR } from '~/utils/vrReglages.js'
+import { useChurchEvents } from '~/composables/useChurchEvents.js'
 
 definePageMeta({ layout: false })
 
 useSeoMeta({
-  title: 'Cieux Ouverts · VR',
+  title: 'Cieux Ouverts · salle de prière',
   robots: 'noindex, nofollow',
 })
 
@@ -67,30 +95,102 @@ const gyro = ref(false)
 const carton = ref(false)
 const enVR = ref(false)
 const photo = ref(null)
+const video = ref(null)
+const lecture = ref(null)
+const enPriere = ref(false)
+const salle = ref(null)
 
 const aide = computed(() =>
   tactile.value
-    ? 'Glissez pour regarder autour de vous, touchez une photo pour l’approcher.'
-    : 'Glissez pour regarder autour de vous, cliquez sur une photo pour l’approcher.',
+    ? 'Glissez pour regarder autour de vous. Touchez la Bible, l’agenda, une prédication ou une photo.'
+    : 'Glissez pour regarder autour de vous. Cliquez sur la Bible, l’agenda, une prédication ou une photo.',
 )
 
+const { evenements, loading: agendaChargement, erreur: agendaErreur } = useChurchEvents()
+let reglages = normaliserReglagesVR(null)
+
 let scene = null
+
+function videoDepuis(v) {
+  return {
+    id: v.id,
+    titre: v.titre,
+    date: v.date,
+    image: `/api/vr/vignette/${v.id}`,
+    passages: trouverPassages(`${v.titre} ${v.description || ''}`),
+  }
+}
+
+async function chargerReglages() {
+  try {
+    reglages = normaliserReglagesVR(await $fetch('/api/vr/reglages', { timeout: 8000 }))
+  } catch {
+    // Valeurs par défaut : la salle reste utilisable.
+  }
+}
+
+async function chargerPredications() {
+  try {
+    const res = await $fetch('/api/predications', { timeout: 25000 })
+    return (res?.videos || [])
+      .slice()
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+      .slice(0, 5)
+      .map(videoDepuis)
+  } catch (e) {
+    console.error('[vr] prédications', e)
+    return null
+  }
+}
+
+function majAgenda() {
+  salle.value?.definirAgenda({
+    actif: reglages.agenda,
+    chargement: agendaChargement.value,
+    erreur: agendaErreur.value,
+    evenements: evenements.value,
+  })
+}
+watch([evenements, agendaChargement, agendaErreur], majAgenda)
 
 onMounted(async () => {
   tactile.value = window.matchMedia('(pointer: coarse)').matches
   try {
-    const { creerSceneVR } = await import('~/lib/vr/scene.js')
+    const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }] = await Promise.all([import('~/lib/vr/scene.js'), import('~/lib/vr/salle.js'), chargerReglages()])
+    const photos = [...(reglages.photosSite ? PHOTOS_VR : []), ...reglages.photos.map((image) => ({ type: 'photo', image, titre: '' }))]
     scene = creerSceneVR(conteneur.value, {
+      elements: photos,
       surChangement: (e) => {
-        if ('photo' in e) photo.value = e.photo
+        if ('element' in e) photo.value = e.element ? e.element.titre || '' : null
         if ('vr' in e) enVR.value = e.vr
       },
     })
+    salle.value = creerSalle(scene.monde, {
+      surAction: (a) => {
+        if (a.type === 'predication') video.value = a.video
+        if (a.type === 'priere') {
+          enPriere.value = a.actif
+          video.value = null
+        }
+      },
+    })
+    majAgenda()
     pret.value = true
     vrOk.value = await scene.vrDisponible()
+
+    // Prédications, puis ouverture de la Bible sur le passage de la plus
+    // récente qui en cite un — sinon sur le passage du jour.
+    let videos = []
+    if (reglages.predications) {
+      salle.value.definirPredications({ chargement: true })
+      videos = await chargerPredications()
+      salle.value?.definirPredications(videos ? { videos } : { erreur: true })
+    } else salle.value.definirPredications({ actif: false })
+    const passage = (videos || []).find((v) => v.passages.length)?.passages[0]
+    salle.value?.ouvrir(passage || salle.value.passageDuJour())
   } catch (e) {
     console.error('[vr]', e)
-    erreur.value = 'Votre appareil n’arrive pas à afficher la visite en 3D.'
+    erreur.value = 'Votre appareil n’arrive pas à afficher la salle en 3D.'
   }
 })
 
@@ -98,10 +198,12 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', surPleinEcran)
   scene?.detruire()
   scene = null
+  salle.value = null
 })
 
 async function entrerVR() {
   try {
+    video.value = null
     await scene.entrerVR()
   } catch (e) {
     console.error('[vr]', e)
@@ -272,6 +374,44 @@ function quitterCarton() {
   color: var(--primary-blue);
   font: inherit;
   font-size: 0.8rem;
+}
+
+.vr-carte {
+  pointer-events: auto;
+  max-width: 34rem;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  backdrop-filter: blur(6px);
+}
+.vr-carte-titre {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.vr-lecteur {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 30, 56, 0.7);
+}
+.vr-lecteur-cadre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(960px, 100%);
+}
+.vr-lecteur iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 12px;
+  background: #000;
 }
 
 .vr-viseur {

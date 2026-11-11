@@ -3,7 +3,7 @@
     <div ref="conteneur" class="vr-scene" :class="{ 'vr-scene--prete': pret }" />
 
     <p class="vr-sr" aria-live="polite">
-      {{ lectureBible && versetLu ? `Lecture : ${passageOuvert}, verset ${versetLu}` : passageOuvert && `Bible ouverte : ${passageOuvert}` }}
+      {{ enLecture && versetLu ? `Lecture : ${passageOuvert}, verset ${versetLu}` : passageOuvert && `Bible ouverte : ${passageOuvert}` }}
     </p>
 
     <noscript>
@@ -159,13 +159,30 @@ const requete = ref('')
 const champRecherche = ref(null)
 const ecoute = ref(null)
 const lecteurEcoute = ref(null)
-const lectureBible = ref(false)
+const lectureBible = ref(false) // lecture avec la voix
+const enLecture = ref(false) // lecture, avec ou sans voix
 const versetLu = ref(null)
 let minuterieRecherche = null
 
 // Fond musical (lib/vr/musique.js) : choisi par le visiteur (retenu sur son
 // appareil), sinon celui réglé dans l'admin. Le son ne peut démarrer qu'après
 // un geste : le premier clic ou toucher dans la page le lance.
+// Lecture de la Bible : avec la voix (par défaut) ou surlignage seul, retenu aussi.
+const CLE_VOIX = 'vr-voix'
+function voixMemorisee() {
+  try {
+    return localStorage.getItem(CLE_VOIX) !== '0'
+  } catch {
+    return true
+  }
+}
+function memoriserVoix(actif) {
+  try {
+    localStorage.setItem(CLE_VOIX, actif ? '1' : '0')
+  } catch {
+    // Navigation privée : choix non retenu.
+  }
+}
 const CLE_MUSIQUE = 'vr-musique'
 const musique = ref(null)
 let lecteurMusique = null
@@ -387,8 +404,11 @@ onMounted(async () => {
         if (a.type === 'lieu') memoriserLieu(a.id)
         if (a.type === 'musique') choisirMusique(a.id)
         if (a.type === 'verset') versetLu.value = a.n
+        if (a.type === 'voix') memoriserVoix(a.actif)
         if (a.type === 'lecture') {
-          lectureBible.value = a.actif
+          // Sans voix, rien à couvrir : la musique garde son volume.
+          enLecture.value = a.actif
+          lectureBible.value = a.actif && a.voix
           versetLu.value = null
           if (a.actif) ecoute.value = null
         }
@@ -399,6 +419,7 @@ onMounted(async () => {
       },
     })
     salle.value.definirMusique(musique.value)
+    salle.value.definirVoix(voixMemorisee())
     majAgenda()
     pret.value = true
     vrOk.value = await scene.vrDisponible()

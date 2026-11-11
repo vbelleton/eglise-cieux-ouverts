@@ -193,6 +193,27 @@ test.describe('Salle de prière VR', () => {
     expect(erreurs).toEqual([])
   })
 
+  test('surlignage seul : le verset défile sans voix, choix retenu', async ({ page }) => {
+    // Une voix est présente, mais on choisit le surlignage seul : elle ne doit pas parler.
+    await page.addInitScript(voixFactice)
+    await page.addInitScript(() => {
+      ;(window as any).paroles = 0
+      const speak = window.speechSynthesis.speak.bind(window.speechSynthesis)
+      window.speechSynthesis.speak = (u: any) => ((window as any).paroles++, speak(u))
+    })
+    const erreurs = await ouvrirSalle(page)
+    await page.mouse.click(PUPITRE.lieux.x, PUPITRE.lieux.y)
+    await page.waitForTimeout(500)
+    await page.mouse.click(688, 632) // « Surlignage seul »
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('vr-voix'))).toBe('0')
+    await page.mouse.click(640, 684) // « Retour au texte »
+    await page.waitForTimeout(500)
+    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Suivre »
+    await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
+    expect(await page.evaluate(() => (window as any).paroles)).toBe(0)
+    expect(erreurs).toEqual([])
+  })
+
   test('tableau du domaine public lié au passage ouvert, fond musical au choix', async ({ page }) => {
     const tableau = page.waitForRequest(/\/api\/vr\/tableau\/transfiguration/, { timeout: 30000 })
     const erreurs = await ouvrirSalle(page) // Matthieu 17 : la Transfiguration

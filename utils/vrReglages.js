@@ -12,7 +12,7 @@ export const VR_REGLAGES_DEFAUT = {
 }
 
 /** Identifiants des lieux de lib/vr/lieux/index.js (vérifié par un test). */
-export const VR_LIEUX = ['chapelle', 'jardin', 'mer', 'ciel']
+export const VR_LIEUX = ['chapelle', 'jardin', 'mer', 'chambre', 'ciel']
 
 export const VR_MAX_PHOTOS = 40
 

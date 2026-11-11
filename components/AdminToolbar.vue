@@ -238,6 +238,13 @@
                         </button>
                         <button
                             class="admin-btn admin-btn-secondary admin-btn-compact"
+                            @click="showSalleVR = true"
+                            title="Salle de prière VR (page cachée /vr)"
+                        >
+                            <span class="icon">🥽</span><span class="label">Salle VR</span>
+                        </button>
+                        <button
+                            class="admin-btn admin-btn-secondary admin-btn-compact"
                             @click="showTaches = true"
                             title="Tableau des tâches — qui fait quoi"
                         >
@@ -956,6 +963,28 @@
         </div>
     </Teleport>
 
+    <!-- Modale Salle de prière VR (page cachée /vr) -->
+    <Teleport to="body" v-if="showSalleVR">
+        <div class="settings-modal-overlay" @click.self="showSalleVR = false">
+            <div class="settings-modal salle-vr-modal" role="dialog" aria-modal="true" aria-labelledby="salle-vr-titre">
+                <div class="settings-modal-header">
+                    <h2 id="salle-vr-titre">🥽 Salle de prière VR</h2>
+                    <button class="close-btn" @click="showSalleVR = false" title="Fermer">✕</button>
+                </div>
+                <div class="settings-modal-body">
+                    <ReglagesVR ref="reglagesVR" :jeton="getFirebaseToken" />
+                </div>
+                <div class="settings-modal-footer">
+                    <a class="btn-cancel salle-vr-ouvrir" href="/vr" target="_blank" rel="noopener">Ouvrir la salle ↗</a>
+                    <button class="btn-cancel" @click="showSalleVR = false">Annuler</button>
+                    <button class="btn-save" @click="enregistrerSalleVR" :disabled="salleVRSaving">
+                        {{ salleVRSaving ? 'Sauvegarde...' : 'Sauvegarder' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
     <!-- Modale Configuration -->
     <Teleport to="body" v-if="showSettings">
         <div class="settings-modal-overlay" @click.self="showSettings = false">
@@ -1056,7 +1085,6 @@
                             @click="socialLinksForm.push({ platform: 'instagram', url: '' })"
                         >+ Ajouter un réseau</button>
                     </div>
-                    <ReglagesVR ref="reglagesVR" :jeton="getFirebaseToken" />
                     <div class="settings-field youtube-paroles">
                         <label>Recherche dans les paroles des prédications</label>
                         <p class="settings-hint">Page cachée <code>/messages?recherche</code> : avec la chaîne YouTube connectée, on peut y chercher un mot dans ce qui est dit, et ouvrir la vidéo au bon moment.</p>
@@ -1816,7 +1844,21 @@ async function deleteContactMessage(message) {
 // Settings
 const showSettings = ref(false)
 const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
+// Salle de prière VR : fenêtre à part (bouton 🥽), document settings/vr.
 const reglagesVR = ref(null)
+const showSalleVR = ref(false)
+const salleVRSaving = ref(false)
+async function enregistrerSalleVR() {
+  salleVRSaving.value = true
+  try {
+    if (await reglagesVR.value?.enregistrer()) {
+      showToast('Salle de prière enregistrée', 'toast-success')
+      showSalleVR.value = false
+    } else showToast('Salle de prière non enregistrée : voir le message dans la fenêtre', 'toast-error')
+  } finally {
+    salleVRSaving.value = false
+  }
+}
 const contactEmailsText = ref('')
 const socialLinksForm = ref([])
 const etatEmail = ref(null)
@@ -2001,9 +2043,6 @@ async function saveSettings() {
   }
   settingsSaving.value = true
   try {
-    // Salle de prière VR : document séparé (settings/vr), enregistré d'abord
-    // pour que son erreur éventuelle ne ferme pas la modale.
-    if (reglagesVR.value && !(await reglagesVR.value.enregistrer())) throw new Error('réglages de la salle de prière VR non enregistrés')
     const token = await getFirebaseToken()
     const res = await fetch('/api/settings', {
       method: 'PUT',
@@ -4344,6 +4383,13 @@ async function saveChanges() {
 .btn-cancel {
     background: #e5e7eb;
     color: #374151;
+}
+/* « Ouvrir la salle » : lien à gauche du pied de la fenêtre Salle VR. */
+.salle-vr-ouvrir {
+    margin-right: auto;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
 }
 .btn-cancel:hover {
     background: #d1d5db;

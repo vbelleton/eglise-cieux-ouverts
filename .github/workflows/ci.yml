@@ -27,7 +27,11 @@ jobs:
           NUXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NUXT_PUBLIC_FIREBASE_API_KEY || 'ci-dummy-key' }}
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        # Les dépendances système (polices surtout) viennent d'apt : quand les
+        # miroirs Ubuntu du runner sont injoignables, l'installation échouait
+        # avant le moindre test. L'image du runner a déjà de quoi lancer
+        # Chromium : on retombe alors sur le navigateur seul.
+        run: npx playwright install --with-deps chromium || npx playwright install chromium
 
       - name: Run E2E tests
         run: npx playwright test --reporter=line

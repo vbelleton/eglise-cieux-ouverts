@@ -11,7 +11,7 @@ function sanitizeSlug(rawSlug: string): string {
 // avec le même slug serait enregistrée en Firestore mais jamais rendue
 // nulle part (l'URL reste capturée par le fichier statique) — on bloque
 // donc leur création à la source plutôt que de laisser un piège silencieux.
-const RESERVED_SLUGS = ['admin', 'api', '_nuxt', 'favicon.ico', 'robots.txt', 'predications', ...HARDCODED_SLUGS]
+const RESERVED_SLUGS = ['admin', 'api', '_nuxt', 'favicon.ico', 'robots.txt', 'predications', 'vr', ...HARDCODED_SLUGS]
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

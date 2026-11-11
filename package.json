@@ -26,6 +26,7 @@
     "firebase": "^12.12.1",
     "nuxt": "3.21.11",
     "swiper": "^12.2.0",
+    "three": "0.180.0",
     "vue": "^3.4.0",
     "vue-draggable-plus": "^0.6.1",
     "vue-draggable-resizable": "^3.0.0",

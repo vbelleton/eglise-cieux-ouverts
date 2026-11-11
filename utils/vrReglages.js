@@ -6,12 +6,17 @@
 /** Identifiants des lieux de lib/vr/lieux/index.js (vérifié par un test). */
 export const VR_LIEUX = ['chapelle', 'salle', 'jardin', 'mer', 'chambre', 'ciel']
 
+/** Identifiants des fonds musicaux de lib/vr/musique.js (vérifié par un test). */
+export const VR_MUSIQUES = ['repos', 'attente', 'lumiere', 'nuit']
+
 export const VR_REGLAGES_DEFAUT = {
   titre: 'salle de prière', // affiché en haut de l'écran et dans l'onglet
   lieux: [...VR_LIEUX], // lieux proposés aux visiteurs
   lieu: 'chapelle', // lieu de prière à l'arrivée (lib/vr/lieux/)
   passage: '', // passage d'ouverture (« Psaume 23 ») ; vide = automatique
   dureePriere: 3, // minutes du temps de prière
+  musique: 'repos', // fond musical à l'arrivée (lib/vr/musique.js) ; null = aucun
+  tableaux: true, // tableaux du domaine public selon le passage ouvert (lib/vr/tableaux.js)
   agenda: true, // prochains événements (Worker eglise-app)
   predications: true, // dernières vidéos YouTube (/api/predications)
   photosSite: true, // photos des activités (lib/vr/scene.js → PHOTOS_VR)
@@ -40,6 +45,8 @@ export function normaliserReglagesVR(data) {
     lieux,
     lieu,
     passage: texte(data?.passage, '', 60),
+    musique: data && 'musique' in data ? (VR_MUSIQUES.includes(data.musique) ? data.musique : null) : VR_REGLAGES_DEFAUT.musique,
+    tableaux: bool(data?.tableaux, VR_REGLAGES_DEFAUT.tableaux),
     dureePriere: Number.isFinite(duree) ? Math.min(VR_DUREE_MAX, Math.max(VR_DUREE_MIN, duree)) : VR_REGLAGES_DEFAUT.dureePriere,
     agenda: bool(data?.agenda, VR_REGLAGES_DEFAUT.agenda),
     predications: bool(data?.predications, VR_REGLAGES_DEFAUT.predications),

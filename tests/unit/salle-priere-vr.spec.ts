@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { trouverPassages, nomPassage, LIVRES_BIBLE } from '../../utils/livresBible.js'
-import { normaliserReglagesVR, VR_LIEUX } from '../../utils/vrReglages.js'
+import { normaliserReglagesVR, VR_LIEUX, VR_MUSIQUES } from '../../utils/vrReglages.js'
+import { IDS_AMBIANCES } from '../../lib/vr/musique.js'
 import { LIEUX } from '../../lib/vr/lieux/index.js'
 
 // Salle de prière VR (/vr) : passages cités par les prédications, Bible
@@ -59,6 +60,8 @@ test.describe('Réglages de la salle de prière', () => {
       lieu: 'chapelle',
       passage: '',
       dureePriere: 3,
+      musique: 'repos',
+      tableaux: true,
       agenda: true,
       predications: true,
       photosSite: true,
@@ -83,6 +86,14 @@ test.describe('Réglages de la salle de prière', () => {
     expect(normaliserReglagesVR({ lieux: ['mer', 'inconnu', 'salle'], lieu: 'chapelle' })).toMatchObject({ lieux: ['salle', 'mer'], lieu: 'salle' })
     expect(normaliserReglagesVR({ lieux: ['salle', 'mer'], lieu: 'mer' }).lieu).toBe('mer')
     expect(normaliserReglagesVR({ lieux: [] }).lieux).toEqual(VR_LIEUX)
+  })
+
+  test('fond musical : une ambiance qui existe, ou aucune si on l’a choisi', () => {
+    expect(IDS_AMBIANCES).toEqual(VR_MUSIQUES)
+    expect(normaliserReglagesVR({}).musique).toBe('repos')
+    expect(normaliserReglagesVR({ musique: 'nuit' }).musique).toBe('nuit')
+    expect(normaliserReglagesVR({ musique: null }).musique).toBeNull()
+    expect(normaliserReglagesVR({ musique: '<script>' }).musique).toBeNull()
   })
 
   test('durée de prière bornée, titre et passage nettoyés', () => {

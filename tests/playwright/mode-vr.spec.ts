@@ -13,9 +13,45 @@ import { resetMock } from './helpers/reset'
  */
 
 const PUPITRE = {
-  livres: { x: 545, y: 684 },
-  lieux: { x: 678, y: 684 },
-  priere: { x: 736, y: 684 },
+  livres: { x: 529, y: 684 },
+  lieux: { x: 648, y: 684 },
+  lire: { x: 701, y: 684 },
+  priere: { x: 753, y: 684 },
+}
+
+/** Synthèse vocale factice : chaque verset « dure » 150 ms (le Chromium de test n'a pas de voix). */
+function voixFactice() {
+  const file: any[] = []
+  let enCours: any = null
+  const suivant = () => {
+    enCours = file.shift() || null
+    if (!enCours) return
+    const u = enCours
+    u.onstart?.({})
+    u._t = setTimeout(() => {
+      u.onend?.({})
+      suivant()
+    }, 150)
+  }
+  const synth = {
+    speak(u: any) {
+      file.push(u)
+      if (!enCours) suivant()
+    },
+    cancel() {
+      if (enCours) clearTimeout(enCours._t)
+      file.length = 0
+      enCours = null
+    },
+    resume() {},
+    getVoices: () => [{ name: 'Thomas', lang: 'fr-FR', voiceURI: 'Thomas', localService: true }],
+    addEventListener() {},
+    removeEventListener() {},
+  }
+  Object.defineProperty(window, 'speechSynthesis', { value: synth })
+  ;(window as any).SpeechSynthesisUtterance = function (this: any, texte: string) {
+    this.text = texte
+  }
 }
 
 async function ouvrirSalle(page: Page) {
@@ -143,6 +179,30 @@ test.describe('Salle de prière VR', () => {
     await expect(page.locator('.vr-carte')).toContainText('Louange du dimanche')
     await page.mouse.click(820, 389) // moment « 12:34 »
     await expect(page.locator('.vr-ecoute-lecteur')).toHaveAttribute('src', /start=(12|754)&/)
+    expect(erreurs).toEqual([])
+  })
+
+  test('la Bible lue à voix haute : « Lire » puis « Arrêter »', async ({ page }) => {
+    await page.addInitScript(voixFactice)
+    const erreurs = await ouvrirSalle(page)
+    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y)
+    // Le verset lu est annoncé hors du canvas.
+    await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
+    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Arrêter »
+    await expect(page.locator('.vr-sr')).not.toContainText('verset')
+    expect(erreurs).toEqual([])
+  })
+
+  test('tableau du domaine public lié au passage ouvert, fond musical au choix', async ({ page }) => {
+    const tableau = page.waitForRequest(/\/api\/vr\/tableau\/transfiguration/, { timeout: 30000 })
+    const erreurs = await ouvrirSalle(page) // Matthieu 17 : la Transfiguration
+    await tableau
+    const musique = page.getByRole('combobox', { name: 'Fond musical' })
+    await expect(musique).toHaveValue('repos')
+    await musique.selectOption('nuit')
+    expect(await page.evaluate(() => localStorage.getItem('vr-musique'))).toBe('nuit')
+    await musique.selectOption('')
+    expect(await page.evaluate(() => localStorage.getItem('vr-musique'))).toBe('')
     expect(erreurs).toEqual([])
   })
 

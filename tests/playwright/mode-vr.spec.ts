@@ -30,9 +30,13 @@ async function ouvrirSalle(page: Page) {
       ],
     }),
   )
+  // « Prier » reste désactivé tant que la Bible n'est pas ouverte : on attend
+  // le livre plutôt qu'un délai fixe, trop court sur une machine chargée.
+  const bible = page.waitForResponse(/\/bible\/lsg\/\w+\.json/, { timeout: 30000 })
   await page.goto('/vr')
   await expect(page.locator('.vr-scene canvas')).toBeVisible({ timeout: 15000 })
-  // Laisse les textures et les prédications arriver.
+  await bible
+  // Laisse les textures, les prédications et le dessin du pupitre arriver.
   await page.waitForTimeout(2500)
   return erreurs
 }
@@ -119,18 +123,60 @@ test.describe('Salle de prière VR', () => {
     expect(sitemap).not.toContain('/vr')
   })
 
-  test('⚙ Config enregistre les réglages de la salle', async ({ page, request }) => {
+  test('🥽 Salle VR (admin) enregistre les réglages, appliqués dans la salle', async ({ page, request }) => {
     await loginAsAdmin(page)
-    await page.locator('button[title="Configuration"]').click()
-    const section = page.locator('.reglages-vr')
-    await expect(section).toBeVisible()
+    await page.locator('button[title^="Salle de prière VR"]').click()
+    const fenetre = page.locator('.salle-vr-modal')
+    const section = fenetre.locator('.reglages-vr')
+    await expect(section.getByLabel("Afficher les prochains rendez-vous de l'agenda")).toBeVisible()
     await section.getByLabel("Afficher les prochains rendez-vous de l'agenda").uncheck()
+    await section.getByLabel("Titre affiché en haut de l'écran").fill('veillée de prière')
+    await section.getByLabel("Passage biblique d'ouverture").fill('Psaume 23')
+    await expect(section).toContainText("La Bible s'ouvrira sur Psaumes 23")
+    await section.getByLabel('Durée du temps de prière').fill('5')
+    // Ne proposer que la salle de l'église et le jardin, arrivée au jardin.
+    for (const nom of ['La chapelle', 'Le bord de mer', 'La chambre', 'Au-dessus des nuages']) await section.locator('label', { hasText: nom }).locator('input').uncheck()
     await section.getByLabel("Lieu de prière à l'arrivée").selectOption('jardin')
     await section.getByRole('button', { name: 'Ajouter une image par URL' }).click()
     await section.getByPlaceholder('URL image').fill('/photos/salle.jpg')
-    await page.locator('.settings-modal').getByRole('button', { name: 'Sauvegarder' }).click()
-    await expect(page.locator('.settings-modal')).toHaveCount(0)
+    await fenetre.getByRole('button', { name: 'Sauvegarder' }).click()
+    await expect(fenetre).toHaveCount(0)
     const reglages = await (await request.get('/api/vr/reglages')).json()
-    expect(reglages).toMatchObject({ agenda: false, predications: true, photosSite: true, photos: ['/photos/salle.jpg'], lieu: 'jardin' })
+    expect(reglages).toMatchObject({
+      titre: 'veillée de prière',
+      passage: 'Psaume 23',
+      dureePriere: 5,
+      agenda: false,
+      predications: true,
+      photosSite: true,
+      photos: ['/photos/salle.jpg'],
+      lieux: ['salle', 'jardin'],
+      lieu: 'jardin',
+    })
+
+    // La salle suit : titre, deux lieux seulement, Bible au Psaume 23.
+    const livres: string[] = []
+    page.on('request', (r) => {
+      const m = r.url().match(/\/bible\/lsg\/(\w+)\.json/)
+      if (m) livres.push(m[1])
+    })
+    await page.goto('/vr')
+    await expect(page.locator('.vr-titre')).toContainText('veillée de prière')
+    const lieu = page.getByRole('combobox', { name: 'Lieu de prière' })
+    await expect(lieu).toHaveValue('jardin')
+    await expect(lieu.locator('option')).toHaveText(['Notre salle', 'Le jardin d’oliviers'])
+    await expect.poll(() => livres).toContain('PSA')
+  })
+
+  test('le passage d’ouverture invalide n’est pas enregistré', async ({ page, request }) => {
+    await loginAsAdmin(page)
+    await page.locator('button[title^="Salle de prière VR"]').click()
+    const fenetre = page.locator('.salle-vr-modal')
+    await fenetre.getByLabel("Passage biblique d'ouverture").fill('blabla 12')
+    await expect(fenetre).toContainText('Passage non reconnu')
+    await fenetre.getByRole('button', { name: 'Sauvegarder' }).click()
+    await expect(fenetre).toBeVisible()
+    const reglages = await (await request.get('/api/vr/reglages')).json()
+    expect(reglages.passage).toBe('')
   })
 })

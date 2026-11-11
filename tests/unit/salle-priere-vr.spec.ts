@@ -53,7 +53,17 @@ test.describe('Bible Louis Segond 1910 (public/bible/lsg)', () => {
 
 test.describe('Réglages de la salle de prière', () => {
   test('valeurs par défaut quand rien n’est enregistré', () => {
-    expect(normaliserReglagesVR(null)).toEqual({ photosSite: true, photos: [], predications: true, agenda: true, lieu: 'chapelle' })
+    expect(normaliserReglagesVR(null)).toEqual({
+      titre: 'salle de prière',
+      lieux: VR_LIEUX,
+      lieu: 'chapelle',
+      passage: '',
+      dureePriere: 3,
+      agenda: true,
+      predications: true,
+      photosSite: true,
+      photos: [],
+    })
   })
 
   test('ne garde que des adresses d’images sûres, sans doublon', () => {
@@ -67,5 +77,21 @@ test.describe('Réglages de la salle de prière', () => {
     expect(LIEUX.map((l) => l.id)).toEqual(VR_LIEUX)
     expect(normaliserReglagesVR({ lieu: 'mer' }).lieu).toBe('mer')
     expect(normaliserReglagesVR({ lieu: '../../etc' }).lieu).toBe('chapelle')
+  })
+
+  test('lieux proposés : au moins un, et le lieu d’arrivée en fait partie', () => {
+    expect(normaliserReglagesVR({ lieux: ['mer', 'inconnu', 'salle'], lieu: 'chapelle' })).toMatchObject({ lieux: ['salle', 'mer'], lieu: 'salle' })
+    expect(normaliserReglagesVR({ lieux: ['salle', 'mer'], lieu: 'mer' }).lieu).toBe('mer')
+    expect(normaliserReglagesVR({ lieux: [] }).lieux).toEqual(VR_LIEUX)
+  })
+
+  test('durée de prière bornée, titre et passage nettoyés', () => {
+    expect(normaliserReglagesVR({ dureePriere: 0 }).dureePriere).toBe(1)
+    expect(normaliserReglagesVR({ dureePriere: 99 }).dureePriere).toBe(15)
+    expect(normaliserReglagesVR({ dureePriere: '7' }).dureePriere).toBe(7)
+    expect(normaliserReglagesVR({ dureePriere: 'abc' }).dureePriere).toBe(3)
+    expect(normaliserReglagesVR({ titre: '   ' }).titre).toBe('salle de prière')
+    expect(normaliserReglagesVR({ titre: '  veillée   du soir ' }).titre).toBe('veillée du soir')
+    expect(normaliserReglagesVR({ passage: 'x'.repeat(200) }).passage).toHaveLength(60)
   })
 })

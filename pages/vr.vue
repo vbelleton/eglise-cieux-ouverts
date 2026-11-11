@@ -21,11 +21,11 @@
 
       <template v-else>
         <header class="vr-entete">
-          <p class="vr-titre">Cieux Ouverts <span>· salle de prière</span></p>
-          <label class="vr-lieu">
+          <p class="vr-titre">Cieux Ouverts <span>· {{ titre }}</span></p>
+          <label v-if="lieuxProposes.length > 1" class="vr-lieu">
             <span class="vr-lieu-libelle">Lieu</span>
             <select :value="lieu" aria-label="Lieu de prière" @change="choisirLieu($event.target.value)">
-              <option v-for="l in LIEUX" :key="l.id" :value="l.id">{{ l.nom }}</option>
+              <option v-for="l in lieuxProposes" :key="l.id" :value="l.id">{{ l.nom }}</option>
             </select>
           </label>
           <NuxtLink to="/" class="vr-quitter" aria-label="Quitter la salle de prière et revenir au site">✕</NuxtLink>
@@ -78,7 +78,7 @@
 // Salle de prière en réalité virtuelle, cachée : aucun lien du site n'y mène,
 // page non indexée. Le monde est dans lib/vr/scene.js, la salle (Bible,
 // agenda, prédications, temps de prière) dans lib/vr/salle.js ; three.js n'est
-// chargé qu'ici, à la demande. Contenu réglable dans ⚙ Config (« Mode VR »,
+// chargé qu'ici, à la demande. Contenu réglable dans l'admin (bouton 🥽 « Salle VR »,
 // /api/vr/reglages).
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { trouverPassages } from '~/utils/livresBible.js'
@@ -88,8 +88,11 @@ import { LIEUX } from '~/lib/vr/lieux/index.js'
 
 definePageMeta({ layout: false })
 
+// Réglés dans l'admin (🥽 Salle VR) : titre, lieux proposés.
+const titre = ref('salle de prière')
+
 useSeoMeta({
-  title: 'Cieux Ouverts · salle de prière',
+  title: () => `Cieux Ouverts · ${titre.value}`,
   robots: 'noindex, nofollow',
 })
 
@@ -107,8 +110,10 @@ const lecture = ref(null)
 const enPriere = ref(false)
 const salle = ref(null)
 const lieu = ref('chapelle')
+const lieuxProposes = ref(LIEUX)
 
-// Le dernier lieu choisi par ce visiteur, sinon celui réglé dans ⚙ Config.
+// Le dernier lieu choisi par ce visiteur (s'il est encore proposé), sinon
+// celui réglé dans l'admin.
 const CLE_LIEU = 'vr-lieu'
 function lieuMemorise() {
   try {
@@ -189,7 +194,9 @@ onMounted(async () => {
     const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }] = await Promise.all([import('~/lib/vr/scene.js'), import('~/lib/vr/salle.js'), chargerReglages()])
     const photos = [...(reglages.photosSite ? PHOTOS_VR : []), ...reglages.photos.map((image) => ({ type: 'photo', image, titre: '' }))]
     const memorise = lieuMemorise()
-    lieu.value = LIEUX.some((l) => l.id === memorise) ? memorise : reglages.lieu
+    titre.value = reglages.titre
+    lieuxProposes.value = LIEUX.filter((l) => reglages.lieux.includes(l.id))
+    lieu.value = reglages.lieux.includes(memorise) ? memorise : reglages.lieu
     scene = creerSceneVR(conteneur.value, {
       elements: photos,
       lieu: lieu.value,
@@ -203,6 +210,8 @@ onMounted(async () => {
       },
     })
     salle.value = creerSalle(scene.monde, {
+      lieux: reglages.lieux,
+      dureePriere: reglages.dureePriere * 60,
       surAction: (a) => {
         if (a.type === 'predication') video.value = a.video
         if (a.type === 'lieu') memoriserLieu(a.id)
@@ -216,15 +225,16 @@ onMounted(async () => {
     pret.value = true
     vrOk.value = await scene.vrDisponible()
 
-    // Prédications, puis ouverture de la Bible sur le passage de la plus
-    // récente qui en cite un — sinon sur le passage du jour.
+    // Prédications, puis ouverture de la Bible : sur le passage choisi dans
+    // l'admin, sinon sur celui de la plus récente prédication qui en cite un,
+    // sinon sur le passage du jour.
     let videos = []
     if (reglages.predications) {
       salle.value.definirPredications({ chargement: true })
       videos = await chargerPredications()
       salle.value?.definirPredications(videos ? { videos } : { erreur: true })
     } else salle.value.definirPredications({ actif: false })
-    const passage = (videos || []).find((v) => v.passages.length)?.passages[0]
+    const passage = trouverPassages(reglages.passage)[0] || (videos || []).find((v) => v.passages.length)?.passages[0]
     salle.value?.ouvrir(passage || salle.value.passageDuJour())
   } catch (e) {
     console.error('[vr]', e)

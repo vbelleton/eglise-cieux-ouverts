@@ -17,6 +17,9 @@ const PUPITRE = {
   lieux: { x: 648, y: 684 },
   lire: { x: 701, y: 684 },
   priere: { x: 753, y: 684 },
+  // Après « Lire » : le choix de la lecture remplace la rangée de boutons.
+  avecVoix: { x: 546, y: 684 },
+  surlignageSeul: { x: 653, y: 684 },
 }
 
 /** Synthèse vocale factice : chaque verset « dure » 150 ms (le Chromium de test n'a pas de voix). */
@@ -211,6 +214,8 @@ test.describe('Salle de prière VR', () => {
     await page.addInitScript(voixFactice)
     const erreurs = await ouvrirSalle(page)
     await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y)
+    await page.waitForTimeout(300)
+    await page.mouse.click(PUPITRE.avecVoix.x, PUPITRE.avecVoix.y)
     // Le verset lu est annoncé hors du canvas.
     await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
     await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Arrêter »
@@ -227,13 +232,10 @@ test.describe('Salle de prière VR', () => {
       window.speechSynthesis.speak = (u: any) => ((window as any).paroles++, speak(u))
     })
     const erreurs = await ouvrirSalle(page)
-    await page.mouse.click(PUPITRE.lieux.x, PUPITRE.lieux.y)
-    await page.waitForTimeout(500)
-    await page.mouse.click(688, 632) // « Surlignage seul »
+    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y)
+    await page.waitForTimeout(300)
+    await page.mouse.click(PUPITRE.surlignageSeul.x, PUPITRE.surlignageSeul.y)
     await expect.poll(() => page.evaluate(() => localStorage.getItem('vr-voix'))).toBe('0')
-    await page.mouse.click(640, 684) // « Retour au texte »
-    await page.waitForTimeout(500)
-    await page.mouse.click(PUPITRE.lire.x, PUPITRE.lire.y) // « Suivre »
     await expect(page.locator('.vr-sr')).toContainText(/verset \d+/)
     expect(await page.evaluate(() => (window as any).paroles)).toBe(0)
     expect(erreurs).toEqual([])

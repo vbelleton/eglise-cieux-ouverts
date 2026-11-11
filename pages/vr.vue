@@ -412,6 +412,7 @@ const aide = computed(() =>
 
 const { evenements, loading: agendaChargement, erreur: agendaErreur } = useChurchEvents()
 let reglages = normaliserReglagesVR(null)
+let imagesRetirees = [] // supprimées dans la Médiathèque : plus montrées ici non plus
 
 let scene = null
 
@@ -454,7 +455,9 @@ function videoDepuis(v) {
 
 async function chargerReglages() {
   try {
-    reglages = normaliserReglagesVR(await $fetch('/api/vr/reglages', { timeout: 8000 }))
+    const data = await $fetch('/api/vr/reglages', { timeout: 8000 })
+    reglages = normaliserReglagesVR(data)
+    imagesRetirees = Array.isArray(data?.imagesRetirees) ? data.imagesRetirees : []
   } catch {
     // Valeurs par défaut : la salle reste utilisable.
   }
@@ -497,7 +500,7 @@ onMounted(async () => {
     musique.value = memoMusique === undefined ? reglages.musique : memoMusique
     document.addEventListener('pointerdown', premierGeste)
     document.addEventListener('keydown', premierGeste)
-    const photos = photosDeLaSalle(reglages).map((p) => ({ type: 'photo', ...p }))
+    const photos = photosDeLaSalle(reglages, imagesRetirees).map((p) => ({ type: 'photo', ...p }))
     photosBase = photos
     const memorise = lieuMemorise()
     titre.value = reglages.titre
@@ -518,6 +521,7 @@ onMounted(async () => {
     salle.value = creerSalle(scene.monde, {
       lieux: reglages.lieux,
       dureePriere: reglages.dureePriere * 60,
+      tableaux: reglages.tableaux,
       surAction: (a) => {
         if (a.type === 'predication') video.value = a.video
         if (a.type === 'recherche') {

@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { trouverPassages, nomPassage, LIVRES_BIBLE } from '../../utils/livresBible.js'
-import { normaliserReglagesVR } from '../../utils/vrReglages.js'
+import { normaliserReglagesVR, VR_LIEUX } from '../../utils/vrReglages.js'
+import { LIEUX } from '../../lib/vr/lieux/index.js'
 
 // Salle de prière VR (/vr) : passages cités par les prédications, Bible
 // livrée dans public/bible/lsg/, réglages de ⚙ Config.
@@ -52,7 +53,7 @@ test.describe('Bible Louis Segond 1910 (public/bible/lsg)', () => {
 
 test.describe('Réglages de la salle de prière', () => {
   test('valeurs par défaut quand rien n’est enregistré', () => {
-    expect(normaliserReglagesVR(null)).toEqual({ photosSite: true, photos: [], predications: true, agenda: true })
+    expect(normaliserReglagesVR(null)).toEqual({ photosSite: true, photos: [], predications: true, agenda: true, lieu: 'chapelle' })
   })
 
   test('ne garde que des adresses d’images sûres, sans doublon', () => {
@@ -60,5 +61,11 @@ test.describe('Réglages de la salle de prière', () => {
     expect(r.photos).toEqual(['/api/media/uploads/a.jpg', 'https://exemple.fr/b.png'])
     expect(r.agenda).toBe(false)
     expect(r.predications).toBe(true)
+  })
+
+  test('lieu de prière : seulement un lieu qui existe', () => {
+    expect(LIEUX.map((l) => l.id)).toEqual(VR_LIEUX)
+    expect(normaliserReglagesVR({ lieu: 'mer' }).lieu).toBe('mer')
+    expect(normaliserReglagesVR({ lieu: '../../etc' }).lieu).toBe('chapelle')
   })
 })

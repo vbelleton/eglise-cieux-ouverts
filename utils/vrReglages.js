@@ -8,7 +8,11 @@ export const VR_REGLAGES_DEFAUT = {
   photos: [], // photos choisies dans la médiathèque
   predications: true, // dernières vidéos YouTube (/api/predications)
   agenda: true, // prochains événements (Worker eglise-app)
+  lieu: 'chapelle', // lieu de prière à l'arrivée (lib/vr/lieux/)
 }
+
+/** Identifiants des lieux de lib/vr/lieux/index.js (vérifié par un test). */
+export const VR_LIEUX = ['chapelle', 'jardin', 'mer', 'ciel']
 
 export const VR_MAX_PHOTOS = 40
 
@@ -23,5 +27,6 @@ export function normaliserReglagesVR(data) {
     photos,
     predications: bool(data?.predications, VR_REGLAGES_DEFAUT.predications),
     agenda: bool(data?.agenda, VR_REGLAGES_DEFAUT.agenda),
+    lieu: VR_LIEUX.includes(data?.lieu) ? data.lieu : VR_REGLAGES_DEFAUT.lieu,
   }
 }

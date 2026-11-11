@@ -12,6 +12,13 @@
       <button type="button" class="settings-test-email-btn" @click="charger">Réessayer</button>
     </template>
     <template v-else>
+      <label class="reglages-vr-lieu">
+        Lieu de prière à l'arrivée
+        <select v-model="form.lieu">
+          <option v-for="l in LIEUX" :key="l.id" :value="l.id">{{ l.nom }} — {{ l.description }}</option>
+        </select>
+      </label>
+      <p class="settings-hint">Chaque visiteur peut ensuite changer de lieu ; son choix est retenu sur son appareil.</p>
       <label class="settings-checkbox-label">
         <input v-model="form.agenda" type="checkbox" class="settings-checkbox" />
         Afficher les prochains rendez-vous de l'agenda
@@ -38,6 +45,7 @@
 import { ref, onMounted } from 'vue'
 import FieldImages from '~/components/editor/fields/FieldImages.vue'
 import { normaliserReglagesVR } from '~/utils/vrReglages.js'
+import { LIEUX } from '~/lib/vr/lieux/index.js'
 
 const props = defineProps({ jeton: { type: Function, required: true } })
 
@@ -86,6 +94,21 @@ onMounted(charger)
   gap: 8px;
   align-items: center;
   margin: 6px 0;
+}
+.reglages-vr-lieu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 2px;
+  font-weight: 600;
+}
+.reglages-vr-lieu select {
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c8d3dd;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
 }
 .reglages-vr-erreur {
   color: #b42318;

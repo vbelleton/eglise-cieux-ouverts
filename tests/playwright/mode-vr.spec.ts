@@ -13,8 +13,9 @@ import { resetMock } from './helpers/reset'
  */
 
 const PUPITRE = {
-  livres: { x: 546, y: 684 },
-  priere: { x: 714, y: 684 },
+  livres: { x: 545, y: 684 },
+  lieux: { x: 678, y: 684 },
+  priere: { x: 736, y: 684 },
 }
 
 async function ouvrirSalle(page: Page) {
@@ -71,6 +72,23 @@ test.describe('Salle de prière VR', () => {
     expect(erreurs).toEqual([])
   })
 
+  test('changer de lieu depuis le pupitre et depuis l’écran, choix retenu', async ({ page }) => {
+    const erreurs = await ouvrirSalle(page)
+    const lieu = page.getByRole('combobox', { name: 'Lieu de prière' })
+    await expect(lieu).toHaveValue('chapelle')
+    await page.mouse.click(PUPITRE.lieux.x, PUPITRE.lieux.y)
+    await page.waitForTimeout(500)
+    await page.mouse.click(745, 370) // carte « Le jardin d’oliviers »
+    await expect(lieu).toHaveValue('jardin')
+    await lieu.selectOption('mer')
+    await page.waitForTimeout(1500)
+    expect(await page.evaluate(() => localStorage.getItem('vr-lieu'))).toBe('mer')
+    await page.reload()
+    await expect(page.locator('.vr-scene canvas')).toBeVisible({ timeout: 15000 })
+    await expect(lieu).toHaveValue('mer')
+    expect(erreurs).toEqual([])
+  })
+
   test('choisir un livre charge ce livre', async ({ page }) => {
     await ouvrirSalle(page)
     const requete = page.waitForRequest(/\/bible\/lsg\/ECC\.json/)
@@ -107,11 +125,12 @@ test.describe('Salle de prière VR', () => {
     const section = page.locator('.reglages-vr')
     await expect(section).toBeVisible()
     await section.getByLabel("Afficher les prochains rendez-vous de l'agenda").uncheck()
+    await section.getByLabel("Lieu de prière à l'arrivée").selectOption('jardin')
     await section.getByRole('button', { name: 'Ajouter une image par URL' }).click()
     await section.getByPlaceholder('URL image').fill('/photos/salle.jpg')
     await page.locator('.settings-modal').getByRole('button', { name: 'Sauvegarder' }).click()
     await expect(page.locator('.settings-modal')).toHaveCount(0)
     const reglages = await (await request.get('/api/vr/reglages')).json()
-    expect(reglages).toMatchObject({ agenda: false, predications: true, photosSite: true, photos: ['/photos/salle.jpg'] })
+    expect(reglages).toMatchObject({ agenda: false, predications: true, photosSite: true, photos: ['/photos/salle.jpg'], lieu: 'jardin' })
   })
 })

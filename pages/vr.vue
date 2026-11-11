@@ -22,6 +22,12 @@
       <template v-else>
         <header class="vr-entete">
           <p class="vr-titre">Cieux Ouverts <span>· salle de prière</span></p>
+          <label class="vr-lieu">
+            <span class="vr-lieu-libelle">Lieu</span>
+            <select :value="lieu" aria-label="Lieu de prière" @change="choisirLieu($event.target.value)">
+              <option v-for="l in LIEUX" :key="l.id" :value="l.id">{{ l.nom }}</option>
+            </select>
+          </label>
           <NuxtLink to="/" class="vr-quitter" aria-label="Quitter la salle de prière et revenir au site">✕</NuxtLink>
         </header>
 
@@ -78,6 +84,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { trouverPassages } from '~/utils/livresBible.js'
 import { normaliserReglagesVR } from '~/utils/vrReglages.js'
 import { useChurchEvents } from '~/composables/useChurchEvents.js'
+import { LIEUX } from '~/lib/vr/lieux/index.js'
 
 definePageMeta({ layout: false })
 
@@ -99,6 +106,29 @@ const video = ref(null)
 const lecture = ref(null)
 const enPriere = ref(false)
 const salle = ref(null)
+const lieu = ref('chapelle')
+
+// Le dernier lieu choisi par ce visiteur, sinon celui réglé dans ⚙ Config.
+const CLE_LIEU = 'vr-lieu'
+function lieuMemorise() {
+  try {
+    return localStorage.getItem(CLE_LIEU)
+  } catch {
+    return null
+  }
+}
+function memoriserLieu(id) {
+  try {
+    localStorage.setItem(CLE_LIEU, id)
+  } catch {
+    // Navigation privée : on ne retient pas le choix, sans gêner.
+  }
+}
+function choisirLieu(id) {
+  lieu.value = id
+  memoriserLieu(id)
+  scene?.changerLieu(id)
+}
 
 const aide = computed(() =>
   tactile.value
@@ -158,9 +188,16 @@ onMounted(async () => {
   try {
     const [{ creerSceneVR, PHOTOS_VR }, { creerSalle }] = await Promise.all([import('~/lib/vr/scene.js'), import('~/lib/vr/salle.js'), chargerReglages()])
     const photos = [...(reglages.photosSite ? PHOTOS_VR : []), ...reglages.photos.map((image) => ({ type: 'photo', image, titre: '' }))]
+    const memorise = lieuMemorise()
+    lieu.value = LIEUX.some((l) => l.id === memorise) ? memorise : reglages.lieu
     scene = creerSceneVR(conteneur.value, {
       elements: photos,
+      lieu: lieu.value,
       surChangement: (e) => {
+        if ('lieu' in e) {
+          lieu.value = e.lieu
+          salle.value?.lieuChange()
+        }
         if ('element' in e) photo.value = e.element ? e.element.titre || '' : null
         if ('vr' in e) enVR.value = e.vr
       },
@@ -168,6 +205,7 @@ onMounted(async () => {
     salle.value = creerSalle(scene.monde, {
       surAction: (a) => {
         if (a.type === 'predication') video.value = a.video
+        if (a.type === 'lieu') memoriserLieu(a.id)
         if (a.type === 'priere') {
           enPriere.value = a.actif
           video.value = null
@@ -284,7 +322,11 @@ function quitterCarton() {
   pointer-events: none;
 }
 .vr-titre {
-  margin: 0;
+  margin: 0 auto 0 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(6px);
   font-family: var(--font-heading);
   font-size: 1.15rem;
   font-weight: 600;
@@ -292,6 +334,39 @@ function quitterCarton() {
 }
 .vr-titre span {
   color: var(--primary-pink);
+}
+.vr-lieu {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 10px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+}
+.vr-lieu select {
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-blue);
+  font: inherit;
+  cursor: pointer;
+}
+.vr-lieu select:focus-visible {
+  outline: 3px solid var(--primary-pink);
+  outline-offset: 2px;
+}
+@media (max-width: 520px) {
+  .vr-titre span,
+  .vr-lieu-libelle {
+    display: none;
+  }
 }
 .vr-quitter {
   pointer-events: auto;

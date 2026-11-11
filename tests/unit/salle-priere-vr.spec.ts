@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { trouverPassages, nomPassage, LIVRES_BIBLE } from '../../utils/livresBible.js'
-import { normaliserReglagesVR, VR_LIEUX, VR_MUSIQUES } from '../../utils/vrReglages.js'
+import { normaliserReglagesVR, photosDeLaSalle, VR_LIEUX, VR_MUSIQUES } from '../../utils/vrReglages.js'
 import { IDS_AMBIANCES } from '../../lib/vr/musique.js'
 import { LIEUX } from '../../lib/vr/lieux/index.js'
 
@@ -75,6 +75,16 @@ test.describe('Réglages de la salle de prière', () => {
     expect(r.photos).toEqual(['/api/media/uploads/a.jpg', 'https://exemple.fr/b.png'])
     expect(r.agenda).toBe(false)
     expect(r.predications).toBe(true)
+  })
+
+  test('une image supprimée de la Médiathèque n’est plus montrée dans la salle', () => {
+    const r = normaliserReglagesVR({ photos: ['/uploads/a.jpg', '/uploads/b.jpg'], photosSiteMasquees: ['/images/activites-femmes.jpeg'] })
+    const images = photosDeLaSalle(r, ['/images/activites-repas.jpg', '/uploads/b.jpg']).map((p) => p.image)
+    expect(images).toContain('/images/activites-priere.jpg')
+    expect(images).toContain('/uploads/a.jpg')
+    expect(images).not.toContain('/images/activites-repas.jpg') // supprimée de la Médiathèque
+    expect(images).not.toContain('/uploads/b.jpg')
+    expect(images).not.toContain('/images/activites-femmes.jpeg') // retirée dans « Salle VR »
   })
 
   test('lieu de prière : seulement un lieu qui existe', () => {

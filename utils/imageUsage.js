@@ -62,7 +62,7 @@ export async function calculerUsageImages() {
   // Salle de prière VR (/vr) : photos des activités et photos choisies.
   const vr = await lireJson('/api/vr/reglages')
   if (vr && vr.lu !== false) {
-    for (const { image } of photosDeLaSalle(normaliserReglagesVR(vr))) {
+    for (const { image } of photosDeLaSalle(normaliserReglagesVR(vr), vr.imagesRetirees || [])) {
       if (!usage.has(image)) usage.set(image, [])
       usage.get(image).push({ page: 'Salle VR', bloc: 'Photos' })
     }

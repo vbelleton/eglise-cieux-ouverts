@@ -99,17 +99,23 @@
           Inclure les photos des activités du site
         </label>
         <ul v-if="form.photosSite" class="reglages-vr-photos" aria-label="Photos des activités dans la salle">
-          <li v-for="p in VR_PHOTOS_SITE" :key="p.image" :class="{ 'reglages-vr-photo--retiree': form.photosSiteMasquees.includes(p.image) }">
+          <li
+            v-for="p in VR_PHOTOS_SITE"
+            :key="p.image"
+            :class="{ 'reglages-vr-photo--retiree': form.photosSiteMasquees.includes(p.image) || retirees.includes(p.image) }"
+          >
             <label>
               <img :src="p.image" :alt="p.titre" loading="lazy" />
               <span>
                 <input
                   type="checkbox"
-                  :checked="!form.photosSiteMasquees.includes(p.image)"
+                  :checked="!form.photosSiteMasquees.includes(p.image) && !retirees.includes(p.image)"
+                  :disabled="retirees.includes(p.image)"
                   @change="basculerPhotoSite(p.image, $event.target.checked)"
                 />
                 {{ p.titre }}
               </span>
+              <small v-if="retirees.includes(p.image)">Supprimée de la Médiathèque</small>
             </label>
           </li>
         </ul>
@@ -117,6 +123,22 @@
           <input v-model="form.tableaux" type="checkbox" class="settings-checkbox" />
           Ajouter des tableaux de maîtres (domaine public) liés au passage ouvert
         </label>
+        <details v-if="form.tableaux" class="reglages-vr-tableaux" @toggle="tableauxOuverts = $event.target.open">
+          <summary>Voir les {{ TABLEAUX.length }} tableaux et vérifier qu’ils se chargent</summary>
+          <p class="settings-hint">
+            Ils viennent de Wikimedia Commons, la première fois qu’on les affiche. Ceux marqués « introuvable » ne
+            s’afficheront pas dans la salle.
+          </p>
+          <ul v-if="tableauxOuverts" class="reglages-vr-photos">
+            <li v-for="t in TABLEAUX" :key="t.cle" :class="{ 'reglages-vr-photo--retiree': tableauxKO.includes(t.cle) }">
+              <label>
+                <img :src="`/api/vr/tableau/${t.cle}`" :alt="t.titre" loading="lazy" @error="tableauxKO.push(t.cle)" />
+                <span>{{ t.titre }}</span>
+                <small>{{ tableauxKO.includes(t.cle) ? 'Introuvable' : creditTableau(t) }}</small>
+              </label>
+            </li>
+          </ul>
+        </details>
         <p class="settings-hint">Photos choisies pour la salle (médiathèque ou téléversement, {{ VR_MAX_PHOTOS }} au plus) :</p>
         <FieldImages :value="form.photos" :field="{ key: 'photos' }" @change="(v) => (form.photos = v.filter(Boolean))" />
       </fieldset>
@@ -135,12 +157,16 @@ import { normaliserReglagesVR, VR_DUREE_MIN, VR_DUREE_MAX, VR_MAX_PHOTOS, VR_PHO
 import { trouverPassages, nomPassage } from '~/utils/livresBible.js'
 import { LIEUX } from '~/lib/vr/lieux/index.js'
 import { AMBIANCES } from '~/lib/vr/musique.js'
+import { TABLEAUX, creditTableau } from '~/utils/vrTableaux.js'
 
 const props = defineProps({ jeton: { type: Function, required: true } })
 
 const etat = ref('chargement')
 const form = ref(normaliserReglagesVR(null))
 const message = ref(null)
+const retirees = ref([]) // images du site supprimées dans la Médiathèque
+const tableauxOuverts = ref(false)
+const tableauxKO = ref([])
 let initial = ''
 
 const lieuxProposes = computed(() => LIEUX.filter((l) => form.value.lieux.includes(l.id)))
@@ -172,6 +198,7 @@ async function charger() {
     const data = await $fetch('/api/vr/reglages', { timeout: 10000 })
     if (data?.lu === false) throw new Error('lecture impossible')
     form.value = normaliserReglagesVR(data)
+    retirees.value = Array.isArray(data?.imagesRetirees) ? data.imagesRetirees : []
     initial = JSON.stringify(form.value)
     etat.value = 'pret'
   } catch {
@@ -277,6 +304,16 @@ onMounted(charger)
 .reglages-vr-photo--retiree img {
   opacity: 0.35;
   filter: grayscale(1);
+}
+.reglages-vr-photos small {
+  color: #667;
+  font-size: 0.75rem;
+}
+.reglages-vr-tableaux summary {
+  cursor: pointer;
+  margin: 4px 0 8px;
+  color: #064886;
+  font-weight: 600;
 }
 .reglages-vr-erreur {
   color: #b42318;

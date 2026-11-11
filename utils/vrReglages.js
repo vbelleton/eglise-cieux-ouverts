@@ -75,7 +75,8 @@ export function normaliserReglagesVR(data) {
 }
 
 /** Photos affichées dans la salle, dans l'ordre des réglages : { image, titre }. */
-export function photosDeLaSalle(reglages) {
-  const site = reglages.photosSite ? VR_PHOTOS_SITE.filter((p) => !reglages.photosSiteMasquees.includes(p.image)) : []
-  return [...site, ...reglages.photos.map((image) => ({ image, titre: '' }))]
+export function photosDeLaSalle(reglages, retirees = []) {
+  const garder = (u) => !retirees.includes(u)
+  const site = reglages.photosSite ? VR_PHOTOS_SITE.filter((p) => !reglages.photosSiteMasquees.includes(p.image) && garder(p.image)) : []
+  return [...site, ...reglages.photos.filter(garder).map((image) => ({ image, titre: '' }))]
 }

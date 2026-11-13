@@ -21,6 +21,11 @@
               <option value="date-desc">Date ↓</option>
               <option value="title-asc">Titre A→Z</option>
             </select>
+            <select v-model="agendaFilter" class="event-filter-select" title="Filtrer par site" aria-label="Filtrer par site">
+              <option value="all">Tous les sites</option>
+              <option :value="AGENDA_CIEUX_OUVERTS">Cieux Ouverts</option>
+              <option :value="AGENDA_BRAS_OUVERTS">Bras Ouverts</option>
+            </select>
             <select v-model="statusFilter" class="event-filter-select" title="Filtrer par statut">
               <option value="all">Tous les statuts</option>
               <option value="active">Actifs</option>
@@ -39,6 +44,7 @@
                 <div class="event-row-meta">
                   <span v-if="evt.heure">{{ evt.heure }}</span>
                   <span v-if="evt.lieu">{{ evt.lieu }}</span>
+                  <span v-if="evt.agenda === AGENDA_BRAS_OUVERTS" class="event-badge event-badge-bras-ouverts" title="Publié sur le site Bras Ouverts, pas sur celui de l'église">Bras Ouverts</span>
                   <span v-if="evt.repeat_period" class="event-badge">{{ formatRepeatPeriod(evt.repeat_period) }}</span>
                   <span v-if="evt.repeat_period && serieTerminee(evt.end_date, evt.date)" class="event-badge event-badge-terminee" title="Date de fin passée : la série n'apparaît plus sur le site">Terminée le {{ formatDateCourte(evt.end_date) }}</span>
                 </div>
@@ -53,6 +59,12 @@
         <div v-if="creating || editing" class="event-manager-body">
           <h3 class="event-form-title">{{ creating ? 'Nouvel événement' : 'Modifier l\'événement' }}</h3>
           <div class="event-form">
+            <label>Publier sur
+              <select v-model="form.agenda">
+                <option :value="AGENDA_CIEUX_OUVERTS">Site Cieux Ouverts (église)</option>
+                <option :value="AGENDA_BRAS_OUVERTS">Site Bras Ouverts (association)</option>
+              </select>
+            </label>
             <label>Titre * <input v-model="form.title" type="text" /></label>
             <label>Description <textarea v-model="form.description" rows="3"></textarea></label>
             <div class="event-form-row">
@@ -207,7 +219,7 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { expandRecurring, isoDay } from '~/utils/churchEvents.js'
+import { expandRecurring, isoDay, agendaDe, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
 
 const props = defineProps({ open: Boolean })
@@ -220,9 +232,14 @@ const loading = ref(false)
 const searchQuery = ref('')
 const sortOrder = ref('date-asc')
 const statusFilter = ref('all')
+const agendaFilter = ref('all')
 
 const filteredEvents = computed(() => {
   let list = events.value
+
+  if (agendaFilter.value !== 'all') {
+    list = list.filter((e) => e.agenda === agendaFilter.value)
+  }
 
   if (statusFilter.value !== 'all') {
     list = list.filter((e) => (e.statut || 'active') === statusFilter.value)
@@ -428,7 +445,7 @@ const form = ref({
   title: '', description: '', start_date: '', end_date: '',
   start_time: '', end_time: '', location: '', repeat_period: '',
   emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
-  exceptions: []
+  agenda: AGENDA_CIEUX_OUVERTS, exceptions: []
 })
 
 const imageNonAllegee = ref(false)
@@ -437,6 +454,7 @@ function resetForm() {
   form.value = { title: '', description: '', start_date: '', end_date: '',
     start_time: '', end_time: '', location: '', repeat_period: '',
     emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
+    agenda: agendaFilter.value === AGENDA_BRAS_OUVERTS ? AGENDA_BRAS_OUVERTS : AGENDA_CIEUX_OUVERTS,
     exceptions: [] }
   formError.value = ''
   imageNonAllegee.value = false
@@ -488,6 +506,7 @@ function startEdit(evt) {
     repeat_period: evt.repeat_period || '', emoji: evt.emoji || '',
     image_url: evt.image_url || '', link: evt.lien || '',
     ticket_url: evt.billetterie || '', status: evt.statut || 'active',
+    agenda: evt.agenda,
     exceptions: evt.exceptions ? evt.exceptions.map(ex => ({ ...ex })) : []
   }
   imageNonAllegee.value = false
@@ -546,6 +565,7 @@ async function fetchEvents() {
       repeat_period: e.repeat_period || null, emoji: e.emoji || null,
       lien: e.link || null, billetterie: e.ticket_url || null,
       statut: e.status || 'active',
+      source: e.source || null, agenda: agendaDe(e),
       exceptions: e.exceptions || []
     })).sort((a, b) => a.date - b.date)
   } catch (e) { console.error(e); events.value = []
@@ -595,8 +615,20 @@ function eventPayload() {
     location: form.value.location || null, repeat_period: form.value.repeat_period || null,
     emoji: form.value.emoji || null, image_url: form.value.image_url || null,
     link: form.value.link || null, ticket_url: form.value.ticket_url || null,
-    status: form.value.status || 'active'
+    status: form.value.status || 'active',
+    ...sourcePourAgenda(),
   }
+}
+
+// Le site visé est porté par `source` (voir utils/churchEvents.js). On ne
+// l'envoie que s'il faut le changer : une source d'import existante sur un
+// événement de l'église doit rester telle quelle.
+function sourcePourAgenda() {
+  const original = editing.value ? events.value.find((e) => e.id === editing.value) : null
+  if (form.value.agenda === AGENDA_BRAS_OUVERTS) {
+    return original?.agenda === AGENDA_BRAS_OUVERTS ? {} : { source: AGENDA_BRAS_OUVERTS }
+  }
+  return original?.agenda === AGENDA_BRAS_OUVERTS ? { source: null } : {}
 }
 
 async function createEvent() {
@@ -808,6 +840,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 .date-fin-effacer:hover { background: #f3f4f6; }
 .event-alerte-fin { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.85em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .event-alerte-fin button { padding: 5px 10px; border: none; border-radius: 6px; background: #92400e; color: #fff; font-weight: 600; cursor: pointer; }
+.event-badge.event-badge-bras-ouverts { background: #e0f2f0; color: #0d5e57; }
 .event-badge.event-badge-terminee { background: #fee2e2; color: #991b1b; }
 .event-form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .event-btn {

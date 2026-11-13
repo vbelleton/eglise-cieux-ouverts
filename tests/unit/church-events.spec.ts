@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { buildEventList, expandRecurring, isoDay, lastDay, isPast, estTermine } from '../../utils/churchEvents.js'
+import { buildEventList, expandRecurring, isoDay, lastDay, isPast, estTermine, agendaDe } from '../../utils/churchEvents.js'
 
 // Le site est consulté en France : les bugs de jour décalé n'apparaissent
 // qu'avec un fuseau en avance sur UTC. Node relit TZ à chaque changement.
@@ -138,4 +138,28 @@ test('même jour : rangés par heure, sans heure en tête', () => {
     ev({ id: 3, start_date: '2026-11-12' }),
   ], { now: '2026-11-09T12:00:00' })
   expect(list.map(e => e.id)).toEqual([3, 2, 1])
+})
+
+test.describe('utils/churchEvents — agendas Cieux Ouverts et Bras Ouverts', () => {
+  const liste = [
+    ev({ id: 1, title: 'Culte', start_date: '2026-10-18' }),
+    ev({ id: 2, title: 'Maraude', start_date: '2026-10-18', source: 'bras-ouverts' }),
+    ev({ id: 3, title: 'Importé', start_date: '2026-10-19', source: 'pco' }),
+  ]
+
+  test('le site de l\'église ne montre jamais un événement Bras Ouverts', () => {
+    const titres = buildEventList(liste, { now: NOW }).map(e => e.titre)
+    expect(titres).toEqual(['Culte', 'Importé'])
+  })
+
+  test('le site Bras Ouverts ne montre que ses événements', () => {
+    const titres = buildEventList(liste, { now: NOW, agenda: 'bras-ouverts' }).map(e => e.titre)
+    expect(titres).toEqual(['Maraude'])
+  })
+
+  test('une source vide ou d\'import appartient à Cieux Ouverts', () => {
+    expect(agendaDe({ source: null })).toBe('cieux-ouverts')
+    expect(agendaDe({ source: 'pco' })).toBe('cieux-ouverts')
+    expect(agendaDe({ source: 'bras-ouverts' })).toBe('bras-ouverts')
+  })
 })

@@ -13,6 +13,19 @@
  * correspondaient alors jamais à l'occurrence visée — une occurrence annulée
  * ou déplacée restait affichée à sa date d'origine sur le site public.
  */
+// ─── Deux agendas dans la même base ───
+// Le Worker eglise-app sert aussi l'agenda du site de l'association Bras
+// Ouverts : ses événements portent `source = 'bras-ouverts'` et se gèrent dans
+// le même écran d'admin (EventManager.vue, choix « Publier sur »). Tout le
+// reste (source vide, ou une source d'import) appartient à Cieux Ouverts.
+// Ne jamais afficher un événement Bras Ouverts sur le site de l'église, ni
+// l'inverse : le filtre est dans buildEventList, utilisé par les deux sites.
+export const AGENDA_CIEUX_OUVERTS = 'cieux-ouverts'
+export const AGENDA_BRAS_OUVERTS = 'bras-ouverts'
+export function agendaDe(ev) {
+  return ev && ev.source === AGENDA_BRAS_OUVERTS ? AGENDA_BRAS_OUVERTS : AGENDA_CIEUX_OUVERTS
+}
+
 export function isoDay(date) {
   const d = date instanceof Date ? date : new Date(date)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -283,13 +296,14 @@ export function expandPastRecurring(ev, rangeStart, rangeEnd) {
  *   pour la navigation vers les mois passés, sans jamais générer
  *   d'occurrence après la fin d'une série.
  */
-export function buildEventList(allEvents, { futureOnly = true, now: nowArg } = {}) {
+export function buildEventList(allEvents, { futureOnly = true, now: nowArg, agenda = AGENDA_CIEUX_OUVERTS } = {}) {
   const now = nowArg ? new Date(nowArg) : new Date()
   now.setHours(0, 0, 0, 0)
   const results = []
 
   for (const ev of allEvents || []) {
     if (ev.status === 'cancelled') continue
+    if (agendaDe(ev) !== agenda) continue
 
     if (ev.repeat_period) {
       const occurrences = expandRecurring(ev, now, 12)

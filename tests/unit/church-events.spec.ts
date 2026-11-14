@@ -145,21 +145,29 @@ test.describe('utils/churchEvents — agendas Cieux Ouverts et Bras Ouverts', ()
     ev({ id: 1, title: 'Culte', start_date: '2026-10-18' }),
     ev({ id: 2, title: 'Maraude', start_date: '2026-10-18', source: 'bras-ouverts' }),
     ev({ id: 3, title: 'Importé', start_date: '2026-10-19', source: 'pco' }),
+    ev({ id: 4, title: 'Fête', start_date: '2026-10-20', source: 'cieux-et-bras-ouverts' }),
   ]
 
   test('le site de l\'église ne montre jamais un événement Bras Ouverts', () => {
     const titres = buildEventList(liste, { now: NOW }).map(e => e.titre)
-    expect(titres).toEqual(['Culte', 'Importé'])
+    expect(titres).toEqual(['Culte', 'Importé', 'Fête'])
   })
 
   test('le site Bras Ouverts ne montre que ses événements', () => {
     const titres = buildEventList(liste, { now: NOW, agenda: 'bras-ouverts' }).map(e => e.titre)
-    expect(titres).toEqual(['Maraude'])
+    expect(titres).toEqual(['Maraude', 'Fête'])
   })
 
   test('une source vide ou d\'import appartient à Cieux Ouverts', () => {
     expect(agendaDe({ source: null })).toBe('cieux-ouverts')
     expect(agendaDe({ source: 'pco' })).toBe('cieux-ouverts')
     expect(agendaDe({ source: 'bras-ouverts' })).toBe('bras-ouverts')
+  })
+
+  test('un événement publié sur les deux sites apparaît dans les deux agendas', () => {
+    expect(agendaDe({ source: 'cieux-et-bras-ouverts' })).toBe('les-deux')
+    const f = (agenda?: string) => buildEventList(liste, { now: NOW, agenda }).map(e => e.titre)
+    expect(f()).toContain('Fête')
+    expect(f('bras-ouverts')).toContain('Fête')
   })
 })

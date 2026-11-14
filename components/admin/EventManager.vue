@@ -45,6 +45,7 @@
                   <span v-if="evt.heure">{{ evt.heure }}</span>
                   <span v-if="evt.lieu">{{ evt.lieu }}</span>
                   <span v-if="evt.agenda === AGENDA_BRAS_OUVERTS" class="event-badge event-badge-bras-ouverts" title="Publié sur le site Bras Ouverts, pas sur celui de l'église">Bras Ouverts</span>
+                  <span v-else-if="evt.agenda === AGENDA_LES_DEUX" class="event-badge event-badge-bras-ouverts" title="Publié sur les deux sites : Cieux Ouverts et Bras Ouverts">Les deux sites</span>
                   <span v-if="evt.repeat_period" class="event-badge">{{ formatRepeatPeriod(evt.repeat_period) }}</span>
                   <span v-if="evt.repeat_period && serieTerminee(evt.end_date, evt.date)" class="event-badge event-badge-terminee" title="Date de fin passée : la série n'apparaît plus sur le site">Terminée le {{ formatDateCourte(evt.end_date) }}</span>
                 </div>
@@ -63,6 +64,7 @@
               <select v-model="form.agenda">
                 <option :value="AGENDA_CIEUX_OUVERTS">Site Cieux Ouverts (église)</option>
                 <option :value="AGENDA_BRAS_OUVERTS">Site Bras Ouverts (association)</option>
+                <option :value="AGENDA_LES_DEUX">Les deux sites (Cieux Ouverts et Bras Ouverts)</option>
               </select>
             </label>
             <label>Titre * <input v-model="form.title" type="text" /></label>
@@ -219,7 +221,7 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { expandRecurring, isoDay, agendaDe, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS } from '~/utils/churchEvents.js'
+import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
 
 const props = defineProps({ open: Boolean })
@@ -238,7 +240,7 @@ const filteredEvents = computed(() => {
   let list = events.value
 
   if (agendaFilter.value !== 'all') {
-    list = list.filter((e) => e.agenda === agendaFilter.value)
+    list = list.filter((e) => visibleSur(e.agenda, agendaFilter.value))
   }
 
   if (statusFilter.value !== 'all') {
@@ -625,10 +627,11 @@ function eventPayload() {
 // événement de l'église doit rester telle quelle.
 function sourcePourAgenda() {
   const original = editing.value ? events.value.find((e) => e.id === editing.value) : null
-  if (form.value.agenda === AGENDA_BRAS_OUVERTS) {
-    return original?.agenda === AGENDA_BRAS_OUVERTS ? {} : { source: AGENDA_BRAS_OUVERTS }
-  }
-  return original?.agenda === AGENDA_BRAS_OUVERTS ? { source: null } : {}
+  const choix = form.value.agenda
+  if (original?.agenda === choix) return {}
+  if (choix === AGENDA_BRAS_OUVERTS) return { source: AGENDA_BRAS_OUVERTS }
+  if (choix === AGENDA_LES_DEUX) return { source: SOURCE_LES_DEUX }
+  return { source: null }
 }
 
 async function createEvent() {

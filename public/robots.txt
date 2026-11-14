@@ -1,4 +1,32 @@
-User-Agent: *
-Disallow:
+# Robots d'entraînement d'IA : rien à collecter ici. Chaque page servie
+# compte dans le quota quotidien de l'hébergement.
+User-agent: GPTBot
+User-agent: CCBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: Bytespider
+User-agent: Amazonbot
+User-agent: meta-externalagent
+User-agent: FacebookBot
+User-agent: Applebot-Extended
+User-agent: Google-Extended
+User-agent: cohere-ai
+User-agent: Diffbot
+User-agent: ImagesiftBot
+User-agent: omgili
+User-agent: Timpibot
+User-agent: AhrefsBot
+User-agent: SemrushBot
+User-agent: MJ12bot
+User-agent: DotBot
+User-agent: PetalBot
+Disallow: /
+
+User-agent: *
+Allow: /api/media/uploads/
+Disallow: /api/
+Disallow: /admin
+Disallow: /vr
+Disallow: /*?admin=
 
 Sitemap: https://www.cieuxouverts.bzh/sitemap.xml

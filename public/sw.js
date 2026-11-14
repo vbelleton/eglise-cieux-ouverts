@@ -24,7 +24,7 @@
 // Changer VERSION à chaque modification de ce fichier qui touche aux caches :
 // l'activation supprime les caches d'une autre version.
 
-const VERSION = 'v2'
+const VERSION = 'v3'
 const CACHE_PAGES = `pages-${VERSION}`
 const CACHE_ASSETS = `assets-${VERSION}`
 const CACHE_DATA = `data-${VERSION}`
@@ -199,7 +199,11 @@ self.addEventListener('fetch', (event) => {
     if (request.mode === 'navigate') strategie = () => navigation(event)
     else if (url.pathname.startsWith('/_nuxt/')) strategie = () => cacheDAbord(event, CACHE_ASSETS)
     else if (API_PUBLIQUES.test(url.pathname)) strategie = () => reseauDAbord(event, CACHE_DATA, request)
-    else if (url.pathname.startsWith('/api/media/uploads/') || (!url.pathname.startsWith('/api/') && IMAGE.test(url.pathname))) {
+    // Images téléversées : nom horodaté, jamais réécrit. Chaque requête
+    // réseau passe par la fonction serveur (quota Cloudflare quotidien) :
+    // une copie en cache suffit, on ne la rafraîchit pas.
+    else if (url.pathname.startsWith('/api/media/uploads/')) strategie = () => cacheDAbord(event, CACHE_IMAGES)
+    else if (!url.pathname.startsWith('/api/') && IMAGE.test(url.pathname)) {
       strategie = () => copiePuisMiseAJour(event, CACHE_IMAGES)
     }
   } else if (url.pathname === '/api/church-events') {

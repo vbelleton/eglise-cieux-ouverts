@@ -91,6 +91,15 @@ export default defineNuxtConfig({
   ],
   nitro: {
     preset: process.env.PW_TEST === '1' ? 'node-server' : 'cloudflare-pages',
+    // Fichiers statiques servis sans passer par la fonction serveur (chaque
+    // appel de la fonction compte dans le quota quotidien de Cloudflare).
+    // Nitro liste un fichier par règle et coupe à 100 règles : la Bible de la
+    // salle VR (66 fichiers) en dépassait. Des dossiers entiers d'abord.
+    cloudflare: {
+      pages: {
+        routes: { exclude: ['/bible/*', '/images/*', '/photos/*'] },
+      },
+    },
   },
   hooks: {
     'build:before': async () => {

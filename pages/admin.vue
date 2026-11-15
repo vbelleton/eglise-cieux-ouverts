@@ -12,6 +12,7 @@
       <template v-else-if="!checking">
         <div v-if="user && !isAdmin && !isSetupMode" class="admin-login-actions">
           <p class="admin-error">Vous n'êtes pas autorisé à accéder à l'administration.</p>
+          <p v-if="user.email" class="admin-login-feedback">Connecté avec <strong>{{ user.email }}</strong> : cette adresse doit être exactement celle ajoutée dans l'équipe de l'administration.</p>
           <button class="btn-admin" @click="signOut">Se déconnecter</button>
         </div>
 
@@ -209,6 +210,11 @@ function authErrorMessage(e) {
   if (code.includes('email-already-in-use')) return 'Un compte existe déjà avec cet email. Connecte-toi.'
   if (code.includes('weak-password')) return 'Mot de passe trop court (6 caractères minimum).'
   if (code.includes('invalid-email')) return 'Adresse email invalide.'
+  if (code.includes('too-many-requests')) return 'Trop de tentatives. Attends quelques minutes ou utilise « Mot de passe oublié ».'
+  if (code.includes('network-request-failed')) return 'Pas de connexion au serveur. Vérifie ta connexion internet.'
+  if (code.includes('unauthorized-domain')) return "Ce site n'est pas autorisé pour la connexion (domaine absent de Firebase → Authentication → Authorized domains)."
+  if (code.includes('operation-not-allowed')) return "La connexion par e-mail n'est pas activée dans Firebase (Authentication → Sign-in method)."
+  if (code.includes('user-disabled')) return 'Ce compte a été désactivé.'
   return 'Une erreur est survenue. Réessaie.'
 }
 

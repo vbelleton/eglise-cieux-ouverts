@@ -1,4 +1,5 @@
-import { getFirestoreConfig, getAccessToken, setFirestoreDoc } from '../../utils/firebase'
+import { adresseDonsCourante, normaliserAdresseDons, plannifierDeplacement, adresseOccupee } from '../../../utils/adresseDons.js'
+import { getFirestoreConfig, getAccessToken, getFirestoreDoc, setFirestoreDoc, parseFirestoreDoc } from '../../utils/firebase'
 import { requireAdmin } from '../../utils/firebase-admin'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -53,6 +54,15 @@ export default defineEventHandler(async (event) => {
   const isTest = process.env.NODE_ENV === 'test' || process.env.PW_TEST === '1' || process.env.TEST_ENV === '1'
   const contactEmails = parseContactEmails(body)
 
+  // Adresse de la page de dons : absente de la requête = on garde l'actuelle.
+  let adresseDonsDemandee = null
+  if (body?.adresseDons !== undefined) {
+    adresseDonsDemandee = normaliserAdresseDons(body.adresseDons)
+    if (!adresseDonsDemandee) {
+      throw createError({ statusCode: 400, message: 'Adresse de la page de dons invalide : lettres, chiffres et tirets, sans nom réservé au site.' })
+    }
+  }
+
   if (contactEmails.length === 0) {
     throw createError({ statusCode: 400, message: 'Au moins un email de contact est requis' })
   }
@@ -67,8 +77,18 @@ export default defineEventHandler(async (event) => {
   const memberTabOrder = parseMemberTabOrder(body)
 
   if (isTest) {
-    const { setSettings } = await import('../../utils/firestore-mock.js')
-    setSettings({ contactEmails, hideEventsPageIfEmpty, espaceMembre, socialLinks, memberTabOrder })
+    const { setSettings, getSettings, getPages, setPageDoc } = await import('../../utils/firestore-mock.js')
+    const actuelle = adresseDonsCourante(getSettings())
+    const cible = adresseDonsDemandee ?? actuelle
+    if (cible !== actuelle) {
+      if (adresseOccupee(getPages()[cible])) {
+        throw createError({ statusCode: 409, message: `L'adresse /${cible} est déjà utilisée par une autre page.` })
+      }
+      const { nouveauDoc, ancienDoc } = plannifierDeplacement(actuelle, cible, getPages()[actuelle] || null)
+      await setPageDoc(cible, nouveauDoc)
+      await setPageDoc(actuelle, ancienDoc)
+    }
+    setSettings({ contactEmails, hideEventsPageIfEmpty, espaceMembre, socialLinks, memberTabOrder, adresseDons: cible })
     return { ok: true }
   }
 
@@ -85,7 +105,24 @@ export default defineEventHandler(async (event) => {
 
   try {
     const accessToken = await getAccessToken(config.clientEmail, config.privateKey)
+
+    // Lecture de l'état courant : l'écriture de settings/config remplace tout le document.
+    const configDoc = await getFirestoreDoc(config.projectId, accessToken, 'settings', 'config')
+    const actuelle = adresseDonsCourante(configDoc ? parseFirestoreDoc(configDoc) : null)
+    const cible = adresseDonsDemandee ?? actuelle
+    if (cible !== actuelle) {
+      const docCible = await getFirestoreDoc(config.projectId, accessToken, 'pages', cible)
+      if (adresseOccupee(docCible ? parseFirestoreDoc(docCible) : null)) {
+        throw createError({ statusCode: 409, message: `L'adresse /${cible} est déjà utilisée par une autre page.` })
+      }
+      const docActuel = await getFirestoreDoc(config.projectId, accessToken, 'pages', actuelle)
+      const { nouveauDoc, ancienDoc } = plannifierDeplacement(actuelle, cible, docActuel ? parseFirestoreDoc(docActuel) : null)
+      await setFirestoreDoc(config.projectId, accessToken, 'pages', cible, nouveauDoc)
+      await setFirestoreDoc(config.projectId, accessToken, 'pages', actuelle, ancienDoc)
+    }
+
     await setFirestoreDoc(config.projectId, accessToken, 'settings', 'config', {
+      adresseDons: cible,
       contactEmails: contactEmails,
       hideEventsPageIfEmpty: hideEventsPageIfEmpty,
       espaceMembre: espaceMembre,

@@ -33,6 +33,7 @@ const { data: pageData } = await useAsyncData(`page-${slug.value}-blocks`, async
     const data = await lirePageApi(`/api/pages/${slug.value}`, { sansCache: isAdminMode.value })
     return {
       exists: data?.exists !== false,
+      redirectTo: data?.redirectTo || '',
       blocks: data?.blocks?.length ? normalizePageBlocks(slug.value, data.blocks) : [],
       echecLecture: false,
     }
@@ -40,6 +41,12 @@ const { data: pageData } = await useAsyncData(`page-${slug.value}-blocks`, async
     return { exists: true, blocks: [], echecLecture: true }
   }
 })
+
+// Page de dons déplacée (ou ancienne adresse) : redirection définitive vers la
+// nouvelle adresse, pour que les anciens liens et moteurs de recherche suivent.
+if (pageData.value?.redirectTo) {
+  await navigateTo(pageData.value.redirectTo, { redirectCode: 301 })
+}
 
 if (pageData.value?.exists === false) {
   throw createError({ statusCode: 404, statusMessage: 'Page introuvable' })

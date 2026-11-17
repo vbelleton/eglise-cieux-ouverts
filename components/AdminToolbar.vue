@@ -1215,6 +1215,7 @@ const HARDCODED_PAGE_OPTIONS = [
     { slug: 'messages', label: 'Messages' },
     { slug: 'event-list', label: 'Événements' },
     { slug: 'agenda', label: 'Agenda' },
+    { slug: 'dons', label: 'Dons' },
 ]
 
 // Le menu déroulant de sélection de page listait les pages système dans un

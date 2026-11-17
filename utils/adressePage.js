@@ -1,14 +1,14 @@
-// Adresse publique de la page de dons (réglage ⚙ Config : settings/config.adresseDons).
-// Le contenu reste dans le document pages/<adresse> : changer l'adresse déplace
-// ce document, et l'ancienne adresse devient une redirection (voir
-// plannifierDeplacement). Ce module est partagé par le serveur et le client.
+// Adresse (slug) des pages créées dans l'admin. Le contenu vit dans le document
+// pages/<adresse> : changer l'adresse (POST /api/pages/:slug/adresse, bouton
+// « Changer » de l'éditeur de menu) déplace ce document, et l'ancienne adresse
+// devient une redirection 301. Module partagé par le serveur et le client.
 import { getDefaultDonsPage } from './blockTypes.js'
 
+// Page de dons : servie avec son contenu de départ tant qu'elle n'est pas enregistrée.
 export const ADRESSE_DONS_DEFAUT = 'dons'
 
-// Adresses qu'une page de dons ne peut pas prendre : routes du site et slugs
-// de pages système. « dons » n'y figure pas : c'est l'adresse par défaut.
-const ADRESSES_RESERVEES = [
+// Adresses qu'aucune page ne peut prendre : routes du site et pages à adresse fixe.
+export const ADRESSES_RESERVEES = [
   'accueil', 'contact', 'messages', 'event-list', 'agenda', 'photos', 'membre',
   'billetterie', 'admin', 'api', '_nuxt', 'favicon.ico', 'robots.txt',
   'sitemap.xml', 'offline.html', 'predications', 'vr',
@@ -16,7 +16,7 @@ const ADRESSES_RESERVEES = [
 
 // Retourne l'adresse normalisée (minuscules, sans accents, tirets) ou null si
 // elle n'est pas utilisable.
-export function normaliserAdresseDons(valeur) {
+export function normaliserAdresse(valeur) {
   const s = String(valeur ?? '')
     .trim()
     .toLowerCase()
@@ -26,10 +26,6 @@ export function normaliserAdresseDons(valeur) {
     .replace(/^-+|-+$/g, '')
   if (!s || s.length > 60 || ADRESSES_RESERVEES.includes(s)) return null
   return s
-}
-
-export function adresseDonsCourante(config) {
-  return normaliserAdresseDons(config?.adresseDons) || ADRESSE_DONS_DEFAUT
 }
 
 // Réponse de GET /api/pages/:slug à partir du document brut (null = absent).
@@ -50,11 +46,13 @@ export function reponsePageDepuisDoc(slug, doc) {
 // Écritures nécessaires pour passer de l'adresse `actuelle` à `cible`.
 // `docActuel` = document brut de pages/<actuelle> (null si absent).
 export function plannifierDeplacement(actuelle, cible, docActuel) {
-  const blocsActuels = docActuel && !docActuel._deleted && Array.isArray(docActuel.blocks) && docActuel.blocks.length
-    ? docActuel.blocks
+  const vivant = docActuel && !docActuel._deleted ? docActuel : null
+  const blocks = vivant?.blocks?.length
+    ? vivant.blocks
     : actuelle === ADRESSE_DONS_DEFAUT ? getDefaultDonsPage() : []
   return {
-    nouveauDoc: { blocks: blocsActuels },
+    // Les autres champs (titre…) suivent la page.
+    nouveauDoc: { ...(vivant || {}), blocks },
     ancienDoc: { blocks: [], _deleted: true, redirectTo: `/${cible}` },
   }
 }

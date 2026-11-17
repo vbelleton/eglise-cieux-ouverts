@@ -1,36 +1,32 @@
 import { test, expect } from '@playwright/test'
 import {
-  normaliserAdresseDons,
-  adresseDonsCourante,
+  normaliserAdresse,
   reponsePageDepuisDoc,
   plannifierDeplacement,
   adresseOccupee,
-} from '../../utils/adresseDons.js'
+} from '../../utils/adressePage.js'
 
-// Adresse de la page de dons : saisie libre dans ⚙ Config, normalisée côté serveur.
+// Adresse des pages : saisie dans l'éditeur de menu, normalisée côté serveur.
 
-test.describe('normaliserAdresseDons', () => {
+test.describe('normaliserAdresse', () => {
   test('met en forme une adresse saisie librement', () => {
-    expect(normaliserAdresseDons('  Nous Soutenir ! ')).toBe('nous-soutenir')
-    expect(normaliserAdresseDons('Dons é à')).toBe('dons-e-a')
-    expect(normaliserAdresseDons('nous-soutenir')).toBe('nous-soutenir')
+    expect(normaliserAdresse('  Nous Soutenir ! ')).toBe('nous-soutenir')
+    expect(normaliserAdresse('Dons é à')).toBe('dons-e-a')
+    expect(normaliserAdresse('nous-soutenir')).toBe('nous-soutenir')
   })
 
   test('refuse les adresses vides, trop longues ou réservées au site', () => {
-    expect(normaliserAdresseDons('')).toBeNull()
-    expect(normaliserAdresseDons('   ')).toBeNull()
-    expect(normaliserAdresseDons('!!!')).toBeNull()
-    expect(normaliserAdresseDons('a'.repeat(61))).toBeNull()
-    expect(normaliserAdresseDons('contact')).toBeNull()
-    expect(normaliserAdresseDons('admin')).toBeNull()
-    expect(normaliserAdresseDons('api')).toBeNull()
+    expect(normaliserAdresse('')).toBeNull()
+    expect(normaliserAdresse('   ')).toBeNull()
+    expect(normaliserAdresse('!!!')).toBeNull()
+    expect(normaliserAdresse('a'.repeat(61))).toBeNull()
+    expect(normaliserAdresse('contact')).toBeNull()
+    expect(normaliserAdresse('admin')).toBeNull()
+    expect(normaliserAdresse('api')).toBeNull()
   })
 
   test('accepte « dons » comme adresse par défaut', () => {
-    expect(normaliserAdresseDons('dons')).toBe('dons')
-    expect(adresseDonsCourante({})).toBe('dons')
-    expect(adresseDonsCourante({ adresseDons: 'nous-soutenir' })).toBe('nous-soutenir')
-    expect(adresseDonsCourante({ adresseDons: 'contact' })).toBe('dons')
+    expect(normaliserAdresse('dons')).toBe('dons')
   })
 })
 
@@ -58,11 +54,11 @@ test.describe('reponsePageDepuisDoc', () => {
   })
 })
 
-test.describe('déplacement de la page de dons', () => {
+test.describe('déplacement d\'une page', () => {
   test('copie le contenu vers la nouvelle adresse et laisse une redirection', () => {
     const blocs = [{ id: 'a', type: 'quote', props: {} }]
-    const { nouveauDoc, ancienDoc } = plannifierDeplacement('dons', 'nous-soutenir', { blocks: blocs })
-    expect(nouveauDoc.blocks).toEqual(blocs)
+    const { nouveauDoc, ancienDoc } = plannifierDeplacement('dons', 'nous-soutenir', { blocks: blocs, title: 'Dons' })
+    expect(nouveauDoc).toEqual({ blocks: blocs, title: 'Dons' })
     expect(ancienDoc).toEqual({ blocks: [], _deleted: true, redirectTo: '/nous-soutenir' })
   })
 

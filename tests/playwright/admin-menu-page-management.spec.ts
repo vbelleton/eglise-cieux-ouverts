@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/admin-fixtures'
+import { resetMock as remettreAZero } from './helpers/reset'
 
 test.describe('Gestion des pages depuis le menu', () => {
   test('le bouton « Pages » de la toolbar ouvre la gestion du menu', async ({ page, adminLogin }) => {
@@ -114,4 +115,30 @@ test.describe('Gestion des pages depuis le menu', () => {
       expect(body.message).toBe('Impossible de supprimer cette page')
     })
   }
+
+  test('changer l\'adresse d\'une page la déplace, redirige l\'ancienne et met le menu à jour', async ({ page, adminLogin, resetMock }) => {
+    await page.goto('/?admin=true')
+    await page.waitForSelector('.admin-toolbar', { timeout: 10000 })
+    await page.locator('.admin-toolbar button', { hasText: 'Pages' }).click()
+    await page.waitForSelector('.menu-editor-modal', { timeout: 5000 })
+
+    // La page de dons est listée même jamais enregistrée
+    const ligne = page.locator('.menu-editor-item', { hasText: 'Dons' })
+    await ligne.locator('.menu-item-row').click()
+    await ligne.locator('.page-adresse-row input').fill('Nous soutenir')
+    await ligne.getByRole('button', { name: 'Changer' }).click()
+    await expect(ligne.locator('.page-adresse-row input')).toHaveValue('nous-soutenir')
+    await expect(ligne.locator('.page-adresse-erreur')).toHaveCount(0)
+
+    // L'ancienne adresse redirige, la nouvelle affiche le contenu
+    const reponse = await page.request.get('/dons', { maxRedirects: 0 })
+    expect(reponse.status()).toBe(301)
+    expect(reponse.headers()['location']).toContain('/nous-soutenir')
+    await page.goto('/nous-soutenir')
+    await expect(page.locator('.block-virement')).toBeVisible()
+    await expect(page.locator('.nav-desktop a[href="/nous-soutenir"]')).toBeVisible()
+
+    // Le mock est partagé : on ne laisse pas la page déplacée aux tests suivants
+    await remettreAZero(page.request)
+  })
 })

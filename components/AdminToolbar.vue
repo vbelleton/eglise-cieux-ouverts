@@ -1004,6 +1004,21 @@
                         ></textarea>
                         <p class="settings-hint">Un ou plusieurs emails, séparés par une virgule ou un retour à la ligne. Chacun recevra les messages du formulaire de contact.</p>
                     </div>
+                    <div class="settings-field">
+                        <label>Adresse de la page de dons</label>
+                        <div class="settings-adresse-dons">
+                            <span class="settings-adresse-prefixe">/</span>
+                            <input
+                                v-model="adresseDonsForm"
+                                type="text"
+                                maxlength="60"
+                                class="settings-input"
+                                placeholder="dons"
+                                aria-describedby="adresse-dons-aide"
+                            />
+                        </div>
+                        <p id="adresse-dons-aide" class="settings-hint">Les visiteurs qui ouvrent l'ancienne adresse sont redirigés vers la nouvelle. Le contenu de la page est déplacé avec elle.</p>
+                    </div>
                     <div class="settings-field" v-if="etatEmail">
                         <label>Envoi des emails</label>
                         <p v-if="etatEmail.configured" class="settings-hint email-etat email-etat-ok">
@@ -1845,6 +1860,7 @@ async function deleteContactMessage(message) {
 // Settings
 const showSettings = ref(false)
 const settingsForm = ref({ hideEventsPageIfEmpty: false, espaceMembre: false })
+const adresseDonsForm = ref('dons')
 // Salle de prière VR : fenêtre à part (bouton 🥽), document settings/vr.
 const reglagesVR = ref(null)
 const showSalleVR = ref(false)
@@ -1976,6 +1992,7 @@ async function loadSettings() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     settingsForm.value = { hideEventsPageIfEmpty: data.hideEventsPageIfEmpty === true, espaceMembre: data.espaceMembre === true }
+    adresseDonsForm.value = data.adresseDons || 'dons'
     contactEmailsText.value = (data.contactEmails || []).join(', ')
     socialLinksForm.value = Array.isArray(data.socialLinks) ? data.socialLinks.map(l => ({ ...l })) : []
     memberTabOrderForm.value = Array.isArray(data.memberTabOrder) && data.memberTabOrder.length === 3
@@ -2048,7 +2065,7 @@ async function saveSettings() {
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...settingsForm.value, contactEmails, socialLinks: socialLinksForm.value, memberTabOrder: memberTabOrderForm.value }),
+      body: JSON.stringify({ ...settingsForm.value, adresseDons: adresseDonsForm.value.trim(), contactEmails, socialLinks: socialLinksForm.value, memberTabOrder: memberTabOrderForm.value }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => null)
@@ -4217,6 +4234,15 @@ async function saveChanges() {
     border-radius: 4px;
     font-size: 14px;
     font-family: inherit;
+}
+.settings-adresse-dons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.settings-adresse-prefixe {
+    font-weight: 600;
+    opacity: 0.7;
 }
 .settings-input:focus {
     outline: none;

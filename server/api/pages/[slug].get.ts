@@ -1,12 +1,13 @@
+import { reponsePageDepuisDoc } from '../../../utils/adresseDons.js'
 export default defineEventHandler(async (event) => {
   // En mode test (CI ou local), le mock prime TOUJOURS sur Firestore :
   // sinon les tests locaux (où .env a de vrais credentials) tapent la
   // vraie base et deviennent non déterministes
   const isTest = process.env.NODE_ENV === 'test' || process.env.PW_TEST === '1' || process.env.TEST_ENV === '1'
   if (isTest) {
-    const { getPageDoc } = await import('../../utils/firestore-mock.js')
+    const { getPages } = await import('../../utils/firestore-mock.js')
     const slug = getRouterParam(event, 'slug') || 'accueil'
-    return await getPageDoc(slug)
+    return reponsePageDepuisDoc(slug, getPages()[slug] || null)
   }
 
   const config = useRuntimeConfig(event)
@@ -30,17 +31,18 @@ export default defineEventHandler(async (event) => {
     const doc = await getFirestoreDoc(projectId, accessToken, 'pages', slug)
 
     if (!doc) {
+      // Adresse de la page de dons : contenu de départ, ou redirection si elle a été déplacée
       // Jamais de null pour blocks ! ⇒ fallback neutre, UI toujours fonctionnelle
       // exists:false -> pages/[slug].vue peut renvoyer une vraie 404 pour
       // un slug réellement inconnu (les pages statiques comme /contact ne
       // passent jamais par ce endpoint via [slug].vue).
-      return { blocks: [], exists: false }
+      return reponsePageDepuisDoc(slug, null)
     }
 
-    const parsed = parseFirestoreDoc(doc)
     // Une page soft-deleted (_deleted, cf. DELETE /api/pages/:slug) compte
-    // comme inexistante pour le routage public.
-    return { blocks: parsed?.blocks || null, exists: !parsed?._deleted }
+    // comme inexistante pour le routage public ; un document déplacé renvoie
+    // sa nouvelle adresse (voir utils/adresseDons.js).
+    return reponsePageDepuisDoc(slug, parseFirestoreDoc(doc))
   } catch (err) {
     console.error('Page API error:', err)
     throw createError({ statusCode: 500, message: 'Erreur lors du chargement de la page.' })

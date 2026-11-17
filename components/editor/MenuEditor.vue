@@ -54,7 +54,16 @@
                       <input v-model="editTo" @input="applyEdit(item.id)" class="input-sm" />
                     </template>
                     <template v-else>
-                      <p class="page-url-hint">URL : <code>/{{ item.pageSlug }}</code></p>
+                      <label>Adresse de la page</label>
+                      <div class="page-adresse-row">
+                        <span class="page-adresse-prefixe">/</span>
+                        <input v-model="editAdresse" class="input-sm" maxlength="60" :placeholder="item.pageSlug" />
+                        <button class="btn-sm" :disabled="adresseEnCours || !editAdresse.trim() || editAdresse.trim() === item.pageSlug" @click="changerAdresse(item)">
+                          {{ adresseEnCours ? '…' : 'Changer' }}
+                        </button>
+                      </div>
+                      <p v-if="adresseErreur" class="page-adresse-erreur">{{ adresseErreur }}</p>
+                      <p class="page-url-hint">L'ancienne adresse redirigera vers la nouvelle.</p>
                     </template>
                   </template>
                   <div v-if="item.children?.length" class="sub-items">
@@ -160,9 +169,50 @@ const bgInput = ref('')
 const loadingPages = ref(false)
 
 watch(menuBgImage, (v) => { bgInput.value = v }, { immediate: true })
+const editAdresse = ref('')
+const adresseEnCours = ref(false)
+const adresseErreur = ref('')
 watch(activeMenuItem, (item) => {
-  if (item) { editLabel.value = item.label; editTo.value = item.to }
+  if (item) { editLabel.value = item.label; editTo.value = item.to; editAdresse.value = item.pageSlug || ''; adresseErreur.value = '' }
 })
+
+// Change l'adresse d'une page : le serveur déplace la page et laisse une
+// redirection ; on met à jour le menu (liens vers l'ancienne adresse) et on
+// l'enregistre aussitôt, pour qu'il pointe directement sur la nouvelle.
+async function changerAdresse(item) {
+  const ancienne = item.pageSlug
+  adresseErreur.value = ''
+  adresseEnCours.value = true
+  try {
+    const token = await getFirebaseToken()
+    if (!token) throw new Error('Non authentifié')
+    const res = await fetch(`/api/pages/${ancienne}/adresse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ adresse: editAdresse.value }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`)
+    const nouvelle = data.adresse
+    const suivre = (items) => {
+      for (const it of items || []) {
+        if (it.pageSlug === ancienne) it.pageSlug = nouvelle
+        if (it.to === `/${ancienne}`) it.to = `/${nouvelle}`
+        suivre(it.children)
+      }
+    }
+    suivre(menuItems.value)
+    customPages.value = customPages.value.map((p) => (p.slug === ancienne ? { ...p, slug: nouvelle } : p))
+    editAdresse.value = nouvelle
+    menuChanged.value = true
+    await saveMenuToFirestore()
+    if ((route.path.replace(/^\//, '') || 'accueil') === ancienne) await navigateToPage(nouvelle)
+  } catch (e) {
+    adresseErreur.value = e.message || 'Erreur lors du changement d\'adresse'
+  } finally {
+    adresseEnCours.value = false
+  }
+}
 
 function applyEdit(id) {
   updateMenuItem(id, { label: editLabel.value, to: editTo.value })
@@ -338,6 +388,10 @@ onMounted(() => {
 .menu-editor-modal { width:90%; max-width:640px; }
 
 .menu-editor-header-actions { display:flex; gap:6px; align-items:center; }
+.page-adresse-row { display:flex; gap:6px; align-items:center; }
+.page-adresse-row .input-sm { flex:1; min-width:0; }
+.page-adresse-prefixe { opacity:.7; font-weight:600; }
+.page-adresse-erreur { color:#c0392b; font-size:.85em; margin:4px 0 0; }
 .unsaved-badge { font-size:.7em; color:#b45309; white-space:nowrap; }
 .btn-icon { background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; width:30px; height:30px; border-radius:6px; cursor:pointer; font-size:.95em; display:flex; align-items:center; justify-content:center; }
 .btn-icon:hover { background:#e5e7eb; }

@@ -1,4 +1,3 @@
-import { adresseDonsCourante } from '../../../utils/adresseDons.js'
 import { getFirestoreConfig, getAccessToken, getFirestoreDoc, parseFirestoreDoc } from '../../utils/firebase'
 import { callerIsAdmin } from '../../utils/firebase-admin'
 
@@ -61,8 +60,6 @@ function buildResponse(data: Record<string, any> | null, isAdmin: boolean) {
     // Espace membre (comptes, /membre) : désactivé tant que l'admin ne l'a
     // pas explicitement activé dans ⚙️ Config.
     espaceMembre: data?.espaceMembre === true,
-    // Adresse publique de la page de dons (sans secret : elle figure dans les liens du site).
-    adresseDons: adresseDonsCourante(data),
     socialLinks: normalizeSocialLinks(data),
     memberTabOrder: normalizeMemberTabOrder(data),
     ...(isAdmin ? { contactEmails: normalizeContactEmails(data) } : {}),

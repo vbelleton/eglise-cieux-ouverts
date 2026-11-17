@@ -11,7 +11,7 @@
 // un admin pouvait créer une page "Contact" ou "Photos" en Firestore qui
 // n'était jamais rendue nulle part, l'URL restant capturée par le fichier
 // statique).
-export const HARDCODED_SLUGS = ["accueil", "contact", "messages", "event-list", "agenda", "photos", "membre", "dons"];
+export const HARDCODED_SLUGS = ["accueil", "contact", "messages", "event-list", "agenda", "photos", "membre"];
 
 export const ANIMATIONS = [
   { id: "none", label: "Aucune", css: "" },

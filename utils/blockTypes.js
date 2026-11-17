@@ -11,7 +11,7 @@
 // un admin pouvait créer une page "Contact" ou "Photos" en Firestore qui
 // n'était jamais rendue nulle part, l'URL restant capturée par le fichier
 // statique).
-export const HARDCODED_SLUGS = ["accueil", "contact", "messages", "event-list", "agenda", "photos", "membre"];
+export const HARDCODED_SLUGS = ["accueil", "contact", "messages", "event-list", "agenda", "photos", "membre", "dons"];
 
 export const ANIMATIONS = [
   { id: "none", label: "Aucune", css: "" },
@@ -1208,7 +1208,7 @@ export const BLOCK_TYPES = {
       text: "Votre générosité permet à l'église de vivre et d'accueillir chacun. Merci !",
       note: "",
       buttonLabel: "Faire un don",
-      buttonLink: "/contact",
+      buttonLink: "/dons",
       backgroundColor: "#fdf2f2",
       textColor: "#064886",
       buttonColor: "#d97777",
@@ -1226,6 +1226,55 @@ export const BLOCK_TYPES = {
       { key: "textColor", label: "Couleur texte", type: "color" },
       { key: "buttonColor", label: "Couleur du bouton", type: "color" },
       { key: "buttonTextColor", label: "Couleur du texte du bouton", type: "color" },
+      { key: "animation", label: "Animation", type: "animation" },
+    ],
+  },
+
+  virement: {
+    label: "Coordonnées bancaires (virement)",
+    icon: "🏦",
+    category: "content",
+    animations: "wrapper",
+    defaults: {
+      title: "Faire un don par virement",
+      intro: "Vous pouvez soutenir l'église par un virement ponctuel ou permanent depuis votre banque, avec les coordonnées ci-dessous.",
+      holderLabel: "Titulaire du compte",
+      holder: "EGLISE CIEUX OUVERTS",
+      ibanLabel: "IBAN",
+      iban: "FR73 3000 2058 3500 0007 0681 D82",
+      bicLabel: "BIC",
+      bic: "CRLYFRPPXXX",
+      bankLabel: "Banque",
+      bank: "LCL – Le Crédit Lyonnais, Morlaix",
+      note: "Merci de tout cœur pour votre générosité !",
+      copyLabel: "Copier",
+      copiedLabel: "Copié !",
+      backgroundColor: "#f4f8fc",
+      textColor: "#064886",
+      cardColor: "#ffffff",
+      buttonColor: "#064886",
+      buttonTextColor: "#ffffff",
+      animation: "fadeIn",
+    },
+    schema: [
+      { key: "title", label: "Titre", type: "text" },
+      { key: "intro", label: "Texte d'introduction", type: "textarea" },
+      { key: "holder", label: "Titulaire du compte", type: "text", noStyle: true },
+      { key: "iban", label: "IBAN", type: "text", noStyle: true },
+      { key: "bic", label: "BIC", type: "text", noStyle: true },
+      { key: "bank", label: "Banque (vide = ligne masquée)", type: "text", noStyle: true },
+      { key: "note", label: "Mention sous les coordonnées (facultatif)", type: "textarea" },
+      { key: "holderLabel", label: "Libellé : titulaire", type: "text", group: "textes" },
+      { key: "ibanLabel", label: "Libellé : IBAN", type: "text", group: "textes" },
+      { key: "bicLabel", label: "Libellé : BIC", type: "text", group: "textes" },
+      { key: "bankLabel", label: "Libellé : banque", type: "text", group: "textes" },
+      { key: "copyLabel", label: "Bouton : copier (vide = pas de bouton)", type: "text", group: "textes" },
+      { key: "copiedLabel", label: "Message après copie", type: "text", group: "textes" },
+      { key: "backgroundColor", label: "Fond", type: "color" },
+      { key: "textColor", label: "Couleur texte", type: "color" },
+      { key: "cardColor", label: "Couleur de la carte", type: "color" },
+      { key: "buttonColor", label: "Couleur des boutons", type: "color" },
+      { key: "buttonTextColor", label: "Couleur du texte des boutons", type: "color" },
       { key: "animation", label: "Animation", type: "animation" },
     ],
   },
@@ -1506,6 +1555,28 @@ export function getDefaultContactPage() {
     .map((block, i) => ({ ...block, id: `default-contact-${i}` }));
 }
 
+// Page /dons : contenu de départ tant que personne ne l'a éditée dans l'admin.
+export function getDefaultDonsPage() {
+  return [
+    createBlock("sectionTitle", {
+      title: "Soutenir l'église",
+      subtitle: "Vos dons permettent à l'Église Cieux Ouverts de vivre, d'accueillir et de servir à Morlaix.",
+    }),
+    createBlock("quote", {
+      quote: "Que chacun donne comme il l'a résolu en son cœur, sans tristesse ni contrainte ; car Dieu aime celui qui donne avec joie.",
+      author: "2 Corinthiens 9.7",
+    }),
+    createBlock("virement"),
+    createBlock("callToAction", {
+      title: "Une question sur les dons ?",
+      primaryLabel: "Nous contacter",
+      primaryLink: "/contact",
+    }),
+  ]
+    .filter(Boolean)
+    .map((block, i) => ({ ...block, id: `default-dons-${i}` }));
+}
+
 // ─── Pages d'erreur par défaut ─────────────────────────────────────────────
 export function getDefaultErrorPage(code = 404) {
   const common = {
@@ -1641,6 +1712,7 @@ export function getDefaultPageBySlug(slug) {
   if (slug === "photos") return getDefaultPhotosPage();
   if (slug === "event-list") return getDefaultBilletteriePage();
   if (slug === "contact") return getDefaultContactPage();
+  if (slug === "dons") return getDefaultDonsPage();
   return [];
 }
 

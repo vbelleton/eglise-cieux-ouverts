@@ -136,6 +136,7 @@ function defaultPages() {
       { id: 'tb-colonnes', type: 'colonnes', props: {} },
       { id: 'tb-compteARebours', type: 'compteARebours', props: {} },
       { id: 'tb-don', type: 'don', props: {} },
+      { id: 'tb-virement', type: 'virement', props: {} },
       { id: 'tb-audio', type: 'audio', props: {} },
       { id: 'tb-footer', type: 'footer', props: {} },
     ],

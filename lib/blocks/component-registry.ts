@@ -61,6 +61,7 @@ export const BLOCK_MAP: Record<string, () => Promise<any>> = {
   colonnes: () => import('../../components/blocks/BlockColonnes.vue'),
   compteARebours: () => import('../../components/blocks/BlockCompteARebours.vue'),
   don: () => import('../../components/blocks/BlockDon.vue'),
+  virement: () => import('../../components/blocks/BlockVirement.vue'),
   audio: () => import('../../components/blocks/BlockAudio.vue'),
   footer: () => import('../../components/blocks/BlockFooter.vue'),
 }

@@ -6,6 +6,7 @@ const DEFAULT_MENU_ITEMS = [
   { id: 'messages', label: 'Messages', to: '/messages', visible: true, children: [] },
   { id: 'agenda', label: 'Agenda', to: '/agenda', visible: true, children: [] },
   { id: 'event-list', label: 'Événements', to: '/event-list', visible: true, children: [] },
+  { id: 'dons', label: 'Dons', to: '/dons', visible: true, children: [] },
   { id: 'contact', label: 'Contact', to: '/contact', visible: true, children: [] },
 ]
 

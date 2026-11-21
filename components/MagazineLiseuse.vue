@@ -536,32 +536,65 @@ function elementPleinEcran() {
   return document.fullscreenElement || document.webkitFullscreenElement || null
 }
 
+// Un seul changement à la fois. Le navigateur met du temps à entrer ou sortir
+// du plein écran (animation de macOS, Android) : un deuxième appui pendant ce
+// temps lançait une demande contraire au milieu de la première, et l'ancien
+// contrôle « plein écran pris au bout de 150 ms ? » échouait sur un passage
+// lent, ce qui activait en plus le repli. Après quelques appuis rapprochés, on
+// se retrouvait avec les deux à la fois, un bouton qui semblait ne plus rien
+// faire, et sur Safari une fenêtre figée.
+let changementEnCours = false
+
+function attendreChangementPleinEcran(delai) {
+  return new Promise((resolve) => {
+    const fini = () => {
+      clearTimeout(minuterie)
+      for (const ev of EVENEMENTS_PLEIN_ECRAN) document.removeEventListener(ev, fini)
+      resolve()
+    }
+    const minuterie = setTimeout(fini, delai)
+    for (const ev of EVENEMENTS_PLEIN_ECRAN) document.addEventListener(ev, fini)
+  })
+}
+const EVENEMENTS_PLEIN_ECRAN = ['fullscreenchange', 'webkitfullscreenchange', 'fullscreenerror', 'webkitfullscreenerror']
+
 async function basculerPleinEcran() {
+  if (changementEnCours) return
   if (pseudoPlein.value) { pseudoPlein.value = false; return }
-  if (elementPleinEcran()) {
-    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
-    return
-  }
-  const el = racine.value
-  // iPhone : la méthode existe parfois mais le plein écran n'est permis que
-  // pour une vidéo (`fullscreenEnabled` faux), et l'ancienne API préfixée ne
-  // renvoie pas de promesse : un échec y passait inaperçu, le bouton ne
-  // faisait rien. On ne tente donc l'API que si elle est annoncée possible,
-  // et on vérifie ensuite qu'elle a réellement pris.
-  const possible = document.fullscreenEnabled || document.webkitFullscreenEnabled
-  const demander = el?.requestFullscreen || el?.webkitRequestFullscreen
-  if (possible && demander) {
-    try {
-      await demander.call(el)
-      await new Promise(r => setTimeout(r, 150))
+  changementEnCours = true
+  try {
+    if (elementPleinEcran()) {
+      const sortir = document.exitFullscreen || document.webkitExitFullscreen
+      const fin = attendreChangementPleinEcran(1500)
+      try { await sortir?.call(document) } catch { /* déjà sorti */ }
+      await fin
+      return
+    }
+    const el = racine.value
+    // iPhone : la méthode existe parfois mais le plein écran n'est permis que
+    // pour une vidéo (`fullscreenEnabled` faux) : repli direct. Ailleurs, on
+    // attend la réponse réelle du navigateur (événement de changement ou
+    // d'erreur ; l'ancienne API préfixée ne renvoie pas de promesse).
+    const possible = document.fullscreenEnabled || document.webkitFullscreenEnabled
+    const demander = el?.requestFullscreen || el?.webkitRequestFullscreen
+    if (possible && demander) {
+      const fin = attendreChangementPleinEcran(1500)
+      let refus = false
+      try { await demander.call(el) } catch { refus = true }
+      if (!refus) await fin
       if (elementPleinEcran()) return
-    } catch { /* refusé : repli ci-dessous */ }
+    }
+    pseudoPlein.value = true
+  } finally {
+    changementEnCours = false
+    surChangementPleinEcran()
   }
-  pseudoPlein.value = true
 }
 
 function surChangementPleinEcran() {
-  pleinEcran.value = elementPleinEcran() === racine.value
+  pleinEcran.value = !!racine.value && elementPleinEcran() === racine.value
+  // Jamais les deux à la fois.
+  if (pleinEcran.value) pseudoPlein.value = false
 }
 
 watch(pseudoPlein, (actif) => {
@@ -659,6 +692,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', surChangementPleinEcran)
   document.removeEventListener('webkitfullscreenchange', surChangementPleinEcran)
   document.documentElement.classList.remove('liseuse-defilement-bloque')
+  // Retour à la liste depuis le plein écran : on en sort aussi.
+  if (racine.value && elementPleinEcran() === racine.value) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {})
+  }
 })
 
 watch([indexVue, double], () => {

@@ -133,6 +133,32 @@ test.describe('Magazine', () => {
     expect(await etat()).toEqual({ plein: true, hauteur: 800 })
   })
 
+  test('plein écran : des appuis rapprochés pendant une entrée lente ne le dérèglent pas', async ({ page }) => {
+    // Comme macOS ou Android : le navigateur met un moment à passer en plein
+    // écran. L'ancien code concluait à un échec au bout de 150 ms et activait
+    // aussi le repli : les deux à la fois, puis un bouton qui ne répondait plus.
+    await page.addInitScript(() => {
+      const origine = Element.prototype.requestFullscreen
+      Element.prototype.requestFullscreen = function () {
+        return new Promise(r => setTimeout(r, 450)).then(() => origine.call(this))
+      }
+    })
+    await page.goto('/magazine/exemple?page=4')
+    const bouton = page.locator('.barre-bouton[aria-pressed][title*="lein écran"]')
+    const etat = () => page.evaluate(() => ({
+      plein: !!document.fullscreenElement,
+      repli: !!document.querySelector('.liseuse-pseudo-plein'),
+      bouton: document.querySelector('.barre-bouton[title*="lein écran"]').getAttribute('aria-pressed'),
+    }))
+    for (let i = 0; i < 6; i++) await bouton.click({ delay: 0 })
+    await expect.poll(etat, { timeout: 4000 }).toEqual({ plein: true, repli: false, bouton: 'true' })
+    await page.waitForTimeout(300)
+    expect(await etat()).toEqual({ plein: true, repli: false, bouton: 'true' })
+    // Et il se quitte toujours d'un appui.
+    await bouton.click()
+    await expect.poll(etat).toEqual({ plein: false, repli: false, bouton: 'false' })
+  })
+
   test('iPhone (pas de plein écran pour une page) : le repli couvre tout l\'écran', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true })
     const page = await ctx.newPage()

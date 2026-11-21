@@ -111,6 +111,55 @@ test.describe('Magazine', () => {
     await expect(page.locator('.barre-libelle')).toHaveText('Pages 6–7 sur 12')
   })
 
+  test('plein écran : les boutons du bas ne le font pas quitter', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/magazine/exemple')
+    const etat = () => page.evaluate(() => ({
+      plein: !!document.fullscreenElement,
+      hauteur: Math.round(document.querySelector('.liseuse')!.getBoundingClientRect().height),
+    }))
+    await page.locator('.barre-bouton[title="Plein écran"]').click()
+    await expect.poll(etat).toEqual({ plein: true, hauteur: 800 })
+    for (const titre of ['Toutes les pages', 'Toutes les pages', 'Agrandir', 'Revenir à la taille normale']) {
+      await page.locator(`.barre-bouton[title="${titre}"]`).click()
+      expect(await etat()).toEqual({ plein: true, hauteur: 800 })
+    }
+    await page.locator('.barre-bouton[title="Toutes les pages"]').click()
+    await page.getByRole('button', { name: 'Aller à la page 5' }).click()
+    await expect(page.locator('.barre-libelle')).toHaveText('Pages 4–5 sur 12')
+    expect(await etat()).toEqual({ plein: true, hauteur: 800 })
+    await page.locator('.fleche-droite').click()
+    await expect(page.locator('.barre-libelle')).toHaveText('Pages 6–7 sur 12')
+    expect(await etat()).toEqual({ plein: true, hauteur: 800 })
+  })
+
+  test('iPhone (pas de plein écran pour une page) : le repli couvre tout l\'écran', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true })
+    const page = await ctx.newPage()
+    await page.addInitScript(() => {
+      try { localStorage.setItem('magazine-astuce', '1') } catch {}
+      // Comme Safari sur iPhone : méthode présente mais plein écran non permis.
+      Object.defineProperty(Document.prototype, 'fullscreenEnabled', { get: () => false })
+      Object.defineProperty(Document.prototype, 'webkitFullscreenEnabled', { get: () => false })
+    })
+    await page.goto('/magazine/exemple')
+    const etat = () => page.evaluate(() => {
+      const r = document.querySelector('.liseuse')!.getBoundingClientRect()
+      return { repli: !!document.querySelector('.liseuse-pseudo-plein'), haut: Math.round(r.top), hauteur: Math.round(r.height) }
+    })
+    await page.locator('.barre-bouton[title="Plein écran"]').tap()
+    await expect.poll(etat).toEqual({ repli: true, haut: 0, hauteur: 664 })
+    await page.locator('.barre-bouton[title="Toutes les pages"]').tap()
+    await page.getByRole('button', { name: 'Aller à la page 5' }).tap()
+    await expect(page.locator('.barre-libelle')).toHaveText('Page 5 sur 12')
+    await page.locator('.barre-bouton[title="Agrandir"]').tap()
+    await page.locator('.barre-bouton[title="Revenir à la taille normale"]').tap()
+    expect(await etat()).toEqual({ repli: true, haut: 0, hauteur: 664 })
+    await page.locator('.barre-bouton[title="Quitter le plein écran"]').tap()
+    await expect.poll(etat).toMatchObject({ repli: false })
+    await ctx.close()
+  })
+
   test('numéro inconnu : 404', async ({ page }) => {
     const res = await page.goto('/magazine/numero-inexistant')
     expect(res?.status()).toBe(404)

@@ -543,11 +543,18 @@ async function basculerPleinEcran() {
     return
   }
   const el = racine.value
+  // iPhone : la méthode existe parfois mais le plein écran n'est permis que
+  // pour une vidéo (`fullscreenEnabled` faux), et l'ancienne API préfixée ne
+  // renvoie pas de promesse : un échec y passait inaperçu, le bouton ne
+  // faisait rien. On ne tente donc l'API que si elle est annoncée possible,
+  // et on vérifie ensuite qu'elle a réellement pris.
+  const possible = document.fullscreenEnabled || document.webkitFullscreenEnabled
   const demander = el?.requestFullscreen || el?.webkitRequestFullscreen
-  if (demander) {
+  if (possible && demander) {
     try {
       await demander.call(el)
-      return
+      await new Promise(r => setTimeout(r, 150))
+      if (elementPleinEcran()) return
     } catch { /* refusé : repli ci-dessous */ }
   }
   pseudoPlein.value = true
@@ -678,8 +685,17 @@ watch(sizes, precharger)
   user-select: none;
   -webkit-user-select: none;
 }
-.liseuse-plein { height: 100vh; height: 100dvh; }
-.liseuse-pseudo-plein { position: fixed; inset: 0; z-index: 2000; height: 100dvh; }
+/* Plein écran : sélecteurs doublés pour passer devant la hauteur réglée plus
+   bas pour le téléphone (même spécificité, plus loin dans la feuille : elle
+   gagnait, et le plein écran s'arrêtait aux trois quarts de l'écran, le pied
+   de page du site visible dessous). */
+.liseuse.liseuse-plein { height: 100vh; height: 100dvh; }
+.liseuse.liseuse-pseudo-plein {
+  position: fixed; inset: 0; z-index: 2000;
+  height: 100vh; height: 100dvh;
+  /* Barre au-dessus de la zone du geste d'accueil de l'iPhone. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 .liseuse-zone {
   position: relative; flex: 1; min-height: 0;

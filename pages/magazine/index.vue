@@ -81,7 +81,15 @@ useHead({
   max-width: 1000px; margin: 40px auto 0; padding: 0 24px;
   display: grid; grid-template-columns: 340px 1fr; gap: 48px; align-items: center;
 }
-.mag-dernier-couv { display: block; border-radius: 4px; overflow: hidden; box-shadow: 0 18px 40px rgba(6, 72, 134, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12); transition: transform .25s ease; }
+.mag-dernier-couv {
+  display: block; border-radius: 3px; overflow: hidden;
+  /* Pile de pages derrière la couverture : on voit que c'est un magazine. */
+  box-shadow:
+    5px 5px 0 -1px #fff, 5px 5px 0 0 #d6dbe4,
+    10px 10px 0 -1px #fff, 10px 10px 0 0 #d6dbe4,
+    0 24px 48px rgba(6, 72, 134, 0.25), 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform .3s ease, box-shadow .3s ease;
+}
 .mag-dernier-couv:hover { transform: translateY(-4px) rotate(-0.5deg); }
 .mag-dernier-couv img { display: block; width: 100%; height: auto; background: #eef2f7; }
 .mag-etiquette { display: inline-block; font-size: 0.75em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--primary-pink); margin: 0 0 8px; }

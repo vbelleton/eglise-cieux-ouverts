@@ -22,46 +22,62 @@
         </div>
       </div>
 
+      <!-- Le cadre recentre le livre fermé (couverture seule, quatrième de
+           couverture seule) et glisse en même temps que la page tourne. -->
       <div
         v-else
-        class="livre"
-        :class="[double ? 'livre-double' : 'livre-simple', { 'livre-glisse': glisse }]"
-        :style="{ width: `${tailleLivre.largeur}px`, height: `${tailleLivre.hauteur}px` }"
-        @pointerdown="debutGeste"
-        @pointermove="pendantGeste"
-        @pointerup="finGeste"
-        @pointercancel="annulerGeste"
-        @click="clicLivre"
+        class="livre-cadre"
+        :class="{ 'livre-pret': tailleLivre.largeur > 0 }"
+        :style="{ transform: `translateX(${decalage}px)` }"
       >
-        <template v-if="double">
-          <div class="cote cote-gauche" :class="{ 'cote-vide': !affichage.gauche }">
-            <MagazinePage :numero="numero" :page="affichage.gauche" :sizes="sizes" prioritaire />
-          </div>
-          <div class="cote cote-droite" :class="{ 'cote-vide': !affichage.droite }">
-            <MagazinePage :numero="numero" :page="affichage.droite" :sizes="sizes" prioritaire />
-          </div>
-          <div v-if="affichage.gauche && affichage.droite" class="pli" aria-hidden="true" />
-        </template>
-        <div v-else class="cote cote-unique">
-          <MagazinePage :numero="numero" :page="affichage.unique" :sizes="sizes" prioritaire />
-        </div>
-
-        <!-- Feuille en train de tourner : recto = page qui part, verso = page
-             qui arrive (le dos de la feuille). -->
         <div
-          v-if="feuille"
-          class="feuille"
-          :class="[`feuille-${feuille.sens}`, { 'feuille-anime': feuille.anime }]"
-          :style="styleFeuille"
-          aria-hidden="true"
+          class="livre"
+          :class="[double ? 'livre-double' : 'livre-simple', { 'livre-glisse': glisse }]"
+          :style="{ width: `${tailleLivre.largeur}px`, height: `${tailleLivre.hauteur}px` }"
+          @pointerdown="debutGeste"
+          @pointermove="pendantGeste"
+          @pointerup="finGeste"
+          @pointercancel="annulerGeste"
+          @click="clicLivre"
         >
-          <div class="face face-recto">
-            <MagazinePage :numero="numero" :page="feuille.recto" :sizes="sizes" />
-            <div class="ombre-face" :style="{ opacity: ombre }" />
+          <template v-if="double">
+            <!-- Tranche des pages déjà lues (à gauche) et restantes (à droite). -->
+            <div v-if="affichage.gauche" class="tranche tranche-gauche" :style="{ width: `${epaisseur.gauche}px` }" aria-hidden="true" />
+            <div v-if="affichage.droite" class="tranche tranche-droite" :style="{ width: `${epaisseur.droite}px` }" aria-hidden="true" />
+
+            <div class="cote cote-gauche" :class="{ 'cote-vide': !affichage.gauche }">
+              <MagazinePage :numero="numero" :page="affichage.gauche" :sizes="sizes" prioritaire />
+              <div v-if="affichage.gauche" class="reliure reliure-gauche" aria-hidden="true" />
+              <div v-if="feuille" class="ombre-portee ombre-portee-gauche" :style="{ opacity: ombres.gauche }" aria-hidden="true" />
+            </div>
+            <div class="cote cote-droite" :class="{ 'cote-vide': !affichage.droite }">
+              <MagazinePage :numero="numero" :page="affichage.droite" :sizes="sizes" prioritaire />
+              <div v-if="affichage.droite" class="reliure reliure-droite" aria-hidden="true" />
+              <div v-if="feuille" class="ombre-portee ombre-portee-droite" :style="{ opacity: ombres.droite }" aria-hidden="true" />
+            </div>
+          </template>
+          <div v-else class="cote cote-unique">
+            <MagazinePage :numero="numero" :page="affichage.unique" :sizes="sizes" prioritaire />
+            <div v-if="feuille" class="ombre-portee ombre-portee-droite" :style="{ opacity: ombres.droite }" aria-hidden="true" />
           </div>
-          <div class="face face-verso">
-            <MagazinePage :numero="numero" :page="feuille.verso" :sizes="sizes" />
-            <div class="ombre-face" :style="{ opacity: ombre }" />
+
+          <!-- Feuille en train de tourner : recto = page qui part, verso = page
+               qui arrive (le dos de la feuille). -->
+          <div
+            v-if="feuille"
+            class="feuille"
+            :class="[`feuille-${feuille.sens}`, { 'feuille-anime': feuille.anime }]"
+            :style="styleFeuille"
+            aria-hidden="true"
+          >
+            <div class="face face-recto">
+              <MagazinePage :numero="numero" :page="feuille.recto" :sizes="sizes" />
+              <div class="lumiere lumiere-recto" :style="{ opacity: lumieres.recto }" />
+            </div>
+            <div class="face face-verso">
+              <MagazinePage :numero="numero" :page="feuille.verso" :sizes="sizes" />
+              <div class="lumiere lumiere-verso" :style="{ opacity: lumieres.verso }" />
+            </div>
           </div>
         </div>
       </div>
@@ -111,9 +127,29 @@
     </div>
 
     <div class="liseuse-barre">
-      <div class="barre-pages">
+      <div class="barre-navigation">
+        <button type="button" class="barre-bouton barre-tourner" :disabled="!peutReculer" aria-label="Page précédente" @click="precedent">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
         <span class="barre-libelle" aria-live="polite">{{ libelle }}</span>
+        <button type="button" class="barre-bouton barre-tourner" :disabled="!peutAvancer" aria-label="Page suivante" @click="suivant">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+        </button>
       </div>
+      <!-- Curseur : survoler tout le numéro d'un geste, comme on feuillette
+           du pouce la tranche d'un magazine. -->
+      <input
+        class="barre-curseur"
+        type="range"
+        min="1"
+        :max="numero.pages"
+        step="1"
+        :value="pagesVisibles[0] || 1"
+        :style="{ '--avance': `${avance}%` }"
+        aria-label="Aller à la page"
+        :aria-valuetext="libelle"
+        @input="allerALaPage($event.target.value, false)"
+      >
       <div class="barre-actions">
         <button type="button" class="barre-bouton" :aria-pressed="vignettesOuvertes" title="Toutes les pages" @click="vignettesOuvertes = !vignettesOuvertes">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
@@ -147,13 +183,14 @@ const props = defineProps({
   pageInitiale: { type: Number, default: 1 },
 })
 
-const DUREE_TOUR = 550 // ms, doit suivre la transition de .feuille-anime
+const DUREE_TOUR = 650 // ms, doit suivre la transition de .feuille-anime
 const racine = ref(null)
 const zone = ref(null)
 
 // ─── Disposition ─────────────────────────────────────────────────────────
-// Rendu serveur en page simple ; la double page (grand écran en largeur) est
-// décidée au montage, une fois la taille réelle connue.
+// Rendu serveur en page simple et sans taille (livre invisible) ; la double
+// page (grand écran en largeur) est décidée au montage, une fois la taille
+// réelle connue, puis le livre apparaît en fondu.
 const dimensionsZone = ref({ largeur: 0, hauteur: 0 })
 const double = ref(false)
 const ratio = computed(() => (props.numero.hauteur || 1414) / (props.numero.largeur || 1000))
@@ -165,20 +202,28 @@ const pagesVisibles = computed(() => vueCourante.value.filter(Boolean))
 const libelle = computed(() => libelleVue(vueCourante.value, props.numero.pages))
 const peutAvancer = computed(() => indexVue.value < vues.value.length - 1)
 const peutReculer = computed(() => indexVue.value > 0)
+const avance = computed(() => {
+  const n = props.numero.pages
+  return n > 1 ? (((pagesVisibles.value[0] || 1) - 1) / (n - 1)) * 100 : 0
+})
 
 function borner(p) {
   const n = Number.parseInt(p, 10)
   return Number.isFinite(n) ? Math.min(Math.max(n, 1), props.numero.pages) : 1
 }
 
+const etroit = computed(() => dimensionsZone.value.largeur < 600)
+
 const tailleLivre = computed(() => {
   const { largeur, hauteur } = dimensionsZone.value
   const colonnes = double.value ? 2 : 1
   if (!largeur || !hauteur) return { largeur: 0, hauteur: 0, page: 0 }
-  // Marges : place des flèches sur les côtés, respiration en haut et en bas.
-  const margeX = largeur < 600 ? 16 : 120
+  // Sur téléphone la page prend toute la largeur (les flèches passent dans la
+  // barre) ; ailleurs, place des flèches et de la tranche sur les côtés.
+  const margeX = etroit.value ? 12 : 140
+  const margeY = etroit.value ? 12 : 40
   const dispoL = Math.max(120, largeur - margeX)
-  const dispoH = Math.max(160, hauteur - 32)
+  const dispoH = Math.max(160, hauteur - margeY)
   const pageL = Math.min(dispoL / colonnes, dispoH / ratio.value)
   return { largeur: Math.floor(pageL * colonnes), hauteur: Math.floor(pageL * ratio.value), page: pageL }
 })
@@ -208,7 +253,7 @@ function mesurer() {
   const hauteur = el.clientHeight
   dimensionsZone.value = { largeur, hauteur }
   // Double page si deux pages tiennent côte à côte à une taille lisible.
-  const pageEnDouble = Math.min(largeur / 2, (hauteur - 32) / ratio.value)
+  const pageEnDouble = Math.min(largeur / 2, (hauteur - 40) / ratio.value)
   changerDisposition(largeur >= 760 && pageEnDouble >= 260)
 }
 
@@ -219,6 +264,27 @@ function changerDisposition(enDouble) {
   double.value = enDouble
   indexVue.value = vueDeLaPage(vues.value, page)
 }
+
+// Livre fermé (couverture ou quatrième seule) : recentré à l'écran, comme
+// un magazine posé sur la table. Pendant un tour de page, on suit la vue
+// d'arrivée, et la transition du cadre accompagne celle de la feuille.
+const decalage = computed(() => {
+  if (!double.value) return 0
+  const vue = feuille.value ? vues.value[feuille.value.cible] : vueCourante.value
+  const [g, d] = vue || []
+  const demi = tailleLivre.value.largeur / 4
+  if (!g && d) return -demi
+  if (g && !d) return demi
+  return 0
+})
+
+// Épaisseur de la tranche : proportionnelle aux pages lues / restantes.
+const epaisseur = computed(() => {
+  const n = props.numero.pages
+  const p = pagesVisibles.value[0] || 1
+  const max = Math.min(10, Math.max(3, n / 6))
+  return { gauche: Math.max(2, Math.round((p / n) * max)), droite: Math.max(2, Math.round(((n - p) / n) * max)) }
+})
 
 // ─── Feuille qui tourne ──────────────────────────────────────────────────
 // feuille = { sens: 'avant' | 'arriere', cible, progres (0 → 1), anime,
@@ -241,10 +307,32 @@ const styleFeuille = computed(() => {
   let angle
   if (double.value) angle = f.sens === 'avant' ? -180 * p : 180 * p
   else angle = f.sens === 'avant' ? -180 * p : -180 * (1 - p)
-  return { transform: `rotateY(${angle}deg)` }
+  // La feuille se soulève un peu au milieu de sa course (translateZ) : sans
+  // ça elle frôle les pages du dessous et la perspective paraît plate.
+  const levee = Math.sin(Math.PI * p) * 24
+  return { transform: `translateZ(${levee}px) rotateY(${angle}deg)` }
 })
-// Ombre portée sur la feuille : maximale quand elle est à la verticale.
-const ombre = computed(() => (feuille.value ? Math.sin(Math.PI * feuille.value.progres) * 0.35 : 0))
+
+// Éclairage : le recto s'assombrit en se redressant vers la lumière rasante,
+// le verso s'éclaircit en se posant.
+const lumieres = computed(() => {
+  const f = feuille.value
+  if (!f) return { recto: 0, verso: 0 }
+  const p = double.value || f.sens === 'avant' ? f.progres : 1 - f.progres
+  return { recto: Math.min(0.55, p * 0.9), verso: Math.min(0.55, (1 - p) * 0.9) }
+})
+
+// Ombre que la feuille projette sur les pages du dessous : forte sur la page
+// qu'elle découvre au départ, puis sur celle où elle se pose à l'arrivée.
+const ombres = computed(() => {
+  const f = feuille.value
+  if (!f) return { gauche: 0, droite: 0 }
+  const p = f.progres
+  const depart = (1 - p) * 0.55
+  const arrivee = Math.sin(Math.PI * Math.min(1, p)) * 0.45
+  if (!double.value) return { gauche: 0, droite: f.sens === 'avant' ? depart : Math.sin(Math.PI * p) * 0.4 }
+  return f.sens === 'avant' ? { droite: depart, gauche: arrivee } : { gauche: depart, droite: arrivee }
+})
 
 function preparerFeuille(sens) {
   const cible = indexVue.value + (sens === 'avant' ? 1 : -1)
@@ -267,59 +355,90 @@ function mouvementReduit() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
-function tourner(sens) {
+async function tourner(sens) {
+  apercuAnnule = true
   if (zoom.value) {
     const cible = indexVue.value + (sens === 'avant' ? 1 : -1)
     if (cible >= 0 && cible < vues.value.length) indexVue.value = cible
     return
   }
-  if (feuille.value) terminerFeuille(true)
+  if (feuille.value) terminerFeuille(feuille.value.progres > 0.5 || feuille.value.anime)
   const f = preparerFeuille(sens)
   if (!f) return
   if (mouvementReduit()) {
     indexVue.value = f.cible
     return
   }
+  // Pages d'arrivée décodées avant de tourner (au plus 150 ms d'attente) :
+  // sinon la feuille découvre une page encore blanche.
+  await pagesPretes(vues.value[f.cible])
+  if (feuille.value) return // un autre geste a commencé entre-temps
   feuille.value = { ...f, progres: 0, anime: false }
   // Deux images plus tard : la feuille est posée à 0°, la transition peut partir.
   requestAnimationFrame(() => requestAnimationFrame(() => animerFeuille(1)))
 }
 
-function animerFeuille(vers) {
+function animerFeuille(vers, duree = DUREE_TOUR) {
   const f = feuille.value
   if (!f) return
   feuille.value = { ...f, anime: true, progres: vers }
   clearTimeout(minuterieFeuille)
   // Minuterie plutôt que `transitionend`, qui ne part pas toujours
   // (onglet en arrière-plan, transition interrompue).
-  minuterieFeuille = setTimeout(() => terminerFeuille(vers === 1), DUREE_TOUR + 30)
+  minuterieFeuille = setTimeout(() => terminerFeuille(vers === 1), duree + 40)
 }
 
 function terminerFeuille(valider) {
   clearTimeout(minuterieFeuille)
   const f = feuille.value
   if (!f) return
-  if (valider) indexVue.value = f.cible
+  // L'indice du premier passage ne tourne jamais la page pour de bon.
+  if (valider && !f.apercu) indexVue.value = f.cible
   feuille.value = null
 }
 
 const suivant = () => tourner('avant')
 const precedent = () => tourner('arriere')
 
-function allerALaPage(p) {
+function allerALaPage(p, fermer = true) {
+  apercuAnnule = true
   terminerFeuille(false)
   indexVue.value = vueDeLaPage(vues.value, borner(p))
-  vignettesOuvertes.value = false
+  if (fermer) vignettesOuvertes.value = false
 }
 
-// ─── Gestes : glisser pour tourner, toucher un côté pour avancer/reculer ──
+// ─── Gestes : la page suit le doigt, toucher un côté avance/recule ───────
 let geste = null
 let ignorerClic = false
+let imageEnAttente = null
 
 function debutGeste(e) {
   if (e.button !== undefined && e.button !== 0) return
-  if (feuille.value?.anime) terminerFeuille(true)
-  geste = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, actif: false }
+  if (feuille.value?.anime) terminerFeuille(feuille.value.progres > 0.5)
+  apercuAnnule = true
+  geste = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, actif: false, rect: e.currentTarget.getBoundingClientRect() }
+}
+
+/**
+ * Progression de la feuille d'après la position du doigt. En double page, le
+ * bord de la feuille reste sous le doigt : la feuille tourne autour de la
+ * reliure, donc cos(angle) = distance du doigt à la reliure / largeur de page.
+ * On part de l'angle sous le point de départ pour éviter un saut.
+ */
+function progresDuDoigt(x) {
+  const g = geste
+  const f = feuille.value
+  const largeurPage = tailleLivre.value.page || 1
+  if (!double.value) {
+    const dx = f.sens === 'avant' ? g.x - x : x - g.x
+    return Math.min(1, Math.max(0, dx / (largeurPage * 0.85)))
+  }
+  const reliure = g.rect.left + g.rect.width / 2
+  const signe = f.sens === 'avant' ? 1 : -1
+  const cos = (v) => Math.min(1, Math.max(-1, (signe * (v - reliure)) / largeurPage))
+  const depart = Math.acos(Math.max(cos(g.x), 0.05))
+  const angle = Math.acos(cos(x))
+  return Math.min(1, Math.max(0, (angle - depart) / (Math.PI - depart)))
 }
 
 function pendantGeste(e) {
@@ -327,21 +446,26 @@ function pendantGeste(e) {
   const dx = e.clientX - geste.x
   const dy = e.clientY - geste.y
   if (!geste.actif) {
+    if (geste.bloque) return
     // Geste surtout vertical : on laisse la page défiler.
-    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) return
+    if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return
     const f = preparerFeuille(dx < 0 ? 'avant' : 'arriere')
     if (!f || mouvementReduit()) { geste.bloque = true; return }
-    if (geste.bloque) return
     geste.actif = true
     glisse.value = true
     e.currentTarget.setPointerCapture?.(e.pointerId)
     feuille.value = { ...f, progres: 0, anime: false }
   }
-  const f = feuille.value
-  if (!f) return
-  const course = double.value ? tailleLivre.value.largeur * 0.8 : tailleLivre.value.largeur * 0.9
-  const dxUtile = f.sens === 'avant' ? -dx : dx
-  feuille.value = { ...f, progres: Math.min(1, Math.max(0, dxUtile / (course || 1))) }
+  geste.dernierX = e.clientX
+  geste.dernierT = performance.now()
+  // Une mise à jour par image affichée, quel que soit le rythme du pointeur.
+  if (imageEnAttente) return
+  imageEnAttente = requestAnimationFrame(() => {
+    imageEnAttente = null
+    const f = feuille.value
+    if (!f || !geste?.actif) return
+    feuille.value = { ...f, progres: progresDuDoigt(geste.dernierX) }
+  })
 }
 
 function finGeste(e) {
@@ -349,17 +473,22 @@ function finGeste(e) {
   const g = geste
   geste = null
   glisse.value = false
+  cancelAnimationFrame(imageEnAttente)
+  imageEnAttente = null
   if (!g.actif) return
   ignorerClic = true
   const f = feuille.value
   if (!f) return
   const dx = e.clientX - g.x
   const vitesse = Math.abs(dx) / Math.max(1, performance.now() - g.t) // px/ms
-  animerFeuille(f.progres > 0.35 || (vitesse > 0.5 && f.progres > 0.05) ? 1 : 0)
+  const valider = f.progres > 0.4 || (vitesse > 0.45 && f.progres > 0.04)
+  // Le reste de la course prend un temps proportionnel à ce qu'il reste.
+  const reste = valider ? 1 - f.progres : f.progres
+  animerFeuille(valider ? 1 : 0, Math.max(220, DUREE_TOUR * reste))
 }
 
 function annulerGeste() {
-  if (geste?.actif && feuille.value) animerFeuille(0)
+  if (geste?.actif && feuille.value) animerFeuille(0, 250)
   geste = null
   glisse.value = false
 }
@@ -369,6 +498,27 @@ function clicLivre(e) {
   const rect = e.currentTarget.getBoundingClientRect()
   if (e.clientX - rect.left > rect.width / 2) suivant()
   else precedent()
+}
+
+// ─── Indice au premier passage : le coin de la page se soulève ───────────
+let apercuAnnule = false
+function montrerQueLaPageSeTourne() {
+  let dejaVu = false
+  try { dejaVu = localStorage.getItem('magazine-astuce') === '1' } catch { /* stockage indisponible */ }
+  if (dejaVu || mouvementReduit() || !peutAvancer.value) return
+  setTimeout(() => {
+    if (apercuAnnule || feuille.value || zoom.value) return
+    const f = preparerFeuille('avant')
+    if (!f) return
+    feuille.value = { ...f, progres: 0, anime: false, apercu: true }
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!feuille.value?.apercu) return
+      feuille.value = { ...feuille.value, anime: true, progres: 0.14 }
+      clearTimeout(minuterieFeuille)
+      minuterieFeuille = setTimeout(() => { if (feuille.value?.apercu) animerFeuille(0, 500) }, 700)
+    }))
+    try { localStorage.setItem('magazine-astuce', '1') } catch { /* stockage indisponible */ }
+  }, 1200)
 }
 
 // ─── Zoom, vignettes, plein écran ────────────────────────────────────────
@@ -439,23 +589,36 @@ function surTouche(e) {
 
 // ─── Préchargement des voisines ──────────────────────────────────────────
 // Seules les pages visibles sont dans le document ; la vue suivante et la
-// précédente sont téléchargées en avance (même `sizes`, donc la même image
-// que celle qui sera affichée) pour que la page tournée soit déjà là.
-const prechargees = new Set()
+// précédente sont téléchargées et décodées en avance (même `sizes`, donc la
+// même image que celle qui sera affichée) pour que la page tournée soit là.
+const prechargees = new Map()
+function chargerPage(p) {
+  const cle = `${p}|${sizes.value}`
+  if (!prechargees.has(cle)) {
+    const img = new Image()
+    img.decoding = 'async'
+    img.sizes = sizes.value
+    img.srcset = srcsetPage(props.numero, p)
+    img.src = imagePage(props.numero, p, 'm')
+    prechargees.set(cle, img.decode ? img.decode().catch(() => {}) : Promise.resolve())
+  }
+  return prechargees.get(cle)
+}
+
 function precharger() {
   if (typeof window === 'undefined' || !tailleLivre.value.page) return
   for (const i of [indexVue.value + 1, indexVue.value - 1]) {
-    for (const p of (vues.value[i] || []).filter(Boolean)) {
-      const cle = `${p}|${sizes.value}`
-      if (prechargees.has(cle)) continue
-      prechargees.add(cle)
-      const img = new Image()
-      img.decoding = 'async'
-      img.sizes = sizes.value
-      img.srcset = srcsetPage(props.numero, p)
-      img.src = imagePage(props.numero, p, 'm')
-    }
+    for (const p of (vues.value[i] || []).filter(Boolean)) chargerPage(p)
   }
+}
+
+function pagesPretes(vue) {
+  const pages = (vue || []).filter(Boolean)
+  if (!pages.length || !tailleLivre.value.page) return Promise.resolve()
+  return Promise.race([
+    Promise.all(pages.map(chargerPage)),
+    new Promise(r => setTimeout(r, 150)),
+  ])
 }
 
 // ─── Adresse : ?page=N pour partager ou retrouver une page ───────────────
@@ -477,11 +640,14 @@ onMounted(() => {
   document.addEventListener('webkitfullscreenchange', surChangementPleinEcran)
   // Après le premier rendu en double page : la taille est connue.
   requestAnimationFrame(precharger)
+  montrerQueLaPageSeTourne()
 })
 
 onBeforeUnmount(() => {
   observateur?.disconnect()
   clearTimeout(minuterieFeuille)
+  cancelAnimationFrame(imageEnAttente)
+  apercuAnnule = true
   window.removeEventListener('keydown', surTouche)
   document.removeEventListener('fullscreenchange', surChangementPleinEcran)
   document.removeEventListener('webkitfullscreenchange', surChangementPleinEcran)
@@ -497,13 +663,17 @@ watch(sizes, precharger)
 
 <style scoped>
 .liseuse {
-  --fond: #1d2633;
+  --fond: #1b2431;
+  --accent: #f6b93b;
   position: relative;
   display: flex; flex-direction: column;
   /* Toute la hauteur d'écran sous l'en-tête du site et le titre du numéro,
      barre comprise. */
-  height: clamp(420px, calc(100svh - 205px), 1400px);
-  background: radial-gradient(ellipse at 50% 40%, #2b3747 0%, var(--fond) 70%);
+  height: clamp(440px, calc(100svh - 205px), 1400px);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 45%, rgba(110, 150, 200, 0.22) 0%, transparent 70%),
+    radial-gradient(ellipse at 50% 120%, #0f151e 0%, transparent 60%),
+    var(--fond);
   color: #fff;
   user-select: none;
   -webkit-user-select: none;
@@ -518,25 +688,49 @@ watch(sizes, precharger)
 }
 
 /* ── Livre ── */
+.livre-cadre {
+  opacity: 0;
+  transition: transform 650ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms ease;
+}
+.livre-pret { opacity: 1; }
 .livre {
   position: relative;
   display: flex;
-  perspective: 2400px;
+  perspective: 2600px;
   /* Glissement horizontal pour tourner ; défilement vertical et pincement
      (zoom du navigateur) laissés au téléphone. */
   touch-action: pan-y pinch-zoom;
   cursor: pointer;
 }
 .livre-glisse { cursor: grabbing; }
-.cote { position: relative; flex: 1; height: 100%; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45); }
-.cote-vide { box-shadow: none; }
-.cote-unique { width: 100%; }
+.cote { position: relative; flex: 1; height: 100%; }
+/* Ombre douce sous le livre posé (box-shadow plutôt qu'un filtre sur le
+   livre : un filtre serait recalculé à chaque image du tour de page). */
+.cote:not(.cote-vide) { box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45), 0 3px 8px rgba(0, 0, 0, 0.3); }
+.cote-gauche { border-radius: 3px 0 0 3px; }
+.cote-droite { border-radius: 0 3px 3px 0; }
+.cote-unique { width: 100%; border-radius: 3px; }
+.cote > :deep(.mag-page) { border-radius: inherit; }
 .livre-simple { overflow: hidden; }
-.pli {
-  position: absolute; top: 0; bottom: 0; left: 50%; width: 60px; transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 40%, rgba(0, 0, 0, 0.22) 50%, rgba(0, 0, 0, 0.08) 60%, transparent 100%);
+
+/* Ombre de reliure, côté pli de chaque page. */
+.reliure { position: absolute; top: 0; bottom: 0; width: 14%; pointer-events: none; }
+.reliure-gauche { right: 0; background: linear-gradient(270deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.08) 30%, transparent 100%); }
+.reliure-droite { left: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0.1) 25%, rgba(255, 255, 255, 0.06) 45%, transparent 100%); }
+
+/* Tranche : bord des pages empilées, plus épais quand il reste des pages. */
+.tranche {
+  position: absolute; top: 3px; bottom: 3px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #f1efe8 0 1px, #c9c5ba 1px 2px);
+  transition: width 650ms ease;
 }
+.tranche-gauche { right: 100%; border-radius: 3px 0 0 3px; }
+.tranche-droite { left: 100%; border-radius: 0 3px 3px 0; }
+
+/* Ombre projetée par la feuille sur la page du dessous. */
+.ombre-portee { position: absolute; inset: 0; pointer-events: none; }
+.ombre-portee-droite { background: linear-gradient(90deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.25) 35%, transparent 75%); }
+.ombre-portee-gauche { background: linear-gradient(270deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.25) 35%, transparent 75%); }
 
 .feuille {
   position: absolute; top: 0; height: 100%;
@@ -544,7 +738,7 @@ watch(sizes, precharger)
   will-change: transform;
   z-index: 3;
 }
-.feuille-anime { transition: transform 550ms cubic-bezier(0.45, 0.05, 0.3, 1); }
+.feuille-anime { transition: transform 650ms cubic-bezier(0.37, 0, 0.25, 1); }
 .livre-double .feuille { width: 50%; }
 .livre-double .feuille-avant { left: 50%; transform-origin: left center; }
 .livre-double .feuille-arriere { left: 0; transform-origin: right center; }
@@ -553,50 +747,75 @@ watch(sizes, precharger)
 .face {
   position: absolute; inset: 0;
   backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 .face-verso { transform: rotateY(180deg); }
-.ombre-face {
-  position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55), transparent 70%);
-}
-.feuille-arriere .ombre-face { background: linear-gradient(270deg, rgba(0, 0, 0, 0.55), transparent 70%); }
+.lumiere { position: absolute; inset: 0; pointer-events: none; transition: inherit; }
+/* Recto qui se redresse : ombré côté reliure, reflet sur le bord libre. */
+.feuille-avant .lumiere-recto { background: linear-gradient(90deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.25) 45%, rgba(255, 255, 255, 0.18) 85%, rgba(0, 0, 0, 0.1) 100%); }
+.feuille-arriere .lumiere-recto { background: linear-gradient(270deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.25) 45%, rgba(255, 255, 255, 0.18) 85%, rgba(0, 0, 0, 0.1) 100%); }
+.livre-simple .feuille-arriere .lumiere-recto { background: linear-gradient(90deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.25) 45%, rgba(255, 255, 255, 0.18) 85%, rgba(0, 0, 0, 0.1) 100%); }
+.feuille-avant .lumiere-verso { background: linear-gradient(270deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 40%, rgba(255, 255, 255, 0.12) 85%, transparent 100%); }
+.feuille-arriere .lumiere-verso { background: linear-gradient(90deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 40%, rgba(255, 255, 255, 0.12) 85%, transparent 100%); }
+.livre-simple .face-verso { background: #f4f2ec; }
 
 /* ── Flèches ── */
 .fleche {
   position: absolute; top: 50%; transform: translateY(-50%);
-  width: 48px; height: 48px; border-radius: 50%; border: none;
+  width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.14);
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255, 255, 255, 0.12); color: #fff; cursor: pointer;
-  transition: background .2s, opacity .2s;
+  background: rgba(255, 255, 255, 0.08); color: #fff; cursor: pointer;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transition: background .2s, opacity .2s, transform .2s;
   z-index: 5;
 }
-.fleche:hover:not(:disabled) { background: rgba(255, 255, 255, 0.24); }
-.fleche:disabled { opacity: 0.25; cursor: default; }
-.fleche-gauche { left: 16px; }
-.fleche-droite { right: 16px; }
+.fleche:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); transform: translateY(-50%) scale(1.06); }
+.fleche:disabled { opacity: 0; pointer-events: none; }
+.fleche-gauche { left: 20px; }
+.fleche-droite { right: 20px; }
 .fleche svg, .barre-bouton svg, .vignettes-fermer svg {
   width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
-.fleche:focus-visible, .barre-bouton:focus-visible, .vignette:focus-visible, .vignettes-fermer:focus-visible {
-  outline: 3px solid #f6b93b; outline-offset: 2px;
+.fleche:focus-visible, .barre-bouton:focus-visible, .vignette:focus-visible, .vignettes-fermer:focus-visible, .barre-curseur:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px;
 }
 
 /* ── Barre ── */
 .liseuse-barre {
   flex-shrink: 0;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 56px; padding: 6px 16px;
-  background: rgba(0, 0, 0, 0.28);
+  display: flex; align-items: center; gap: 16px;
+  min-height: 60px; padding: 6px 16px;
+  background: rgba(8, 12, 18, 0.55);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-.barre-libelle { font-size: 0.92em; font-variant-numeric: tabular-nums; color: #e6ebf2; }
-.barre-actions { display: flex; gap: 4px; }
+.barre-navigation { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.barre-libelle { min-width: 9.5em; text-align: center; font-size: 0.92em; font-variant-numeric: tabular-nums; color: #e6ebf2; }
+.barre-tourner { padding: 8px; }
+.barre-tourner:disabled { opacity: 0.3; cursor: default; background: transparent; }
+.barre-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .barre-bouton {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 8px 12px; border: none; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 44px; min-height: 44px; padding: 8px 12px; border: none; border-radius: 10px;
   background: transparent; color: #fff; font: inherit; font-size: 0.88em; cursor: pointer; text-decoration: none;
+  transition: background .15s;
 }
-.barre-bouton:hover, .barre-bouton[aria-pressed="true"] { background: rgba(255, 255, 255, 0.14); }
+.barre-bouton:hover:not(:disabled), .barre-bouton[aria-pressed="true"] { background: rgba(255, 255, 255, 0.14); }
+
+.barre-curseur {
+  flex: 1; min-width: 80px; height: 28px; margin: 0;
+  -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer;
+}
+.barre-curseur::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent) 0 var(--avance), rgba(255, 255, 255, 0.2) var(--avance) 100%);
+}
+.barre-curseur::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
+.barre-curseur::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.barre-curseur::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.barre-curseur::-moz-range-thumb { width: 18px; height: 18px; border: none; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
 
 /* ── Zoom ── */
 .liseuse-zoom { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -608,7 +827,9 @@ watch(sizes, precharger)
   position: absolute; inset: 0; z-index: 10;
   display: flex; flex-direction: column;
   background: #141b24;
+  animation: vignettes-entree 220ms ease-out;
 }
+@keyframes vignettes-entree { from { opacity: 0; transform: translateY(12px); } }
 .vignettes-entete {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 16px; font-weight: 700;
@@ -619,22 +840,33 @@ watch(sizes, precharger)
   list-style: none; flex: 1; overflow-y: auto;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 18px; padding: 8px 20px 24px;
 }
-.vignette { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border: none; border-radius: 6px; background: transparent; color: #cfd6e0; cursor: pointer; font: inherit; font-size: 0.85em; }
-.vignette img { width: 100%; height: auto; background: #3a4656; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.vignette { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border: none; border-radius: 8px; background: transparent; color: #cfd6e0; cursor: pointer; font: inherit; font-size: 0.85em; }
+.vignette img { width: 100%; height: auto; border-radius: 2px; background: #3a4656; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); transition: transform .15s; }
 .vignette:hover { background: rgba(255, 255, 255, 0.08); }
+.vignette:hover img { transform: translateY(-2px); }
 .vignette-active { background: rgba(246, 185, 59, 0.18); color: #fff; }
 
+/* ── Téléphone ── */
 @media (max-width: 600px) {
   /* En-tête du site plus haut sur téléphone : la barre doit rester visible. */
-  .liseuse { height: clamp(420px, calc(100svh - 215px), 1400px); }
-  .fleche { width: 40px; height: 40px; background: rgba(0, 0, 0, 0.28); }
-  .fleche-gauche { left: 6px; }
-  .fleche-droite { right: 6px; }
+  .liseuse { height: clamp(440px, calc(100svh - 150px), 1400px); }
+  /* Les flèches couvriraient la page : elles passent dans la barre. */
+  .fleche { display: none; }
   .barre-texte { display: none; }
-  .liseuse-barre { padding: 4px 8px; }
+  .liseuse-barre { flex-wrap: wrap; gap: 0 4px; padding: 4px 8px 6px; }
+  .barre-curseur { order: -1; flex-basis: 100%; height: 22px; padding: 0 6px; }
+  .barre-navigation { flex: 1; }
+  .barre-libelle { flex: 1; min-width: 0; }
+  .barre-bouton { padding: 8px; }
+  .cote:not(.cote-vide) { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45); }
+}
+@media (min-width: 601px) {
+  /* Ordinateur : les grandes flèches de côté suffisent. */
+  .barre-tourner { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .feuille-anime { transition: none; }
+  .feuille-anime, .livre-cadre, .tranche { transition: none; }
+  .vignettes { animation: none; }
 }
 </style>

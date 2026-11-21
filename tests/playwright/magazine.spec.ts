@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 /**
  * Magazine feuilletable : liste /magazine, liseuse /magazine/<id>.
- * Le numéro d'exemple (utils/magazines.json, 8 pages) sert de support.
+ * Le numéro d'exemple (utils/magazines.json, 12 pages) sert de support.
  */
 
 const pagesDemandees = (page: import('@playwright/test').Page) => {
@@ -15,28 +15,50 @@ const pagesDemandees = (page: import('@playwright/test').Page) => {
 }
 
 test.describe('Magazine', () => {
+  // L'indice du premier passage (coin de page qui se soulève) est couvert à
+  // part ; ailleurs il se déclencherait au milieu des gestes testés.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('magazine-astuce', '1') } catch {} })
+  })
+
+  test('premier passage : le coin se soulève mais la page ne tourne pas', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const page = await ctx.newPage()
+    await page.goto('/magazine/exemple')
+    await expect(page.locator('.feuille')).toBeVisible({ timeout: 4000 })
+    await expect(page.locator('.feuille')).toHaveCount(0, { timeout: 4000 })
+    await expect(page.locator('.barre-libelle')).toHaveText('Page 1 sur 12')
+    await ctx.close()
+  })
+
+  test('curseur : aller à une page d\'un geste', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/magazine/exemple')
+    await page.locator('.barre-curseur').fill('6')
+    await expect(page.locator('.barre-libelle')).toHaveText('Pages 6–7 sur 12')
+  })
   test('la liste montre le numéro et mène à la liseuse', async ({ page }) => {
     await page.goto('/magazine')
     await expect(page.getByRole('heading', { level: 1, name: 'Magazine' })).toBeVisible()
     await page.getByRole('link', { name: 'Feuilleter' }).click()
     await expect(page).toHaveURL(/\/magazine\/exemple$/)
-    await expect(page.locator('.barre-libelle')).toHaveText('Page 1 sur 8')
+    await expect(page.locator('.barre-libelle')).toHaveText('Page 1 sur 12')
   })
 
   test('ordinateur : double page, clavier, adresse partageable', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/magazine/exemple')
     const libelle = page.locator('.barre-libelle')
-    await expect(libelle).toHaveText('Page 1 sur 8')
+    await expect(libelle).toHaveText('Page 1 sur 12')
     await page.keyboard.press('ArrowRight')
-    await expect(libelle).toHaveText('Pages 2–3 sur 8')
+    await expect(libelle).toHaveText('Pages 2–3 sur 12')
     await expect(page).toHaveURL(/\?page=2$/)
     await page.keyboard.press('End')
-    await expect(libelle).toHaveText('Page 8 sur 8')
+    await expect(libelle).toHaveText('Page 12 sur 12')
     await page.keyboard.press('ArrowLeft')
-    await expect(libelle).toHaveText('Pages 6–7 sur 8')
+    await expect(libelle).toHaveText('Pages 10–11 sur 12')
     await page.keyboard.press('Home')
-    await expect(libelle).toHaveText('Page 1 sur 8')
+    await expect(libelle).toHaveText('Page 1 sur 12')
     await expect(page).toHaveURL(/\/magazine\/exemple$/)
   })
 
@@ -44,24 +66,28 @@ test.describe('Magazine', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/magazine/exemple?page=2')
     const libelle = page.locator('.barre-libelle')
-    await expect(libelle).toHaveText('Pages 2–3 sur 8')
+    await expect(libelle).toHaveText('Pages 2–3 sur 12')
     const box = (await page.locator('.livre').boundingBox())!
     await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2)
     await page.mouse.down()
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2, { steps: 12 })
     await page.mouse.up()
-    await expect(libelle).toHaveText('Pages 4–5 sur 8')
+    await expect(libelle).toHaveText('Pages 4–5 sur 12')
   })
 
   test('téléphone : une page à la fois, toucher le bord droit avance', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
     const page = await ctx.newPage()
+    await page.addInitScript(() => { try { localStorage.setItem('magazine-astuce', '1') } catch {} })
     await page.goto('/magazine/exemple?page=3')
     const libelle = page.locator('.barre-libelle')
-    await expect(libelle).toHaveText('Page 3 sur 8')
+    await expect(libelle).toHaveText('Page 3 sur 12')
     const box = (await page.locator('.livre').boundingBox())!
     await page.touchscreen.tap(box.x + box.width * 0.75, box.y + box.height / 2)
-    await expect(libelle).toHaveText('Page 4 sur 8')
+    await expect(libelle).toHaveText('Page 4 sur 12')
+    // Flèches de la barre (les grandes flèches de côté sont masquées sur téléphone).
+    await page.locator('.barre-tourner[aria-label="Page suivante"]').click()
+    await expect(libelle).toHaveText('Page 5 sur 12')
     await ctx.close()
   })
 
@@ -82,7 +108,7 @@ test.describe('Magazine', () => {
     await page.goto('/magazine/exemple')
     await page.getByRole('button', { name: /Pages/ }).click()
     await page.getByRole('button', { name: 'Aller à la page 6' }).click()
-    await expect(page.locator('.barre-libelle')).toHaveText('Pages 6–7 sur 8')
+    await expect(page.locator('.barre-libelle')).toHaveText('Pages 6–7 sur 12')
   })
 
   test('numéro inconnu : 404', async ({ page }) => {

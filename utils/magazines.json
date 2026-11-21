@@ -1,0 +1,12 @@
+[
+  {
+    "id": "exemple",
+    "titre": "Numéro d'exemple",
+    "parution": "2026-11-21",
+    "description": "Pages de démonstration de la liseuse, remplacées par le premier vrai numéro.",
+    "pages": 8,
+    "largeur": 1600,
+    "hauteur": 2263,
+    "exemple": true
+  }
+]

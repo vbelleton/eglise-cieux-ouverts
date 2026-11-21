@@ -24,7 +24,7 @@
 // Changer VERSION à chaque modification de ce fichier qui touche aux caches :
 // l'activation supprime les caches d'une autre version.
 
-const VERSION = 'v3'
+const VERSION = 'v4'
 const CACHE_PAGES = `pages-${VERSION}`
 const CACHE_ASSETS = `assets-${VERSION}`
 const CACHE_DATA = `data-${VERSION}`
@@ -203,6 +203,10 @@ self.addEventListener('fetch', (event) => {
     // réseau passe par la fonction serveur (quota Cloudflare quotidien) :
     // une copie en cache suffit, on ne la rafraîchit pas.
     else if (url.pathname.startsWith('/api/media/uploads/')) strategie = () => cacheDAbord(event, CACHE_IMAGES)
+    // Pages du magazine : laissées au cache HTTP du navigateur (un mois,
+    // public/_headers). Un numéro feuilleté remplirait à lui seul le cache
+    // d'images (150 entrées) et en chasserait les photos du site.
+    else if (url.pathname.startsWith('/magazines/')) strategie = null
     else if (!url.pathname.startsWith('/api/') && IMAGE.test(url.pathname)) {
       strategie = () => copiePuisMiseAJour(event, CACHE_IMAGES)
     }

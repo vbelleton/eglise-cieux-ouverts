@@ -49,6 +49,12 @@ body {
   min-height: 100vh;
 }
 
+/* Liseuse du magazine en plein écran de repli (iPhone) : la page dessous ne défile plus. */
+html.liseuse-defilement-bloque,
+html.liseuse-defilement-bloque body {
+  overflow: hidden;
+}
+
 .site-main {
   flex: 1;
   background: #fff;

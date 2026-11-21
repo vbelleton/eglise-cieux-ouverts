@@ -31,6 +31,11 @@
 /photos/*
   cache-control: public, max-age=2592000
 
+# Pages du magazine (scripts/ajouter-magazine.mjs). Un numéro régénéré garde
+# les mêmes noms de fichiers : un mois, pas `immutable`.
+/magazines/*
+  cache-control: public, max-age=2592000
+
 # Bible Louis Segond 1910 du mode VR (scripts/construire-bible.mjs) : texte
 # figé, un fichier par livre.
 /bible/*

@@ -28,6 +28,7 @@ export type FieldType =
   | 'image'
   | 'array'
   | 'images'
+  | 'date' // sous-champ d'un tableau uniquement (FieldArray), valeur AAAA-MM-JJ
 
 export type AnimationStrategy = 'wrapper' | 'internal' | 'none'
 

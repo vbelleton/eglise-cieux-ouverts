@@ -176,7 +176,7 @@ export const BLOCK_TYPES = {
     schema: [
       { key: "title", label: "Titre", type: "text" },
       { key: "subtitle", label: "Sous-titre", type: "text" },
-      { key: "body", label: "Contenu", type: "textarea" },
+      { key: "body", label: "Contenu", type: "richtext" },
       { key: "image", label: "Image principale", type: "image" },
       { key: "images", label: "Images supplémentaires (galerie)", type: "images" },
       { key: "reverse", label: "Image à gauche", type: "boolean" },
@@ -395,7 +395,7 @@ export const BLOCK_TYPES = {
       animation: "fadeIn",
     },
     schema: [
-      { key: "content", label: "Contenu HTML", type: "richtext" },
+      { key: "content", label: "Contenu", type: "richtext" },
       { key: "backgroundColor", label: "Fond (couleur)", type: "color", hiddenWhen: (p) => Boolean(p?.backgroundGradient) },
       { key: "backgroundGradient", label: "Fond (dégradé)", type: "text" },
       { key: "textColor", label: "Couleur texte", type: "color" },

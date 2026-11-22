@@ -62,6 +62,13 @@
               :value="item[sub.key]"
               @input="updateItem(idx, sub.key, ($event.target as HTMLInputElement).value)"
             />
+            <input
+              v-else-if="sub.type === 'date'"
+              type="date"
+              class="field-input"
+              :value="item[sub.key] || ''"
+              @change="updateItem(idx, sub.key, ($event.target as HTMLInputElement).value)"
+            />
             <FieldImage
               v-else-if="sub.type === 'image'"
               :value="item[sub.key]"

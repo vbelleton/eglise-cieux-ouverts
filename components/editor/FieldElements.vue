@@ -58,14 +58,12 @@
         </template>
 
         <template v-else-if="item.kind === 'richtext'">
-          <textarea
-            class="field-textarea field-textarea-html"
-            rows="4"
-            placeholder="Contenu HTML"
+          <FieldRichText
+            :field="{ label: 'Texte' }"
             :value="item.text"
-            @input="updateItem(idx, { text: ($event.target as HTMLTextAreaElement).value })"
+            @change="updateItem(idx, { text: $event })"
             @click.stop
-          ></textarea>
+          />
         </template>
 
         <template v-else-if="item.kind === 'image'">
@@ -111,7 +109,7 @@
 
     <div class="array-actions">
       <button class="array-add-btn" @click="addItem('text')">+ Texte</button>
-      <button class="array-add-btn" @click="addItem('richtext')">+ Texte HTML</button>
+      <button class="array-add-btn" @click="addItem('richtext')">+ Texte mis en forme</button>
       <button class="array-add-btn" @click="addItem('image')">+ Image</button>
       <button class="array-add-btn" @click="addItem('button')">+ Bouton</button>
     </div>
@@ -126,6 +124,7 @@ import { ref, watch, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { ExtraElement, ExtraElementKind } from '~/lib/blocks/types'
 import { ANIMATIONS as animations } from '~/utils/blockTypes.js'
+import FieldRichText from './fields/FieldRichText.vue'
 
 const props = defineProps<{
   elements: ExtraElement[]
@@ -172,7 +171,7 @@ watch(() => props.elements, (v) => {
 
 function kindLabel(kind: ExtraElementKind) {
   if (kind === 'text') return 'Texte'
-  if (kind === 'richtext') return 'Texte HTML'
+  if (kind === 'richtext') return 'Texte mis en forme'
   if (kind === 'image') return 'Image'
   return 'Bouton'
 }
@@ -210,7 +209,7 @@ function addItem(kind: ExtraElementKind) {
     z: localItems.value.length,
   }
   if (kind === 'button') base.buttonLabel = 'En savoir plus'
-  if (kind === 'richtext') base.text = '<p>Nouveau contenu HTML...</p>'
+  if (kind === 'richtext') base.text = '<p>Nouveau texte…</p>'
   localItems.value.push({ ...base, _key: nextKey++ })
   emitChange()
   emit('select', base.id)
@@ -239,7 +238,6 @@ function addItem(kind: ExtraElementKind) {
 .array-add-btn:hover { border-color: #064886; color: #064886; background: #eef4fa; }
 .field-input, .field-textarea { width: 100%; padding: 7px 10px; background: #fff; border: 1px solid #ddd; border-radius: 6px; color: #1a1a2e; font-size: 0.88em; outline: none; font-family: inherit; }
 .field-textarea { resize: vertical; min-height: 50px; }
-.field-textarea-html { font-family: monospace; }
 .field-image-preview { width: 100%; max-height: 60px; object-fit: cover; border-radius: 6px; }
 .field-elements-hint { font-size: 0.75em; color: #999; margin: 0; line-height: 1.4; }
 </style>

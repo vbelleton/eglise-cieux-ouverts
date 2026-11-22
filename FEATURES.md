@@ -49,6 +49,7 @@ Chaque type déclare `label`, `icon`, `category`, `animations` (stratégie), `de
 - Historique des versions par page (bouton "🕐 Versions"), restauration possible — **mais** aucune version n'est créée tant que la page n'a jamais été sauvegardée une première fois explicitement ; ne pas supposer qu'un historique existe forcément.
 - **Menu** (bouton menu/burger en admin) : modale centrée (pas un panneau latéral) — gestion des items, sous-menus, réorganisation, création/suppression de pages custom, fond du menu mobile.
 - **Police par champ de texte** : sur chaque champ `text`/`textarea`/`richtext` **visuel** (titre, sous-titre, citation…) de la sidebar d'édition, un petit sélecteur de police apparaît à côté du label — inspiré de l'inspecteur Wix (sélectionner un élément → contrôle contextuel). Liste fermée de 8 polices Google Fonts (`utils/fonts.js`). Les champs non-visuels (liens, URLs, CSS de gradient, ID vidéo) sont exclus automatiquement par convention de nommage. Portée limitée aux champs de premier niveau (pas de descente dans les tableaux type activités/FAQ). **Il n'y a pas de réglage de police global** — chaque champ est indépendant, retombe sur `--font-heading`/`--font-body` (CSS, `assets/css/main.css`) si aucun override.
+- **Éditeur de texte visuel** (`components/editor/fields/FieldRichText.vue`) : les champs `richtext` (bloc Texte riche, corps du bloc Texte + Image, éléments libres « Texte mis en forme ») s'éditent comme dans un traitement de texte, sans balise HTML visible — barre G / I / S, Titre, listes à puces et numérotée, lien, effacer la mise en forme ; collage en texte seul. Le contenu reste stocké en HTML (assaini à l'affichage) ; le bouton « </> HTML » montre le code pour les contenus avancés (cartes intégrées, mises en page avec styles). Ouvrir un bloc sans rien taper n'émet rien : le contenu enregistré n'est jamais réécrit. Testé dans `tests/playwright/editeur-texte-visuel.spec.ts` (ordinateur et iPhone).
 - **Système de demandes développeur** ("💬 Demandes") : note attachable à un bloc (visible admin uniquement, jamais publique), liste centralisée cross-page cliquable pour revenir au bloc concerné — sert à signaler une demande qui nécessite du code, sans passer par un canal externe.
 - **Gestion des administrateurs** ("👥 Admins") : ajout/retrait par email, Firestore `settings/admins`.
 
@@ -450,7 +451,7 @@ Côté visiteur, le bloc affiche d'abord la vignette YouTube et un bouton ▶ ; 
 | text | ✅ `+ Texte` | Police, taille, texte, animation, position | |
 | image | ✅ `+ Image` | URL, alt, animation, position | |
 | button | ✅ `+ Bouton` | Texte, lien, animation, position | |
-| richtext | ✅ `+ Texte HTML` | Police, taille, HTML, animation, position | Placeholder `<p>Nouveau contenu HTML...</p>` à la création |
+| richtext | ✅ `+ Texte mis en forme` | Police, taille, HTML, animation, position | Placeholder `<p>Nouveau contenu HTML...</p>` à la création |
 
 ### 🐛 Incohérences Schema vs Rendu (priorité haute)
 

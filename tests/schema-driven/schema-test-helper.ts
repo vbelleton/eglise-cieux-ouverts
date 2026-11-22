@@ -20,7 +20,7 @@ export async function editField(
   const autoEditor = page.locator('.admin-sidebar .auto-editor')
   if (!(await autoEditor.isVisible())) return
   const field = autoEditor.locator('.auto-field').filter({ hasText: fieldLabel }).first()
-  const input = field.locator('input, textarea, select').first()
+  const input = field.locator('input, textarea, select, [contenteditable="true"]').first()
   if (await input.isVisible()) {
     await input.fill(value)
     await page.waitForTimeout(100)

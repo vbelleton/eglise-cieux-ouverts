@@ -37,7 +37,7 @@ test.describe('Sidebar consistency — All editable fields work', () => {
       { schemaKey: 'quote', fieldLabel: /^Citation$/ },
     ],
     'richText': [
-      { schemaKey: 'content', fieldLabel: /^Contenu HTML$/ },
+      { schemaKey: 'content', fieldLabel: /^Contenu$/ },
     ],
     'spacer': [
       { schemaKey: 'height', fieldLabel: /^Hauteur/ },
@@ -220,7 +220,7 @@ test.describe('Sidebar consistency — All editable fields work', () => {
       await heroWrapper.click()
       await page.waitForTimeout(300)
 
-      await expect(page.locator('.array-add-btn', { hasText: '+ Texte HTML' })).toBeVisible()
+      await expect(page.locator('.array-add-btn', { hasText: '+ Texte mis en forme' })).toBeVisible()
     })
 
     test('stats and quote blocks have animation field and apply it', async ({ page }) => {

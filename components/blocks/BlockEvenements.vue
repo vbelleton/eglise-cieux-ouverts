@@ -20,7 +20,7 @@
       <p v-else-if="erreur" class="evts-msg">{{ errorText }}</p>
       <p v-else-if="!liste.length" class="evts-msg" data-field-key="emptyText" :style="fieldFontStyle(fieldFonts, 'emptyText', fieldFontSizes)">{{ emptyText }}</p>
       <div v-else class="evts-grid">
-        <article v-for="evt in liste" :key="`${evt.id}-${evt.date.getTime()}`" class="evt-card">
+        <article v-for="evt in liste" :key="`${evt.id}-${evt.date.getTime()}`" class="evt-card" :class="{ 'evt-special': evt.couleur }" :style="evt.couleur ? { '--evt-couleur': evt.couleur } : null">
           <div class="evt-visuel">
             <img v-if="evt.images?.length" :src="evt.images[0]" :alt="evt.titre" loading="lazy" class="evt-img" />
             <div v-else class="evt-img evt-img-vide" aria-hidden="true">{{ evt.emoji || '📅' }}</div>
@@ -152,6 +152,10 @@ const visibilityClasses = computed(() => ({
   display: flex;
   flex-direction: column;
 }
+/* Événement mis en évidence dans l'admin (Noël, baptême…). */
+.evt-card.evt-special { box-shadow: 0 0 0 3px var(--evt-couleur), 0 8px 28px color-mix(in srgb, var(--evt-couleur) 35%, transparent); }
+.evt-card.evt-special .evt-titre { color: var(--evt-couleur); }
+.evt-card.evt-special .evt-date { background: var(--evt-couleur); color: #fff; }
 .evt-skeleton { min-height: 280px; background: linear-gradient(90deg, #eef2f8 25%, #f6f8fc 50%, #eef2f8 75%); background-size: 200% 100%; animation: evt-shimmer 1.4s infinite; }
 @keyframes evt-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .evt-visuel { position: relative; }

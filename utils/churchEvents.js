@@ -132,7 +132,29 @@ export function mapEvent(ev, date) {
     lien: ev.lien || ev.link || null,
     billetterie: ev.billetterie || ev.ticket_url || null,
     emoji: ev.emoji || null,
+    // Mise en évidence (Noël, baptême…) : couleur choisie dans l'admin,
+    // champ `color` du Worker. null = événement ordinaire.
+    couleur: couleurEvenement(ev.color),
   }
+}
+
+/**
+ * Couleurs proposées dans l'admin pour faire ressortir un événement de
+ * l'agenda. La valeur est appliquée en style en ligne : seule une couleur
+ * hexadécimale stricte est acceptée, n'importe quelle autre chaîne venue de
+ * la base est ignorée.
+ */
+export const COULEURS_EVENEMENT = [
+  { valeur: '', libelle: 'Aucune (événement ordinaire)' },
+  { valeur: '#e11d2e', libelle: 'Rouge vif (fête, Noël…)' },
+  { valeur: '#0284c7', libelle: 'Bleu eau (baptême…)' },
+  { valeur: '#d97706', libelle: 'Or' },
+  { valeur: '#7c3aed', libelle: 'Violet' },
+  { valeur: '#059669', libelle: 'Vert' },
+]
+
+export function couleurEvenement(color) {
+  return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color.trim()) ? color.trim().toLowerCase() : null
 }
 
 /**

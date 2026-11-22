@@ -37,7 +37,8 @@
   v-for="evt in getDayEvents(day)"
   :key="evt.id"
   class="event-pill"
-  :class="[getEventColor(evt), { 'event-mine': isMine(evt) }]"
+  :class="[getEventColor(evt), { 'event-mine': isMine(evt), 'event-special': evt.couleur }]"
+  :style="styleSpecial(evt)"
   :title="evt.titre"
   @click.stop="openEventModal(evt)"
 >{{ isMine(evt) ? '⭐ ' : '' }}{{ evt.emoji || '•' }} {{ evt.titre }}</span>
@@ -63,7 +64,8 @@
   v-for="evt in day.events"
   :key="evt.id"
   class="event-pill"
-  :class="[getEventColor(evt), { 'event-mine': isMine(evt) }]"
+  :class="[getEventColor(evt), { 'event-mine': isMine(evt), 'event-special': evt.couleur }]"
+  :style="styleSpecial(evt)"
   :title="evt.titre"
   @click.stop="openEventModal(evt)"
 >{{ isMine(evt) ? '⭐ ' : '' }}{{ evt.emoji || '•' }} {{ evt.titre }}</span>
@@ -87,7 +89,7 @@
               <span class="next-event-month">{{ formatMonth(g.date) }}</span>
             </div>
             <div class="next-event-body">
-              <div v-for="evt in g.events" :key="evt.id" class="next-event-item">
+              <div v-for="evt in g.events" :key="evt.id" class="next-event-item" :class="{ 'event-special': evt.couleur }" :style="styleSpecial(evt)">
                 <strong>{{ evt.titre }}</strong>
                 <span class="next-event-meta">
                   <span v-if="evt.heure">🕙 {{ evt.heure }}</span>
@@ -104,7 +106,7 @@
           <p v-if="!erreur && nextEvents.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
         <div v-if="currentView === 'cards'" class="events-list">
-          <article v-for="evt in cardEvents" :key="evt.id" class="event-card" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
+          <article v-for="evt in cardEvents" :key="evt.id" class="event-card" :class="{ 'event-mine': isMine(evt), 'event-special': evt.couleur }" :style="styleSpecial(evt)" @click="openEventModal(evt)" style="cursor:pointer">
   <div class="event-card-media">
   <template v-if="evt.images && evt.images.length">
     <EventImageSlider
@@ -150,7 +152,7 @@
         <div v-if="currentView === 'agenda'" class="agenda-list">
 <div v-for="(group, gIdx) in groupedByDate" :key="gIdx" class="agenda-day-group">
   <h3 class="agenda-day-label">{{ formatDayLabel(group.date) }}</h3>
-  <div v-for="evt in group.events" :key="evt.id" class="agenda-event" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
+  <div v-for="evt in group.events" :key="evt.id" class="agenda-event" :class="{ 'event-mine': isMine(evt), 'event-special': evt.couleur }" :style="styleSpecial(evt)" @click="openEventModal(evt)" style="cursor:pointer">
     <span class="agenda-time">{{ evt.heure || '—' }}</span>
     <div class="agenda-event-body">
       <strong>{{ evt.titre }}</strong>
@@ -530,6 +532,12 @@ function getEventColor(evt) {
   return eventColors[idx]
 }
 
+// Événement mis en évidence dans l'admin (Noël, baptême…) : sa couleur
+// remplace la couleur automatique et sert de liseré dans les listes.
+function styleSpecial(evt) {
+  return evt.couleur ? { '--evt-couleur': evt.couleur } : null
+}
+
 function prev() {
   const d = new Date(currentDate.value)
   if (currentView.value === 'week') { d.setDate(d.getDate() - 7) }
@@ -608,6 +616,15 @@ function formatDayModalDate(date) {
 .event-pill { font-size: 0.75em; padding: 1px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; display: block; }
 
 /* Événements du membre connecté : surbrillance */
+.event-pill.event-special { background: var(--evt-couleur); font-weight: 700; box-shadow: 0 0 0 2px color-mix(in srgb, var(--evt-couleur) 35%, transparent); }
+.next-event-item.event-special { border-left: 4px solid var(--evt-couleur); padding-left: 10px; }
+.next-event-item.event-special strong,
+.agenda-event.event-special strong,
+.event-card.event-special .event-title { color: var(--evt-couleur); font-weight: 800; }
+.event-card.event-special { box-shadow: 0 0 0 3px var(--evt-couleur), 0 6px 18px color-mix(in srgb, var(--evt-couleur) 30%, transparent); }
+.event-card.event-special .event-date-badge { background: var(--evt-couleur); color: #fff; }
+.event-card.event-special .event-date-badge * { color: #fff; }
+.agenda-event.event-special { border-left: 4px solid var(--evt-couleur); padding-left: 10px; background: color-mix(in srgb, var(--evt-couleur) 7%, transparent); border-radius: 6px; }
 .event-pill.event-mine { outline: 2px solid #f6b93b; outline-offset: 1px; font-weight: 700; }
 .event-card.event-mine { box-shadow: 0 0 0 2px #f6b93b, 0 2px 8px rgba(0,0,0,0.07); }
 .agenda-event.event-mine { box-shadow: 0 0 0 2px #f6b93b; border-radius: 8px; }

@@ -149,6 +149,15 @@
               </div>
             </div>
             <label>Emoji <input v-model="form.emoji" type="text" maxlength="5" /></label>
+            <label>Mise en évidence
+              <select v-model="form.color" data-testid="event-couleur">
+                <option v-for="c in COULEURS_EVENEMENT" :key="c.valeur" :value="c.valeur">{{ c.libelle }}</option>
+              </select>
+            </label>
+            <p v-if="form.color" class="event-aide-fin">
+              <span class="event-couleur-apercu" :style="{ background: form.color }"></span>
+              L'événement ressort dans cette couleur dans l'agenda et sur l'accueil.
+            </p>
             <div class="event-image-section">
               <label class="event-image-label">Image</label>
               <div class="event-image-controls">
@@ -221,7 +230,7 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX } from '~/utils/churchEvents.js'
+import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX, COULEURS_EVENEMENT, couleurEvenement } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
 
 const props = defineProps({ open: Boolean })
@@ -446,7 +455,7 @@ const nextOccurrences = computed(() => {
 const form = ref({
   title: '', description: '', start_date: '', end_date: '',
   start_time: '', end_time: '', location: '', repeat_period: '',
-  emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
+  emoji: '', color: '', image_url: '', link: '', ticket_url: '', status: 'active',
   agenda: AGENDA_CIEUX_OUVERTS, exceptions: []
 })
 
@@ -455,7 +464,7 @@ const imageNonAllegee = ref(false)
 function resetForm() {
   form.value = { title: '', description: '', start_date: '', end_date: '',
     start_time: '', end_time: '', location: '', repeat_period: '',
-    emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
+    emoji: '', color: '', image_url: '', link: '', ticket_url: '', status: 'active',
     agenda: agendaFilter.value === AGENDA_BRAS_OUVERTS ? AGENDA_BRAS_OUVERTS : AGENDA_CIEUX_OUVERTS,
     exceptions: [] }
   formError.value = ''
@@ -506,6 +515,7 @@ function startEdit(evt) {
     end_date: evt.end_date && !(evt.repeat_period && evt.end_date <= isoDay(d)) ? evt.end_date : '',
     start_time: evt.heure || '', end_time: evt.fin || '', location: evt.lieu || '',
     repeat_period: evt.repeat_period || '', emoji: evt.emoji || '',
+    color: evt.couleur || '',
     image_url: evt.image_url || '', link: evt.lien || '',
     ticket_url: evt.billetterie || '', status: evt.statut || 'active',
     agenda: evt.agenda,
@@ -565,6 +575,7 @@ async function fetchEvents() {
       end_date: e.end_date || null, lieu: e.location || null,
       description: e.description || null, image_url: e.image_url || null,
       repeat_period: e.repeat_period || null, emoji: e.emoji || null,
+      couleur: couleurEvenement(e.color),
       lien: e.link || null, billetterie: e.ticket_url || null,
       statut: e.status || 'active',
       source: e.source || null, agenda: agendaDe(e),
@@ -616,6 +627,9 @@ function eventPayload() {
     start_time: form.value.start_time || null, end_time: form.value.end_time || null,
     location: form.value.location || null, repeat_period: form.value.repeat_period || null,
     emoji: form.value.emoji || null, image_url: form.value.image_url || null,
+    // Chaîne vide (et non null) pour « aucune » : c'est la valeur que le
+    // Worker stocke par défaut sur les événements existants.
+    color: couleurEvenement(form.value.color) || '',
     link: form.value.link || null, ticket_url: form.value.ticket_url || null,
     status: form.value.status || 'active',
     ...sourcePourAgenda(),
@@ -844,6 +858,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 .event-alerte-fin { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.85em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .event-alerte-fin button { padding: 5px 10px; border: none; border-radius: 6px; background: #92400e; color: #fff; font-weight: 600; cursor: pointer; }
 .event-badge.event-badge-bras-ouverts { background: #e0f2f0; color: #0d5e57; }
+.event-couleur-apercu { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
 .event-badge.event-badge-terminee { background: #fee2e2; color: #991b1b; }
 .event-form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .event-btn {

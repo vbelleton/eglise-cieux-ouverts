@@ -140,6 +140,9 @@ function jourDuMoisCourant(jour: number): string {
 }
 const DATE_PARTICIPATION = jourDuMoisCourant(15)
 const DATE_AUTRE_EVENT = jourDuMoisCourant(17)
+// La vue cartes ne montre plus ce qui est terminé : on se place le 10 du mois
+// courant, avant ces deux événements, quel que soit le jour où le test tourne.
+const AVANT_LES_EVENEMENTS = new Date(`${jourDuMoisCourant(10)}T09:00:00`)
 
 const MOCK_EVENTS = [
   {
@@ -168,6 +171,7 @@ test.describe('Agenda personnel du membre', () => {
     await activerEspaceMembre(request)
     await resetMemberMock(request)
     await page.route('**/api/church-events*', (route) => route.fulfill({ json: MOCK_EVENTS }))
+    await page.clock.setFixedTime(AVANT_LES_EVENEMENTS)
   })
 
   test("l'événement du membre est surligné dans la vue cartes", async ({ page }) => {
@@ -293,6 +297,7 @@ test.describe('Espace membre désactivé (réglage par défaut)', () => {
 
   test('un membre encore connecté ne voit plus son agenda personnel', async ({ page }) => {
     await page.route('**/api/church-events*', (route) => route.fulfill({ json: MOCK_EVENTS }))
+    await page.clock.setFixedTime(AVANT_LES_EVENEMENTS)
     await loginAsMember(page)
     await page.goto('/agenda')
     await page.evaluate(() => localStorage.setItem('agenda_view', 'cards'))

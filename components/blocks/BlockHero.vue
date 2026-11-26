@@ -15,7 +15,12 @@
             :style="{ background: overlayColor }"
         />
 
-        <div class="hero-content" :class="{ 'hero-visible': visible }">
+        <!-- Entrée en CSS pur (animation jouée dès le premier affichage) : elle ne
+             dépend plus de l'hydratation. Avant, le logo restait à opacity 0
+             jusqu'à onMounted, soit plusieurs secondes après l'arrivée de
+             l'image sur une première visite (JS pas encore en cache), et pour
+             toujours si l'hydratation échouait. -->
+        <div class="hero-content">
             <template v-if="overlayText">
                 <h1 class="hero-title" data-field-key="overlayText" :style="{ color: textColor, ...fieldFontStyle(fieldFonts, 'overlayText', fieldFontSizes) }">
                     {{ overlayText }}
@@ -27,6 +32,7 @@
                     alt="Cieux Ouverts"
                     class="hero-name"
                     data-field-key="nameImage"
+                    fetchpriority="high"
                     @error="onImgError"
                 />
 
@@ -41,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { fieldFontStyle } from "~/utils/fonts.js";
 
 defineOptions({ inheritAttrs: false });
@@ -65,15 +71,18 @@ const props = defineProps({
 
 const { visibility = {} } = props;
 
-// Use isTriggered prop for SSR, fallback to mounted state
-const visible = ref(props.isTriggered || false);
+// Même raison que le préchargement du logo du menu (nuxt.config.ts) : l'image
+// titre passerait sinon derrière tous les bundles JS à la première visite.
+useHead(() => ({
+    link: !props.overlayText && props.nameImage
+        ? [{ rel: "preload", as: "image", href: props.nameImage, fetchpriority: "high", tagPriority: "critical" }]
+        : [],
+}));
+
 const imgError = ref(false);
 function onImgError() {
     imgError.value = true;
 }
-onMounted(() => {
-    visible.value = true;
-});
 
 const visibilityClasses = computed(() => ({
     "hide-mobile": visibility.mobile === false,
@@ -114,22 +123,27 @@ const visibilityClasses = computed(() => ({
     flex-direction: column;
     align-items: center;
     gap: 40px;
-    opacity: 0;
-    transform: translateY(80px);
-    transition:
-        opacity 1.2s cubic-bezier(0.2, 0.8, 0.2, 1),
-        transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: hero-entree 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.hero-content.hero-visible {
-    opacity: 1;
-    transform: translateY(0);
+@keyframes hero-entree {
+    from {
+        opacity: 0;
+        transform: translateY(80px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero-content {
+        animation: none;
+    }
 }
 
 /* If admin mode, show content immediately for editing */
 .admin-mode .block-main-hero .hero-content {
-    opacity: 1;
-    transform: translateY(0);
-    transition: none;
+    animation: none;
 }
 
 .hero-overlay {

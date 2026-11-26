@@ -57,7 +57,8 @@ test('cartes : image entière, date hors de l\'image, pas de hauteur étirée', 
   const hAutel = (await autel.boundingBox())!.height
   const hFdl = (await fdl.boundingBox())!.height
   expect(hFdl).toBeLessThan(500)
-  expect(hAutel).toBeLessThan(hFdl)
+  // Chaque carte garde sa propre hauteur (pas étirée sur la plus haute).
+  expect(Math.abs(hAutel - hFdl)).toBeGreaterThan(2)
 })
 
 test('/agenda n\'appelle le Worker événements qu\'une seule fois par chargement', async ({ page }) => {
@@ -68,4 +69,51 @@ test('/agenda n\'appelle le Worker événements qu\'une seule fois par chargemen
   await expect(page.locator('.calendar-grid, .events-list').first()).toBeVisible()
   await page.waitForTimeout(1000)
   expect(appels).toBe(1)
+})
+
+test('cartes : rien de passé, une seule carte pour deux séries du même événement', async ({ page }) => {
+  // Jeudi 14/03/2030 midi. « Autel de Louange » le mardi ET le jeudi (deux
+  // fiches) ; « Soirée passée » a eu lieu le 05/03.
+  await page.clock.setFixedTime(new Date('2030-03-14T12:00:00+01:00'))
+  await page.route('**/api/church-events*', (route) => route.fulfill({ json: [
+    { id: 1, title: 'Autel de Louange 🙌', start_date: '2030-01-01', start_time: '21:00', repeat_period: 'week', status: 'active', exceptions: [] },
+    { id: 3, title: 'Autel de Louange 🙌', start_date: '2030-01-03', start_time: '21:00', repeat_period: 'week', status: 'active', exceptions: [] },
+    { id: 4, title: 'Soirée passée', start_date: '2030-03-05', status: 'active', exceptions: [] },
+  ] }))
+  await page.goto('/agenda')
+  await page.getByRole('button', { name: 'Cartes', exact: true }).click()
+  const cartes = page.locator('.events-list .event-card')
+  await expect(cartes.filter({ hasText: 'Autel de Louange' })).toHaveCount(1)
+  await expect(cartes.filter({ hasText: 'Soirée passée' })).toHaveCount(0)
+  const autel = cartes.filter({ hasText: 'Autel de Louange' })
+  await expect(autel.locator('.badge-day')).toHaveText('14')
+  await expect(autel.locator('.event-recurrence')).toHaveText('🔁 Chaque mardi et jeudi')
+  // 14, 19, 21, 26, 28 mars.
+  await expect(autel.locator('.event-date-chip')).toHaveCount(5)
+  // Mois en cours : pas de retour vers le passé dans les listes.
+  await expect(page.getByRole('button', { name: 'Période précédente' })).toBeDisabled()
+  // Chaque vue est expliquée.
+  await page.getByRole('button', { name: 'Ordre du jour', exact: true }).click()
+  await expect(page.locator('.view-hint')).toContainText('le programme du mois, jour après jour')
+  await expect(page.locator('.agenda-list')).not.toContainText('Soirée passée')
+})
+
+test('téléphone : l\'affiche apparaît dès qu\'on touche le jour', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.clock.setFixedTime(new Date('2030-03-12T10:00:00+01:00'))
+  await page.addInitScript(() => localStorage.setItem('agenda_view', 'month'))
+  await page.route('**/api/church-events*', (route) => route.fulfill({ json: [
+    { id: 2, title: 'FDL', start_date: '2030-03-16', status: 'active', exceptions: [], image_url: '/test-img-fdl.png' },
+  ] }))
+  // PNG 16x9 valide.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAIAAAC0SDtlAAAAEklEQVR4nGNgGAWjYBSMAggAAAQQAAGFP6pyAAAAAElFTkSuQmCC', 'base64')
+  await page.route('**/test-img-*.png', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: png }))
+  await page.goto('/agenda')
+  await page.locator('.day-cell.has-events').first().click()
+  const img = page.locator('.day-modal .day-modal-event-img img')
+  await expect(img).toBeVisible()
+  // Place réservée en 16:9, image affichée une fois prête (pas à moitié).
+  const cadre = (await page.locator('.day-modal .day-modal-event-img').boundingBox())!
+  expect(Math.abs(cadre.width / cadre.height - 16 / 9)).toBeLessThan(0.05)
+  await expect(page.locator('.day-modal .day-modal-event-img')).toHaveClass(/est-prete/)
 })

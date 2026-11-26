@@ -12,7 +12,7 @@
       @slideChange="onSlideChange"
     >
       <swiper-slide v-for="(img, idx) in images" :key="idx">
-        <img :src="img" :alt="altPrefix + (idx+1)" class="event-img" loading="lazy"
+        <ImageAgenda :src="img" :alt="altPrefix + (idx+1)" class="event-img" :prioritaire="idx === (initialIndex || 0)"
           @click.stop="$emit('slideClick', idx)"
           style="cursor:pointer" />
       </swiper-slide>
@@ -27,6 +27,7 @@
 import { ref } from 'vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Autoplay, Pagination, Navigation } from 'swiper/modules'
+import ImageAgenda from '~/components/ImageAgenda.vue'
 import 'swiper/css'
 import 'swiper/css/autoplay'
 import 'swiper/css/pagination'
@@ -63,20 +64,16 @@ const onSlideChange = (e) => {
 }
 .event-swiper {
   width: 100%;
-  min-height: 200px;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0,0,0,0.11);
   background: #f5f5f5;
 }
+/* Cadre 16:9 réservé d'avance (ImageAgenda) : la fenêtre ne change pas de
+   taille quand l'image arrive. */
 .event-img {
-  width: 100%;
-  height: 340px;
-  object-fit: contain;
-  background: #ededed;
   border-radius: 10px;
   display: block;
-  margin: 0 auto;
 }
 .event-swiper-pagination {
   text-align: center;
@@ -86,7 +83,7 @@ const onSlideChange = (e) => {
   font-weight: 500;
 }
 @media (max-width: 600px) {
-  .event-img { height: 200px; border-radius:8px }
+  .event-img { border-radius:8px }
   .event-slider { max-width:99vw }
 }
 </style>

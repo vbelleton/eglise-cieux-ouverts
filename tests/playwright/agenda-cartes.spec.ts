@@ -94,7 +94,7 @@ test('cartes : rien de passé, une seule carte pour deux séries du même évén
   await expect(page.getByRole('button', { name: 'Période précédente' })).toHaveCount(0)
   // Chaque vue est expliquée.
   await page.getByRole('button', { name: 'Ordre du jour', exact: true }).click()
-  await expect(page.locator('.view-hint')).toContainText('le programme du mois, jour après jour')
+  await expect(page.locator('.view-hint')).toContainText('le programme à venir, jour après jour')
   await expect(page.locator('.agenda-list')).not.toContainText('Soirée passée')
 })
 
@@ -138,4 +138,26 @@ test('cartes : tous les événements à venir, au-delà du mois, les récurrents
   // Rangées par prochaine date : Célébration (31/03) en tête, Concert (juin) en dernier.
   await expect(cartes.first()).toContainText('Célébration')
   await expect(cartes.last()).toContainText('Concert')
+})
+
+test('ordre du jour : tout l\'avenir, un récurrent une seule fois, sans choix de mois', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2030-03-28T12:00:00+01:00'))
+  await page.route('**/api/church-events*', (route) => route.fulfill({ json: [
+    { id: 1, title: 'Célébration', start_date: '2030-01-06', start_time: '10:00', repeat_period: 'weekly:0', status: 'active', exceptions: [] },
+    { id: 2, title: 'Fête de Pâques', start_date: '2030-04-21', start_time: '10:00', status: 'active', exceptions: [] },
+    { id: 3, title: 'Concert', start_date: '2030-06-14', start_time: '20:00', status: 'active', exceptions: [] },
+    { id: 4, title: 'Soirée passée', start_date: '2030-03-05', status: 'active', exceptions: [] },
+  ] }))
+  await page.goto('/agenda')
+  await page.getByRole('button', { name: 'Ordre du jour', exact: true }).click()
+  const liste = page.locator('.agenda-list')
+  await expect(liste.locator('.agenda-event')).toHaveCount(3)
+  await expect(liste.locator('.agenda-event', { hasText: 'Célébration' })).toHaveCount(1)
+  await expect(liste.locator('.agenda-event', { hasText: 'Célébration' })).toContainText('Chaque dimanche')
+  await expect(liste.locator('.agenda-event', { hasText: 'Concert' })).toHaveCount(1)
+  await expect(liste).not.toContainText('Soirée passée')
+  await expect(page.getByRole('button', { name: 'Période précédente' })).toHaveCount(0)
+  // Rangé jour après jour : Célébration (31/03) avant Concert (14/06).
+  await expect(liste.locator('.agenda-event').first()).toContainText('Célébration')
+  await expect(liste.locator('.agenda-event').last()).toContainText('Concert')
 })

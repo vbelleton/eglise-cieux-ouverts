@@ -484,7 +484,7 @@ export function fusionnerRecurrences(libelles) {
  *   prochaine occurrence, qui liste toutes ses dates à venir. Deux cartes
  *   « Autel de Louange » côte à côte ressemblaient à un doublon.
  *
- * Renvoie [{ cle, evt, titre, dates: [{ date, heure, session, evt }], recurrences }].
+ * Renvoie [{ cle, evt, titre, dates: [{ date, heure, session, evt }], recurrences, recurrent }].
  */
 export function regrouperCartes(liste, now = new Date()) {
   const groupes = new Map()
@@ -510,6 +510,8 @@ export function regrouperCartes(liste, now = new Date()) {
       titre: plusieursFiches ? titreSansSession(premier.titre) : premier.titre,
       dates: occ.map(e => ({ date: e.date, heure: e.heure, session: numeroSession(e.titre), evt: e })),
       recurrences,
+      // Au moins une série : la carte montre son rythme, pas la liste des dates.
+      recurrent: occ.some(e => e.repeat_period),
     })
   }
   return sortie.sort((a, b) => (a.evt.date - b.evt.date) || ((heureMinutes(a.evt.heure) ?? -1) - (heureMinutes(b.evt.heure) ?? -1)))

@@ -7,9 +7,12 @@
 
     <section class="agenda-calendar js-only">
       <div class="calendar-nav">
-        <button class="nav-btn" :disabled="!peutReculer" aria-label="Période précédente" @click="prev">&#8249;</button>
-        <h2 class="calendar-month">{{ periodLabel }}</h2>
-        <button class="nav-btn" aria-label="Période suivante" @click="next">&#8250;</button>
+        <!-- Cartes et Prochain couvrent tout l'avenir : pas de mois à choisir. -->
+        <template v-if="vueParPeriode">
+          <button class="nav-btn" :disabled="!peutReculer" aria-label="Période précédente" @click="prev">&#8249;</button>
+          <h2 class="calendar-month">{{ periodLabel }}</h2>
+          <button class="nav-btn" aria-label="Période suivante" @click="next">&#8250;</button>
+        </template>
         <div class="view-toggle">
           <button v-for="v in VUES" :key="v.id" class="view-btn" :class="{ active: currentView === v.id }" :title="v.aide" @click="currentView = v.id">{{ v.libelle }}</button>
         </div>
@@ -142,10 +145,12 @@
       <span v-if="carte.evt.lieu">📍 {{ carte.evt.lieu }}</span>
     </div>
     <p v-if="carte.recurrences.length" class="event-recurrence">🔁 {{ majuscule(carte.recurrences.join(' et ')) }}</p>
-    <div v-if="carte.dates.length > 1" class="event-dates">
-      <span class="event-dates-label">{{ carte.dates.length }} dates ce mois-ci :</span>
+    <!-- Rendez-vous régulier : son rythme suffit, la carte n'apparaît qu'une
+         fois. Sessions datées une à une : toutes leurs dates. -->
+    <div v-if="!carte.recurrent && carte.dates.length > 1" class="event-dates">
+      <span class="event-dates-label">{{ carte.dates.length }} dates :</span>
       <ul class="event-dates-list">
-        <li v-for="(d, dIdx) in carte.dates" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
+        <li v-for="(d, dIdx) in carte.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
           {{ formatDateCourte(d.date) }}<template v-if="d.session"> · Session {{ d.session }}</template>
         </li>
       </ul>
@@ -157,7 +162,7 @@
     </div>
   </div>
 </article>
-          <p v-if="!erreur && !loading && cartes.length === 0" class="empty-msg">{{ messageListeVide }}</p>
+          <p v-if="!erreur && !loading && cartes.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
         <div v-if="currentView === 'agenda'" class="agenda-list">
 <div v-for="(group, gIdx) in groupedByDate" :key="gIdx" class="agenda-day-group">
@@ -205,9 +210,9 @@
           <span v-if="eventModal.event.lieu">📍 {{ eventModal.event.lieu }}</span>
         </div>
         <div v-if="eventModal.dates.length > 1" class="event-modal-dates">
-          <strong>Toutes les dates à venir ce mois-ci :</strong>
+          <strong>Prochaines dates :</strong>
           <ul class="event-dates-list">
-            <li v-for="(d, dIdx) in eventModal.dates" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
+            <li v-for="(d, dIdx) in eventModal.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
               {{ formatDateCourte(d.date) }}<template v-if="d.heure"> à {{ d.heure }}</template><template v-if="d.session"> · Session {{ d.session }}</template>
             </li>
           </ul>
@@ -314,7 +319,7 @@ const currentView = ref('month')
 const VUES = [
   { id: 'month', libelle: 'Mois', aide: 'le calendrier du mois. Touchez un jour pour voir ses événements et leurs affiches.' },
   { id: 'next', libelle: 'Prochain', aide: 'les prochains rendez-vous, du plus proche au plus lointain.' },
-  { id: 'cards', libelle: 'Cartes', aide: 'chaque événement à venir du mois, avec son affiche et toutes ses dates.' },
+  { id: 'cards', libelle: 'Cartes', aide: 'tous les événements à venir avec leur affiche ; un rendez-vous régulier n\'apparaît qu\'une fois, avec son rythme.' },
   { id: 'agenda', libelle: 'Ordre du jour', aide: 'le programme du mois, jour après jour, avec l\'heure et le lieu de chaque rendez-vous.' },
   { id: 'week', libelle: 'Semaine', aide: 'les événements de la semaine, jour par jour.' },
 ]
@@ -499,8 +504,11 @@ const evenementsAVenirDuMois = computed(() => {
   return filteredEvents.value.filter(evt => !estTermine(evt, now))
 })
 
-// Vue « Cartes » : une carte par événement (voir regrouperCartes).
-const cartes = computed(() => regrouperCartes(filteredEvents.value, maintenant.value))
+// Vue « Cartes » : tous les événements à venir, sans limite de mois, une
+// carte par événement (voir regrouperCartes) — un rendez-vous régulier n'y
+// figure qu'une fois.
+const cartes = computed(() => regrouperCartes(evenements.value, maintenant.value))
+const vueParPeriode = computed(() => currentView.value !== 'cards' && currentView.value !== 'next')
 
 // Mois en cours : rien avant aujourd'hui dans les listes, inutile d'y reculer.
 const peutReculer = computed(() => {
@@ -510,7 +518,7 @@ const peutReculer = computed(() => {
 })
 watch(currentView, (v) => {
   // Revenir sur une liste depuis un mois passé du calendrier : on repart du mois en cours.
-  if ((v === 'cards' || v === 'agenda') && !peutReculer.value) {
+  if (v === 'agenda' && !peutReculer.value) {
     const d = currentDate.value, n = maintenant.value
     if (d.getFullYear() * 12 + d.getMonth() < n.getFullYear() * 12 + n.getMonth()) currentDate.value = new Date(n)
   }

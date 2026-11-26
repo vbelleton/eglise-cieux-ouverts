@@ -7,9 +7,9 @@
 
     <section class="agenda-calendar js-only">
       <div class="calendar-nav">
-        <!-- Cartes et Prochain couvrent tout l'avenir : pas de mois à choisir. -->
+        <!-- Cartes, Prochain et Ordre du jour couvrent tout l'avenir : pas de mois à choisir. -->
         <template v-if="vueParPeriode">
-          <button class="nav-btn" :disabled="!peutReculer" aria-label="Période précédente" @click="prev">&#8249;</button>
+          <button class="nav-btn" aria-label="Période précédente" @click="prev">&#8249;</button>
           <h2 class="calendar-month">{{ periodLabel }}</h2>
           <button class="nav-btn" aria-label="Période suivante" @click="next">&#8250;</button>
         </template>
@@ -167,16 +167,21 @@
         <div v-if="currentView === 'agenda'" class="agenda-list">
 <div v-for="(group, gIdx) in groupedByDate" :key="gIdx" class="agenda-day-group">
   <h3 class="agenda-day-label">{{ formatDayLabel(group.date) }}</h3>
-  <div v-for="evt in group.events" :key="`${evt.id}-${evt.heure}`" class="agenda-event" :class="{ 'event-mine': isMine(evt), 'event-special': evt.couleur }" :style="styleSpecial(evt)" @click="openEventModal(evt)" style="cursor:pointer">
-    <span class="agenda-time">{{ evt.heure || '—' }}</span>
+  <div v-for="c in group.cartes" :key="c.cle" class="agenda-event" :class="{ 'event-mine': isMine(c.evt), 'event-special': c.evt.couleur }" :style="styleSpecial(c.evt)" @click="openCarte(c)" style="cursor:pointer">
+    <span class="agenda-time">{{ c.evt.heure || '—' }}</span>
     <div class="agenda-event-body">
-      <strong>{{ evt.titre }}</strong>
-      <span v-if="evt.lieu" class="agenda-lieu">{{ evt.lieu }}</span>
-      <p v-if="evt.description" class="agenda-desc" v-html="sanitizeHtml(evt.description)"></p>
+      <strong>{{ c.titre }}</strong>
+      <span v-if="c.evt.lieu" class="agenda-lieu">{{ c.evt.lieu }}</span>
+      <!-- Rendez-vous régulier : son rythme, une seule ligne dans la liste. -->
+      <span v-if="c.recurrences.length" class="event-recurrence">🔁 {{ majuscule(c.recurrences.join(' et ')) }}</span>
+      <ul v-else-if="c.dates.length > 1" class="event-dates-list">
+        <li v-for="(d, dIdx) in c.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">{{ formatDateCourte(d.date) }}<template v-if="d.session"> · Session {{ d.session }}</template></li>
+      </ul>
+      <p v-if="c.evt.description" class="agenda-desc" v-html="sanitizeHtml(c.evt.description)"></p>
     </div>
   </div>
 </div>
-          <p v-if="!erreur && !loading && groupedByDate.length === 0" class="empty-msg">{{ messageListeVide }}</p>
+          <p v-if="!erreur && !loading && groupedByDate.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
       </div>
     </section>
@@ -320,7 +325,7 @@ const VUES = [
   { id: 'month', libelle: 'Mois', aide: 'le calendrier du mois. Touchez un jour pour voir ses événements et leurs affiches.' },
   { id: 'next', libelle: 'Prochain', aide: 'les prochains rendez-vous, du plus proche au plus lointain.' },
   { id: 'cards', libelle: 'Cartes', aide: 'tous les événements à venir avec leur affiche ; un rendez-vous régulier n\'apparaît qu\'une fois, avec son rythme.' },
-  { id: 'agenda', libelle: 'Ordre du jour', aide: 'le programme du mois, jour après jour, avec l\'heure et le lieu de chaque rendez-vous.' },
+  { id: 'agenda', libelle: 'Ordre du jour', aide: 'le programme à venir, jour après jour, avec l\'heure et le lieu ; un rendez-vous régulier n\'apparaît qu\'une fois, avec son rythme.' },
   { id: 'week', libelle: 'Semaine', aide: 'les événements de la semaine, jour par jour.' },
 ]
 const vueActive = computed(() => VUES.find(v => v.id === currentView.value) || VUES[0])
@@ -487,49 +492,11 @@ const weekDays = computed(() => {
   return days
 })
 
-const filteredEvents = computed(() => {
-  const d = currentDate.value
-  const filtered = evenements.value.filter(evt => {
-    const ed = toDate(evt.date)
-    return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear()
-  }).sort((a, b) => toDate(a.date) - toDate(b.date))
-
-  return filtered
-})
-
-// Listes (« Cartes », « Ordre du jour ») : seulement ce qui n'est pas
-// terminé, heure comprise. Le calendrier (mois/semaine) garde le passé, grisé.
-const evenementsAVenirDuMois = computed(() => {
-  const now = maintenant.value
-  return filteredEvents.value.filter(evt => !estTermine(evt, now))
-})
-
 // Vue « Cartes » : tous les événements à venir, sans limite de mois, une
 // carte par événement (voir regrouperCartes) — un rendez-vous régulier n'y
 // figure qu'une fois.
 const cartes = computed(() => regrouperCartes(evenements.value, maintenant.value))
-const vueParPeriode = computed(() => currentView.value !== 'cards' && currentView.value !== 'next')
-
-// Mois en cours : rien avant aujourd'hui dans les listes, inutile d'y reculer.
-const peutReculer = computed(() => {
-  if (currentView.value === 'month' || currentView.value === 'week') return true
-  const d = currentDate.value, n = maintenant.value
-  return d.getFullYear() * 12 + d.getMonth() > n.getFullYear() * 12 + n.getMonth()
-})
-watch(currentView, (v) => {
-  // Revenir sur une liste depuis un mois passé du calendrier : on repart du mois en cours.
-  if (v === 'agenda' && !peutReculer.value) {
-    const d = currentDate.value, n = maintenant.value
-    if (d.getFullYear() * 12 + d.getMonth() < n.getFullYear() * 12 + n.getMonth()) currentDate.value = new Date(n)
-  }
-})
-
-const messageListeVide = computed(() => {
-  const d = currentDate.value, n = maintenant.value
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth()
-    ? 'Plus d\'événement à venir ce mois-ci : voyez le mois suivant avec la flèche ›.'
-    : 'Aucun événement prévu ce mois-ci.'
-})
+const vueParPeriode = computed(() => currentView.value === 'month' || currentView.value === 'week')
 
 // Les affiches doivent être là AVANT qu'on les regarde : dès que l'agenda est
 // chargé, le navigateur télécharge et décode en arrière-plan celles des
@@ -584,12 +551,14 @@ const nextEvents = computed(() => {
   return Object.values(groups).sort((a, b) => a.date - b.date)
 })
 
+// Vue « Ordre du jour » : les mêmes événements que les cartes (tout l'avenir,
+// un récurrent une seule fois), rangés jour après jour d'après leur prochaine date.
 const groupedByDate = computed(() => {
   const map = {}
-  evenementsAVenirDuMois.value.forEach(evt => {
-    const key = toDate(evt.date).toDateString()
-    if (!map[key]) map[key] = { date: toDate(evt.date), events: [] }
-    map[key].events.push(evt)
+  cartes.value.forEach(c => {
+    const key = toDate(c.evt.date).toDateString()
+    if (!map[key]) map[key] = { date: toDate(c.evt.date), cartes: [] }
+    map[key].cartes.push(c)
   })
   return Object.values(map)
 })
@@ -793,6 +762,8 @@ function formatDayModalDate(date) {
 .agenda-event-body strong { font-size: 0.95em; color: #111827; }
 .agenda-lieu { font-size: 0.82em; color: #6b7280; }
 .agenda-desc { font-size: 0.85em; color: #4b5563; margin: 2px 0 0; }
+/* Tout l'avenir est listé : extrait de 3 lignes, le texte complet est dans la fenêtre de l'événement. */
+.agenda-event .agenda-desc { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .empty-msg { text-align: center; color: #6b7280; padding: 40px; font-size: 1em; }
 .loading-msg { text-align: center; padding: 40px; color: #6b7280; font-size: 1em; }
 .event-card-img { width: 100%; display: block; cursor: pointer; }

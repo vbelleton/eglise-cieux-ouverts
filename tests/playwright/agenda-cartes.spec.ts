@@ -88,10 +88,10 @@ test('cartes : rien de passé, une seule carte pour deux séries du même évén
   const autel = cartes.filter({ hasText: 'Autel de Louange' })
   await expect(autel.locator('.badge-day')).toHaveText('14')
   await expect(autel.locator('.event-recurrence')).toHaveText('🔁 Chaque mardi et jeudi')
-  // 14, 19, 21, 26, 28 mars.
-  await expect(autel.locator('.event-date-chip')).toHaveCount(5)
-  // Mois en cours : pas de retour vers le passé dans les listes.
-  await expect(page.getByRole('button', { name: 'Période précédente' })).toBeDisabled()
+  // Rendez-vous régulier : son rythme, pas la liste de ses dates.
+  await expect(autel.locator('.event-date-chip')).toHaveCount(0)
+  // Cartes : tout l'avenir, sans choix de mois.
+  await expect(page.getByRole('button', { name: 'Période précédente' })).toHaveCount(0)
   // Chaque vue est expliquée.
   await page.getByRole('button', { name: 'Ordre du jour', exact: true }).click()
   await expect(page.locator('.view-hint')).toContainText('le programme du mois, jour après jour')
@@ -116,4 +116,26 @@ test('téléphone : l\'affiche apparaît dès qu\'on touche le jour', async ({ p
   const cadre = (await page.locator('.day-modal .day-modal-event-img').boundingBox())!
   expect(Math.abs(cadre.width / cadre.height - 16 / 9)).toBeLessThan(0.05)
   await expect(page.locator('.day-modal .day-modal-event-img')).toHaveClass(/est-prete/)
+})
+
+test('cartes : tous les événements à venir, au-delà du mois, les récurrents une seule fois', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2030-03-28T12:00:00+01:00'))
+  await page.route('**/api/church-events*', (route) => route.fulfill({ json: [
+    { id: 1, title: 'Célébration', start_date: '2030-01-06', start_time: '10:00', repeat_period: 'weekly:0', status: 'active', exceptions: [] },
+    { id: 2, title: 'Fête de Pâques', start_date: '2030-04-21', start_time: '10:00', status: 'active', exceptions: [] },
+    { id: 3, title: 'Concert', start_date: '2030-06-14', start_time: '20:00', status: 'active', exceptions: [] },
+    { id: 4, title: 'Parcours #1', start_date: '2030-04-04', status: 'active', exceptions: [] },
+    { id: 5, title: 'Parcours #2', start_date: '2030-04-11', status: 'active', exceptions: [] },
+  ] }))
+  await page.goto('/agenda')
+  await page.getByRole('button', { name: 'Cartes', exact: true }).click()
+  const cartes = page.locator('.events-list .event-card')
+  await expect(cartes).toHaveCount(4)
+  await expect(cartes.filter({ hasText: 'Célébration' })).toHaveCount(1)
+  await expect(cartes.filter({ hasText: 'Concert' })).toHaveCount(1)
+  const parcours = cartes.filter({ hasText: 'Parcours' })
+  await expect(parcours.locator('.event-date-chip')).toHaveCount(2)
+  // Rangées par prochaine date : Célébration (31/03) en tête, Concert (juin) en dernier.
+  await expect(cartes.first()).toContainText('Célébration')
+  await expect(cartes.last()).toContainText('Concert')
 })

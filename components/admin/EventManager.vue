@@ -165,7 +165,16 @@
                 <input ref="eventFileInput" type="file" accept="image/*" class="file-input-hidden" @change="onFileSelected" />
                 <button class="event-btn-sec" type="button" :disabled="uploadSaving" @click="eventFileInput?.click()">{{ uploadSaving ? 'Envoi…' : 'Téléverser' }}</button>
                 <button v-if="uploadedImages.length" class="event-btn-sec" type="button" @click="toggleUploadedList">Uploadées ({{ uploadedImages.length }})</button>
+                <button class="event-btn-sec" type="button" data-testid="event-generer-affiche" @click="showPosterGenerator = !showPosterGenerator">Générer l'affiche</button>
               </div>
+              <PosterGenerator
+                v-if="showPosterGenerator"
+                :titre="form.title"
+                :date="dateAffiche"
+                :heure="form.start_time"
+                @utiliser="onPosterGenerated"
+                @fermer="showPosterGenerator = false"
+              />
               <p v-if="uploadSaving && estImageDistante(form.image_url)" class="event-image-distante">Allègement de l'image…</p>
               <p v-else-if="imageNonAllegee && estImageDistante(form.image_url)" class="event-image-distante">
                 Image hébergée ailleurs, pas pu être allégée : elle peut ralentir l'agenda. Mieux vaut la téléverser.
@@ -232,6 +241,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX, COULEURS_EVENEMENT, couleurEvenement } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
+import PosterGenerator from '~/components/admin/PosterGenerator.vue'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -452,6 +462,20 @@ const nextOccurrences = computed(() => {
   return expandRecurring({ ...form.value, id: editing.value }, now, 8).map(o => o.date)
 })
 
+// Générateur d'affiche (components/admin/PosterGenerator.vue) : date
+// proposée = prochaine occurrence d'une série, sinon la date de début.
+const showPosterGenerator = ref(false)
+const dateAffiche = computed(() => {
+  const prochaine = nextOccurrences.value[0]
+  return prochaine ? isoDay(prochaine) : (form.value.start_date || '')
+})
+function onPosterGenerated(url) {
+  form.value.image_url = url
+  imageNonAllegee.value = false
+  showPosterGenerator.value = false
+  loadUploadedImages()
+}
+
 const form = ref({
   title: '', description: '', start_date: '', end_date: '',
   start_time: '', end_time: '', location: '', repeat_period: '',
@@ -469,6 +493,7 @@ function resetForm() {
     exceptions: [] }
   formError.value = ''
   imageNonAllegee.value = false
+  showPosterGenerator.value = false
 }
 
 // Snapshot du formulaire pris à l'ouverture (édition/création) — permet de
@@ -505,6 +530,7 @@ function onKeydown(e) {
 
 function startEdit(evt) {
   editing.value = evt.id; creating.value = false; deleting.value = null
+  showPosterGenerator.value = false
   const d = evt.date instanceof Date ? evt.date : new Date(evt.date + 'T00:00:00')
   form.value = {
     title: evt.titre || '', description: evt.description || '',

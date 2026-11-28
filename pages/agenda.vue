@@ -117,6 +117,8 @@
       v-if="carte.evt.images && carte.evt.images.length > 1"
       :images="carte.evt.images"
       :altPrefix="'Photo '"
+      :date="carte.evt.date"
+      :heure="carte.evt.heure || ''"
       mini
       @click="(e) => e.stopPropagation()"
       @slideClick="idx => openCarte(carte, idx)"
@@ -124,6 +126,8 @@
     <ImageAgenda
       v-else-if="carte.evt.images && carte.evt.images.length"
       :src="carte.evt.images[0]"
+      :date="carte.evt.date"
+      :heure="carte.evt.heure || ''"
       :alt="carte.titre"
       :emoji="carte.evt.emoji || ''"
       :prioritaire="cIdx < 3"
@@ -204,6 +208,8 @@
     <template #default>
       <EventImageSlider v-if="eventModal.event.images && eventModal.event.images.length > 0"
                     :images="eventModal.event.images"
+                    :date="eventModal.event.date"
+                    :heure="eventModal.event.heure || ''"
                     :altPrefix="'Photo '"
                     :initialIndex="eventModal.imageIndex || 0"
   />
@@ -268,6 +274,8 @@
             <ImageAgenda
               v-if="evt.images && evt.images.length"
               :src="evt.images[0]"
+              :date="evt.date"
+              :heure="evt.heure || ''"
               :alt="evt.titre"
               :emoji="evt.emoji || ''"
               prioritaire
@@ -296,6 +304,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import EventModal from '~/components/EventModal.vue'
 import EventImageSlider from '~/components/EventImageSlider.vue'
 import ImageAgenda from '~/components/ImageAgenda.vue'
+import { modelePourImage } from '~/utils/posterTemplates.js'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
 import { estTermine, regrouperCartes } from '~/utils/churchEvents.js'
 
@@ -516,7 +525,8 @@ function prechargerImages() {
   const candidats = [...cartes.value.map(c => c.evt), ...evenements.value.filter(e => !estTermine(e, now))]
   for (const evt of candidats) {
     const url = evt.images?.[0]
-    if (url && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
+    // Affiche automatique : générée à l'affichage (ImageAgenda), rien à précharger.
+    if (url && !modelePourImage(url) && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
     if (urls.length >= 16) break
   }
   if (!urls.length) return

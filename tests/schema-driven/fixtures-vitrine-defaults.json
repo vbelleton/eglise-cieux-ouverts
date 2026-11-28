@@ -325,6 +325,8 @@
     "playLabel": "Relancer le diaporama",
     "slideLabel": "Affiche",
     "expiredLabel": "Date passée : masquée sur le site",
+    "agenda": true,
+    "agendaJours": 30,
     "backgroundColor": "#0b2440",
     "textColor": "#ffffff",
     "animation": "none"

@@ -22,7 +22,8 @@
       <div v-else class="evts-grid">
         <article v-for="evt in liste" :key="`${evt.id}-${evt.date.getTime()}`" class="evt-card" :class="{ 'evt-special': evt.couleur }" :style="evt.couleur ? { '--evt-couleur': evt.couleur } : null">
           <div class="evt-visuel">
-            <img v-if="evt.images?.length" :src="evt.images[0]" :alt="evt.titre" loading="lazy" class="evt-img" />
+            <img v-if="evt.images?.length && imageCarte(evt)" :src="imageCarte(evt)" :alt="evt.titre" loading="lazy" class="evt-img" />
+            <div v-else-if="evt.images?.length" class="evt-img evt-img-vide" aria-hidden="true" />
             <div v-else class="evt-img evt-img-vide" aria-hidden="true">{{ evt.emoji || '📅' }}</div>
             <div class="evt-date">
               <span class="evt-jour">{{ evt.date.getDate() }}</span>
@@ -53,8 +54,9 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { estTermine } from '~/utils/churchEvents.js'
+import { modelePourImage, afficheSeance } from '~/utils/posterTemplates.js'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
 const props = defineProps({
@@ -106,6 +108,27 @@ const liste = computed(() => {
   }
   return out
 })
+
+// Affiche automatique (image = fond d'un modèle, utils/posterTemplates.js) :
+// générée dans le navigateur avec la date et l'heure de la séance montrée.
+// En attendant (et au rendu serveur), cadre vide plutôt que le fond sans date.
+const affiches = ref({})
+const cleAffiche = evt => `${evt.images[0]}|${evt.date.toDateString()}|${evt.heure || ''}`
+function imageCarte(evt) {
+  const url = evt.images[0]
+  return modelePourImage(url) ? affiches.value[cleAffiche(evt)] || '' : url
+}
+watch(liste, (evts) => {
+  if (typeof document === 'undefined') return
+  for (const evt of evts) {
+    const modele = evt.images?.length ? modelePourImage(evt.images[0]) : null
+    const cle = modele && cleAffiche(evt)
+    if (!modele || affiches.value[cle]) continue
+    afficheSeance(modele, { date: evt.date, heure: evt.heure })
+      .then((url) => { affiches.value = { ...affiches.value, [cle]: url } })
+      .catch(() => {})
+  }
+}, { immediate: true })
 
 function mois(d) {
   return d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')

@@ -283,6 +283,54 @@
     "backgroundColor": "#064886",
     "textColor": "#ffffff"
   },
+  "diaporama": {
+    "title": "",
+    "items": [
+      {
+        "image": "/images/slides/soiree-cieux-ouverts-2026-11-27.jpg",
+        "alt": "Soirée Cieux Ouverts : louange, prières, adoration. Vendredi 27 novembre, 19 h 30.",
+        "link": "/agenda",
+        "fin": "2026-11-27"
+      },
+      {
+        "image": "/images/slides/noel-2026-12-13.jpg",
+        "alt": "Célébration de Noël, dimanche 13 décembre. Les enfants seront mis à l'honneur !",
+        "link": "/agenda",
+        "fin": "2026-12-13"
+      },
+      {
+        "image": "/images/slides/librairie-ephemere.jpg",
+        "alt": "Librairie éphémère, dès aujourd'hui et jusqu'à début janvier : livres chrétiens pour les enfants, pour les femmes, Bibles, romans et ouvrages pour tous.",
+        "link": "",
+        "fin": "2027-01-10"
+      },
+      {
+        "image": "/images/slides/ecole-du-disciple-janvier.jpg",
+        "alt": "École du disciple, nouvelle session en janvier. Le mardi de 19 h 30 à 21 h 30.",
+        "link": "/agenda",
+        "fin": "2027-01-31"
+      },
+      {
+        "image": "/images/slides/baptemes-2027-01-10.jpg",
+        "alt": "Baptêmes le dimanche 10 janvier 2027, suivis d'un buffet.",
+        "link": "/agenda",
+        "fin": "2027-01-10"
+      }
+    ],
+    "interval": 6,
+    "regionLabel": "À l'affiche",
+    "prevLabel": "Affiche précédente",
+    "nextLabel": "Affiche suivante",
+    "pauseLabel": "Mettre le diaporama en pause",
+    "playLabel": "Relancer le diaporama",
+    "slideLabel": "Affiche",
+    "expiredLabel": "Date passée : masquée sur le site",
+    "agenda": true,
+    "agendaJours": 30,
+    "backgroundColor": "#0b2440",
+    "textColor": "#ffffff",
+    "animation": "none"
+  },
   "inscriptionAlpha": {
     "title": "S'inscrire au Parcours Alpha",
     "intro": "Gratuit, sans engagement, sans aucune pression. Laisse-nous tes coordonnées : nous te recontactons avec les informations pratiques avant la première soirée.",

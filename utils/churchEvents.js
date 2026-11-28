@@ -129,10 +129,34 @@ export function mapEvent(ev, date) {
     image_url: ev.image_url || null,
     images: ev.images ? ev.images : (ev.image_url ? [ev.image_url] : []),
     repeat_period: ev.repeat_period || null,
+    // Premier jour de la série : sert à dire « chaque mardi » (libelleRecurrence).
+    debutSerie: ev.start_date || null,
     lien: ev.lien || ev.link || null,
     billetterie: ev.billetterie || ev.ticket_url || null,
     emoji: ev.emoji || null,
+    // Mise en évidence (Noël, baptême…) : couleur choisie dans l'admin,
+    // champ `color` du Worker. null = événement ordinaire.
+    couleur: couleurEvenement(ev.color),
   }
+}
+
+/**
+ * Couleurs proposées dans l'admin pour faire ressortir un événement de
+ * l'agenda. La valeur est appliquée en style en ligne : seule une couleur
+ * hexadécimale stricte est acceptée, n'importe quelle autre chaîne venue de
+ * la base est ignorée.
+ */
+export const COULEURS_EVENEMENT = [
+  { valeur: '', libelle: 'Aucune (événement ordinaire)' },
+  { valeur: '#e11d2e', libelle: 'Rouge vif (fête, Noël…)' },
+  { valeur: '#0284c7', libelle: 'Bleu eau (baptême…)' },
+  { valeur: '#d97706', libelle: 'Or' },
+  { valeur: '#7c3aed', libelle: 'Violet' },
+  { valeur: '#059669', libelle: 'Vert' },
+]
+
+export function couleurEvenement(color) {
+  return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color.trim()) ? color.trim().toLowerCase() : null
 }
 
 /**
@@ -339,7 +363,158 @@ export function buildEventList(allEvents, { futureOnly = true, now: nowArg, agen
   // Même jour : par heure (sans heure en tête) — sinon l'ordre dépendait de
   // celui des événements en base, et un 21:00 passait avant un 19:30.
   results.sort((a, b) => (a.date - b.date) || ((heureMinutes(a.heure) ?? -1) - (heureMinutes(b.heure) ?? -1)))
-  return results
+  return sansDoublons(results)
+}
+
+/**
+ * Titre réduit à ce qui identifie l'événement : sans emoji, accents, casse,
+ * ponctuation ni numéro de session (« #2 », « Session 2 », « n°2 »,
+ * « Partie 2 », « 2ème session »). « Chemin de Liberté 🕊️ #1 » et
+ * « Chemin de Liberté 🕊️ #3 » donnent la même clé : ce sont les sessions d'un
+ * même événement, pas deux événements.
+ */
+export function cleEvenement(titre) {
+  return String(titre || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/(?:#|n°|no\.?\s)\s*\d+/g, ' ')
+    .replace(/\b(?:session|seance|partie|module|episode|semaine)\s*\d+\b/g, ' ')
+    .replace(/\b\d+\s*(?:e|er|ere|eme|ème)?\s*(?:session|seance|partie|module)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/** Numéro de session écrit dans le titre (« #2 », « Session 2 »…), sinon null. */
+export function numeroSession(titre) {
+  const t = String(titre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const m = t.match(/(?:#|n°|\b(?:session|seance|partie|module|episode)\s*)\s*(\d+)/)
+    || t.match(/\b(\d+)\s*(?:e|er|ere|eme)?\s*(?:session|seance|partie|module)\b/)
+  return m ? Number(m[1]) : null
+}
+
+/** Titre à afficher pour un groupe de sessions : sans le numéro de session. */
+export function titreSansSession(titre) {
+  const net = String(titre || '')
+    .replace(/\s*(?:#|n°)\s*\d+/gi, '')
+    .replace(/\s*[-–—:]?\s*\b(?:session|séance|seance|partie|module|épisode|episode)\s*\d+\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return net || String(titre || '').trim()
+}
+
+/**
+ * Retire les vrais doublons : même événement (cleEvenement), même jour, même
+ * heure de début. Arrive quand un événement a été saisi deux fois, ou qu'une
+ * occurrence déplacée retombe sur une date déjà occupée par la série. On garde
+ * l'exemplaire le plus complet (avec image, puis avec description).
+ */
+export function sansDoublons(liste) {
+  const parCle = new Map()
+  const sortie = []
+  const richesse = (e) => (e.images?.length ? 2 : 0) + (e.description ? 1 : 0)
+  for (const evt of liste || []) {
+    const cle = `${cleEvenement(evt.titre)}|${isoDay(evt.date)}|${heureMinutes(evt.heure) ?? ''}`
+    const deja = parCle.get(cle)
+    if (deja === undefined) { parCle.set(cle, sortie.length); sortie.push(evt); continue }
+    if (richesse(evt) > richesse(sortie[deja])) sortie[deja] = evt
+  }
+  return sortie
+}
+
+const JOURS_SEMAINE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
+const ORDINAUX = { 1: '1er', 2: '2e', 3: '3e', 4: '4e', 5: '5e', '-1': 'dernier' }
+
+/** « chaque mardi », « un jeudi sur deux », « le dernier dimanche du mois »… ou null. */
+export function libelleRecurrence(evt) {
+  const rp = evt && evt.repeat_period
+  if (!rp) return null
+  const regles = rp.split('|').filter(Boolean)
+  const debut = evt.debutSerie ? parseDay(evt.debutSerie) : (evt.date ? new Date(evt.date) : null)
+  const morceaux = []
+  for (const r of regles) {
+    if (r === 'week' || r === 'biweek') {
+      if (!debut) continue
+      const j = JOURS_SEMAINE[debut.getDay()]
+      morceaux.push(r === 'week' ? `chaque ${j}` : `un ${j} sur deux`)
+    } else if (r.startsWith('weekly:') || r.startsWith('biweekly:')) {
+      const jours = r.split(':')[1].split(',').map(Number).filter(n => n >= 0 && n <= 6)
+        .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(n => JOURS_SEMAINE[n])
+      if (!jours.length) continue
+      const liste = jours.length > 1 ? `${jours.slice(0, -1).join(', ')} et ${jours.at(-1)}` : jours[0]
+      morceaux.push(r.startsWith('weekly:') ? `chaque ${liste}` : `un ${liste} sur deux`)
+    } else if (r.startsWith('monthly_weekday:')) {
+      const [, ord, jour] = r.split(':')
+      const o = ORDINAUX[String(parseInt(ord))]
+      const j = JOURS_SEMAINE[parseInt(jour)]
+      if (o && j) morceaux.push(`le ${o} ${j} du mois`)
+    } else if (r === 'month') {
+      morceaux.push(debut ? `chaque mois, le ${debut.getDate() === 1 ? '1er' : debut.getDate()}` : 'chaque mois')
+    }
+  }
+  return morceaux.length ? morceaux.join(' · ') : null
+}
+
+// Rang d'un libellé dans la semaine (lundi d'abord), d'après le 1er jour cité.
+function rangJour(libelle) {
+  const i = JOURS_SEMAINE.findIndex(j => libelle.includes(j))
+  return i < 0 ? 99 : (i + 6) % 7
+}
+
+/**
+ * Plusieurs séries d'un même événement : dans l'ordre de la semaine, et
+ * « chaque mardi » + « chaque jeudi » → « chaque mardi et jeudi ».
+ */
+export function fusionnerRecurrences(libelles) {
+  const tries = [...libelles].sort((a, b) => rangJour(a) - rangJour(b))
+  const simples = tries.filter(l => /^chaque (lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)$/.test(l))
+  if (simples.length < 2) return tries
+  const jours = simples.map(l => l.slice('chaque '.length))
+  const fusion = `chaque ${jours.slice(0, -1).join(', ')} et ${jours.at(-1)}`
+  return [fusion, ...tries.filter(l => !simples.includes(l))]
+}
+
+/**
+ * Vue « Cartes » de l'agenda : une carte par événement, jamais une carte par
+ * occurrence ni par fiche en base.
+ *
+ * - Ce qui est terminé (`estTermine`, heure comprise) n'apparaît pas.
+ * - Les fiches qui portent le même événement (même cleEvenement : une série
+ *   saisie deux fois pour deux jours de la semaine, ou des sessions #1, #2,
+ *   #3 saisies séparément) sont réunies sur une seule carte, datée de la
+ *   prochaine occurrence, qui liste toutes ses dates à venir. Deux cartes
+ *   « Autel de Louange » côte à côte ressemblaient à un doublon.
+ *
+ * Renvoie [{ cle, evt, titre, dates: [{ date, heure, session, evt }], recurrences, recurrent }].
+ */
+export function regrouperCartes(liste, now = new Date()) {
+  const groupes = new Map()
+  for (const evt of liste || []) {
+    if (estTermine(evt, now)) continue
+    const cle = cleEvenement(evt.titre) || `id-${evt.id}`
+    let g = groupes.get(cle)
+    if (!g) { g = { cle, evt, occurrences: [] }; groupes.set(cle, g) }
+    g.occurrences.push(evt)
+  }
+  const sortie = []
+  for (const g of groupes.values()) {
+    const occ = sansDoublons(g.occurrences).sort((a, b) => (a.date - b.date) || ((heureMinutes(a.heure) ?? -1) - (heureMinutes(b.heure) ?? -1)))
+    const premier = occ[0]
+    // Image : celle de la prochaine occurrence, sinon celle d'une autre fiche du groupe.
+    const avecImage = premier.images?.length ? premier : occ.find(e => e.images?.length)
+    const evt = avecImage && avecImage !== premier ? { ...premier, images: avecImage.images, image_url: avecImage.image_url } : premier
+    const plusieursFiches = new Set(occ.map(e => e.id)).size > 1
+    const recurrences = fusionnerRecurrences([...new Set(occ.map(libelleRecurrence).filter(Boolean))])
+    sortie.push({
+      cle: g.cle,
+      evt,
+      titre: plusieursFiches ? titreSansSession(premier.titre) : premier.titre,
+      dates: occ.map(e => ({ date: e.date, heure: e.heure, session: numeroSession(e.titre), evt: e })),
+      recurrences,
+      // Au moins une série : la carte montre son rythme, pas la liste des dates.
+      recurrent: occ.some(e => e.repeat_period),
+    })
+  }
+  return sortie.sort((a, b) => (a.evt.date - b.evt.date) || ((heureMinutes(a.evt.heure) ?? -1) - (heureMinutes(b.evt.heure) ?? -1)))
 }
 
 /** Vrai si l'événement (ou l'occurrence) est terminé avant `today`. */

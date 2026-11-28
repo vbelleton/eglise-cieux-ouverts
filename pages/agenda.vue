@@ -7,17 +7,19 @@
 
     <section class="agenda-calendar js-only">
       <div class="calendar-nav">
-        <button class="nav-btn" @click="prev">&#8249;</button>
-        <h2 class="calendar-month">{{ periodLabel }}</h2>
-        <button class="nav-btn" @click="next">&#8250;</button>
+        <!-- Cartes, Prochain et Ordre du jour couvrent tout l'avenir : pas de mois à choisir. -->
+        <template v-if="vueParPeriode">
+          <button class="nav-btn" aria-label="Période précédente" @click="prev">&#8249;</button>
+          <h2 class="calendar-month">{{ periodLabel }}</h2>
+          <button class="nav-btn" aria-label="Période suivante" @click="next">&#8250;</button>
+        </template>
         <div class="view-toggle">
-          <button class="view-btn" :class="{ active: currentView === 'month' }" @click="currentView = 'month'">Mois</button>
-          <button class="view-btn" :class="{ active: currentView === 'next' }" @click="currentView = 'next'">Prochain</button>
-          <button class="view-btn" :class="{ active: currentView === 'cards' }" @click="currentView = 'cards'">Cartes</button>
-          <button class="view-btn" :class="{ active: currentView === 'agenda' }" @click="currentView = 'agenda'">Ordre du jour</button>
-          <button class="view-btn" :class="{ active: currentView === 'week' }" @click="currentView = 'week'">Semaine</button>
+          <button v-for="v in VUES" :key="v.id" class="view-btn" :class="{ active: currentView === v.id }" :title="v.aide" @click="currentView = v.id">{{ v.libelle }}</button>
         </div>
       </div>
+      <!-- Ce que montre la vue choisie : « Ordre du jour » ou « Cartes » ne
+           disaient pas grand-chose à qui ne les avait jamais ouvertes. -->
+      <p class="view-hint"><strong>{{ vueActive.libelle }} :</strong> {{ vueActive.aide }}</p>
 
       <!-- Mois -->
       <template v-if="currentView === 'month'">
@@ -37,7 +39,8 @@
   v-for="evt in getDayEvents(day)"
   :key="evt.id"
   class="event-pill"
-  :class="[getEventColor(evt), { 'event-mine': isMine(evt) }]"
+  :class="[getEventColor(evt), { 'event-mine': isMine(evt), 'event-special': evt.couleur, 'event-passe': estTermine(evt, maintenant) }]"
+  :style="styleSpecial(evt)"
   :title="evt.titre"
   @click.stop="openEventModal(evt)"
 >{{ isMine(evt) ? '⭐ ' : '' }}{{ evt.emoji || '•' }} {{ evt.titre }}</span>
@@ -63,7 +66,8 @@
   v-for="evt in day.events"
   :key="evt.id"
   class="event-pill"
-  :class="[getEventColor(evt), { 'event-mine': isMine(evt) }]"
+  :class="[getEventColor(evt), { 'event-mine': isMine(evt), 'event-special': evt.couleur, 'event-passe': estTermine(evt, maintenant) }]"
+  :style="styleSpecial(evt)"
   :title="evt.titre"
   @click.stop="openEventModal(evt)"
 >{{ isMine(evt) ? '⭐ ' : '' }}{{ evt.emoji || '•' }} {{ evt.titre }}</span>
@@ -87,7 +91,7 @@
               <span class="next-event-month">{{ formatMonth(g.date) }}</span>
             </div>
             <div class="next-event-body">
-              <div v-for="evt in g.events" :key="evt.id" class="next-event-item">
+              <div v-for="evt in g.events" :key="evt.id" class="next-event-item" :class="{ 'event-special': evt.couleur }" :style="styleSpecial(evt)">
                 <strong>{{ evt.titre }}</strong>
                 <span class="next-event-meta">
                   <span v-if="evt.heure">🕙 {{ evt.heure }}</span>
@@ -104,62 +108,84 @@
           <p v-if="!erreur && nextEvents.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
         <div v-if="currentView === 'cards'" class="events-list">
-          <article v-for="evt in cardEvents" :key="evt.id" class="event-card" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
+          <!-- Une carte par événement (regrouperCartes) : les occurrences d'une
+               série et les sessions saisies séparément (#1, #2…) sont réunies
+               avec la liste de leurs dates ; rien de terminé n'est affiché. -->
+          <article v-for="(carte, cIdx) in cartes" :key="carte.cle" class="event-card" :class="{ 'event-mine': isMine(carte.evt), 'event-special': carte.evt.couleur }" :style="styleSpecial(carte.evt)" @click="openCarte(carte)" style="cursor:pointer">
   <div class="event-card-media">
-  <template v-if="evt.images && evt.images.length">
     <EventImageSlider
-      v-if="evt.images.length > 1"
-      :images="evt.images"
+      v-if="carte.evt.images && carte.evt.images.length > 1"
+      :images="carte.evt.images"
       :altPrefix="'Photo '"
+      :date="carte.evt.date"
+      :heure="carte.evt.heure || ''"
       mini
       @click="(e) => e.stopPropagation()"
-      @slideClick="idx => openEventModal(evt, idx)"
+      @slideClick="idx => openCarte(carte, idx)"
     />
-    <img
-      v-else
-      :src="evt.images[0]"
-      :alt="evt.titre"
+    <ImageAgenda
+      v-else-if="carte.evt.images && carte.evt.images.length"
+      :src="carte.evt.images[0]"
+      :date="carte.evt.date"
+      :heure="carte.evt.heure || ''"
+      :alt="carte.titre"
+      :emoji="carte.evt.emoji || ''"
+      :prioritaire="cIdx < 3"
       class="event-card-img"
-      decoding="async"
-      loading="lazy"
-      @click.stop="openEventModal(evt, 0)"
+      @click.stop="openCarte(carte, 0)"
     />
-  </template>
-  <div v-else class="event-card-placeholder" aria-hidden="true"><span>{{ evt.emoji || '✝️' }}</span></div>
-</div>
+    <div v-else class="event-card-placeholder" aria-hidden="true"><span>{{ carte.evt.emoji || '✝️' }}</span></div>
+  </div>
   <div class="event-body">
     <div class="event-card-head">
       <div class="event-date-badge">
-        <span class="badge-day">{{ formatDay(evt.date) }}</span>
-        <span class="badge-month">{{ formatMonth(evt.date) }}</span>
+        <span class="badge-day">{{ formatDay(carte.evt.date) }}</span>
+        <span class="badge-month">{{ formatMonth(carte.evt.date) }}</span>
       </div>
-      <h3 class="event-title">{{ evt.titre }}</h3>
+      <h3 class="event-title">{{ carte.titre }}</h3>
     </div>
     <div class="event-meta">
-      <span v-if="evt.heure">🕙 {{ evt.heure }}</span>
-      <span v-if="evt.lieu">📍 {{ evt.lieu }}</span>
+      <span v-if="carte.evt.heure">🕙 {{ carte.evt.heure }}</span>
+      <span v-if="carte.evt.lieu">📍 {{ carte.evt.lieu }}</span>
     </div>
-    <p v-if="evt.description" class="event-desc" v-html="sanitizeHtml(evt.description)"></p>
-    <div class="event-links" v-if="evt.lien || evt.billetterie">
-      <a v-if="evt.lien" :href="evt.lien" target="_blank" rel="noopener" class="btn-event">En savoir plus</a>
-      <a v-if="evt.billetterie" :href="evt.billetterie" target="_blank" rel="noopener" class="btn-event btn-event-outline">🎟️ Billetterie</a>
+    <p v-if="carte.recurrences.length" class="event-recurrence">🔁 {{ majuscule(carte.recurrences.join(' et ')) }}</p>
+    <!-- Rendez-vous régulier : son rythme suffit, la carte n'apparaît qu'une
+         fois. Sessions datées une à une : toutes leurs dates. -->
+    <div v-if="!carte.recurrent && carte.dates.length > 1" class="event-dates">
+      <span class="event-dates-label">{{ carte.dates.length }} dates :</span>
+      <ul class="event-dates-list">
+        <li v-for="(d, dIdx) in carte.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
+          {{ formatDateCourte(d.date) }}<template v-if="d.session"> · Session {{ d.session }}</template>
+        </li>
+      </ul>
+    </div>
+    <p v-if="carte.evt.description" class="event-desc" v-html="sanitizeHtml(carte.evt.description)"></p>
+    <div class="event-links" v-if="carte.evt.lien || carte.evt.billetterie">
+      <a v-if="carte.evt.lien" :href="carte.evt.lien" target="_blank" rel="noopener" class="btn-event" @click.stop>En savoir plus</a>
+      <a v-if="carte.evt.billetterie" :href="carte.evt.billetterie" target="_blank" rel="noopener" class="btn-event btn-event-outline" @click.stop>🎟️ Billetterie</a>
     </div>
   </div>
 </article>
+          <p v-if="!erreur && !loading && cartes.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
         <div v-if="currentView === 'agenda'" class="agenda-list">
 <div v-for="(group, gIdx) in groupedByDate" :key="gIdx" class="agenda-day-group">
   <h3 class="agenda-day-label">{{ formatDayLabel(group.date) }}</h3>
-  <div v-for="evt in group.events" :key="evt.id" class="agenda-event" :class="{ 'event-mine': isMine(evt) }" @click="openEventModal(evt)" style="cursor:pointer">
-    <span class="agenda-time">{{ evt.heure || '—' }}</span>
+  <div v-for="c in group.cartes" :key="c.cle" class="agenda-event" :class="{ 'event-mine': isMine(c.evt), 'event-special': c.evt.couleur }" :style="styleSpecial(c.evt)" @click="openCarte(c)" style="cursor:pointer">
+    <span class="agenda-time">{{ c.evt.heure || '—' }}</span>
     <div class="agenda-event-body">
-      <strong>{{ evt.titre }}</strong>
-      <span v-if="evt.lieu" class="agenda-lieu">{{ evt.lieu }}</span>
-      <p v-if="evt.description" class="agenda-desc" v-html="sanitizeHtml(evt.description)"></p>
+      <strong>{{ c.titre }}</strong>
+      <span v-if="c.evt.lieu" class="agenda-lieu">{{ c.evt.lieu }}</span>
+      <!-- Rendez-vous régulier : son rythme, une seule ligne dans la liste. -->
+      <span v-if="c.recurrences.length" class="event-recurrence">🔁 {{ majuscule(c.recurrences.join(' et ')) }}</span>
+      <ul v-else-if="c.dates.length > 1" class="event-dates-list">
+        <li v-for="(d, dIdx) in c.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">{{ formatDateCourte(d.date) }}<template v-if="d.session"> · Session {{ d.session }}</template></li>
+      </ul>
+      <p v-if="c.evt.description" class="agenda-desc" v-html="sanitizeHtml(c.evt.description)"></p>
     </div>
   </div>
 </div>
-          <p v-if="!erreur && filteredEvents.length === 0" class="empty-msg">Aucun événement pour cette période.</p>
+          <p v-if="!erreur && !loading && groupedByDate.length === 0" class="empty-msg">Aucun événement à venir.</p>
         </div>
       </div>
     </section>
@@ -182,6 +208,8 @@
     <template #default>
       <EventImageSlider v-if="eventModal.event.images && eventModal.event.images.length > 0"
                     :images="eventModal.event.images"
+                    :date="eventModal.event.date"
+                    :heure="eventModal.event.heure || ''"
                     :altPrefix="'Photo '"
                     :initialIndex="eventModal.imageIndex || 0"
   />
@@ -191,6 +219,14 @@
           <span v-if="eventModal.event.dateFin">→ {{ formatDate(eventModal.event.dateFin) }}</span>
           <span v-if="eventModal.event.heure">🕙 {{ eventModal.event.heure }}<template v-if="eventModal.event.fin"> – {{ eventModal.event.fin }}</template></span>
           <span v-if="eventModal.event.lieu">📍 {{ eventModal.event.lieu }}</span>
+        </div>
+        <div v-if="eventModal.dates.length > 1" class="event-modal-dates">
+          <strong>Prochaines dates :</strong>
+          <ul class="event-dates-list">
+            <li v-for="(d, dIdx) in eventModal.dates.slice(0, 8)" :key="dIdx" class="event-date-chip" :class="{ prochaine: dIdx === 0 }">
+              {{ formatDateCourte(d.date) }}<template v-if="d.heure"> à {{ d.heure }}</template><template v-if="d.session"> · Session {{ d.session }}</template>
+            </li>
+          </ul>
         </div>
         <div class="event-modal-desc" v-if="eventModal.event.description" v-html="sanitizeHtml(eventModal.event.description)"></div>
         <div class="event-modal-links" v-if="eventModal.event.lien || eventModal.event.billetterie">
@@ -228,10 +264,23 @@
         <div class="day-modal-events">
           <div
             v-for="evt in dayModal.events"
-            :key="evt.id"
+            :key="`${evt.id}-${evt.heure}`"
             class="day-modal-event"
+            :class="{ 'event-passe': estTermine(evt, maintenant) }"
             @click="closeDayModal(); openEventModal(evt)"
           >
+            <!-- L'affiche tout de suite : sur téléphone, il fallait toucher le
+                 jour PUIS l'événement pour la voir, et beaucoup passaient à côté. -->
+            <ImageAgenda
+              v-if="evt.images && evt.images.length"
+              :src="evt.images[0]"
+              :date="evt.date"
+              :heure="evt.heure || ''"
+              :alt="evt.titre"
+              :emoji="evt.emoji || ''"
+              prioritaire
+              class="day-modal-event-img"
+            />
             <div class="day-modal-event-header">
               <span class="day-modal-event-dot" :class="getEventColor(evt)"></span>
               <strong class="day-modal-event-title">{{ evt.titre }}</strong>
@@ -240,6 +289,7 @@
               <span v-if="evt.heure" class="day-modal-event-time">🕙 {{ evt.heure }}</span>
               <span v-if="evt.lieu" class="day-modal-event-lieu">📍 {{ evt.lieu }}</span>
             </div>
+            <span class="day-modal-event-more">Voir le détail ›</span>
           </div>
           <p v-if="dayModal.events.length === 0" class="empty-msg">Aucun événement ce jour.</p>
         </div>
@@ -253,8 +303,10 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import EventModal from '~/components/EventModal.vue'
 import EventImageSlider from '~/components/EventImageSlider.vue'
+import ImageAgenda from '~/components/ImageAgenda.vue'
+import { modelePourImage } from '~/utils/posterTemplates.js'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
-import { estTermine } from '~/utils/churchEvents.js'
+import { estTermine, regrouperCartes } from '~/utils/churchEvents.js'
 
 
 usePageSeo({
@@ -275,6 +327,17 @@ let minuteurMaintenant = null
 onMounted(() => { minuteurMaintenant = window.setInterval(() => { maintenant.value = new Date() }, 60000) })
 onUnmounted(() => window.clearInterval(minuteurMaintenant))
 const currentView = ref('month')
+
+// Les vues, avec la phrase qui dit ce que chacune montre (affichée sous les
+// boutons et en info-bulle).
+const VUES = [
+  { id: 'month', libelle: 'Mois', aide: 'le calendrier du mois. Touchez un jour pour voir ses événements et leurs affiches.' },
+  { id: 'next', libelle: 'Prochain', aide: 'les prochains rendez-vous, du plus proche au plus lointain.' },
+  { id: 'cards', libelle: 'Cartes', aide: 'tous les événements à venir avec leur affiche ; un rendez-vous régulier n\'apparaît qu\'une fois, avec son rythme.' },
+  { id: 'agenda', libelle: 'Ordre du jour', aide: 'le programme à venir, jour après jour, avec l\'heure et le lieu ; un rendez-vous régulier n\'apparaît qu\'une fois, avec son rythme.' },
+  { id: 'week', libelle: 'Semaine', aide: 'les événements de la semaine, jour par jour.' },
+]
+const vueActive = computed(() => VUES.find(v => v.id === currentView.value) || VUES[0])
 
 // --- Agenda personnel du membre connecté ---
 // Désactivé avec l'espace membre (réglage ⚙️ Config « espaceMembre ») :
@@ -353,17 +416,23 @@ watch(currentView, (v) => {
 })
 
 // Modale d'événement individuel
-const eventModal = ref({ open: false, event: null, imageIndex: 0 })
+const eventModal = ref({ open: false, event: null, imageIndex: 0, dates: [] })
 
-function openEventModal(evtObj, imageIndex = 0) {
+function openEventModal(evtObj, imageIndex = 0, dates = []) {
   eventModal.value.event = evtObj
   eventModal.value.open = true
   eventModal.value.imageIndex = imageIndex || 0
+  eventModal.value.dates = dates
+}
+// Carte regroupée : la fenêtre montre la prochaine date et la liste des autres.
+function openCarte(carte, imageIndex = 0) {
+  openEventModal({ ...carte.evt, titre: carte.titre }, imageIndex, carte.dates)
 }
 function closeEventModal() {
   eventModal.value.open = false
   eventModal.value.event = null
   eventModal.value.imageIndex = 0
+  eventModal.value.dates = []
 }
 
 // Modale de jour (liste des événements d'un jour)
@@ -432,55 +501,45 @@ const weekDays = computed(() => {
   return days
 })
 
-const filteredEvents = computed(() => {
-  const d = currentDate.value
-  const filtered = evenements.value.filter(evt => {
-    const ed = toDate(evt.date)
-    return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear()
-  }).sort((a, b) => toDate(a.date) - toDate(b.date))
+// Vue « Cartes » : tous les événements à venir, sans limite de mois, une
+// carte par événement (voir regrouperCartes) — un rendez-vous régulier n'y
+// figure qu'une fois.
+const cartes = computed(() => regrouperCartes(evenements.value, maintenant.value))
+const vueParPeriode = computed(() => currentView.value === 'month' || currentView.value === 'week')
 
-  return filtered
-})
-
-// Vue « Cartes » : une carte par événement. Une série (hebdomadaire…) a
-// plusieurs occurrences dans le mois : on garde la prochaine (ou la première
-// du mois si elles sont toutes passées). Sans ça, la même carte se répétait,
-// avec des clés `evt.id` en double qui faisaient mélanger le contenu des
-// cartes par Vue au changement de mois.
-const cardEvents = computed(() => {
-  const now = maintenant.value
-  const parId = new Map()
-  for (const evt of filteredEvents.value) {
-    const deja = parId.get(evt.id)
-    if (!deja || (estTermine(deja, now) && !estTermine(evt, now))) parId.set(evt.id, evt)
-  }
-  return [...parId.values()].sort((a, b) => toDate(a.date) - toDate(b.date))
-})
-
-// Vue « Cartes » : les images des événements du mois n'étaient demandées
-// qu'au moment d'ouvrir cette vue (et en `loading="lazy"`), d'où un cadre gris
-// le temps qu'elles arrivent. Dès que l'agenda est chargé, le navigateur les
-// récupère en arrière-plan (au calme, une seule fois chacune) : en passant sur
-// « Cartes », elles sont déjà là.
+// Les affiches doivent être là AVANT qu'on les regarde : dès que l'agenda est
+// chargé, le navigateur télécharge et décode en arrière-plan celles des
+// prochains événements (au calme, une seule fois chacune). Ouvrir un jour sur
+// téléphone, passer sur « Cartes » ou ouvrir un événement les affiche alors
+// d'un coup, sans cadre gris ni image qui se dessine par morceaux.
 const imagesPrechargees = new Set()
-function prechargerImagesCartes() {
+function prechargerImages() {
   if (typeof window === 'undefined') return
   // Connexion lente ou économie de données : on ne tire pas des images en
   // arrière-plan que personne n'a demandées (certaines pèsent plusieurs Mo).
   const cnx = navigator.connection
   if (cnx && (cnx.saveData || /(^|-)2g$|3g/.test(cnx.effectiveType || ''))) return
+  const now = maintenant.value
   const urls = []
-  for (const evt of cardEvents.value) {
+  // D'abord ce que la vue affiche, puis les prochains événements.
+  const candidats = [...cartes.value.map(c => c.evt), ...evenements.value.filter(e => !estTermine(e, now))]
+  for (const evt of candidats) {
     const url = evt.images?.[0]
-    if (url && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
-    if (urls.length >= 12) break
+    // Affiche automatique : générée à l'affichage (ImageAgenda), rien à précharger.
+    if (url && !modelePourImage(url) && !imagesPrechargees.has(url)) { imagesPrechargees.add(url); urls.push(url) }
+    if (urls.length >= 16) break
   }
   if (!urls.length) return
-  const lancer = () => urls.forEach((url) => { const img = new Image(); img.decoding = 'async'; img.src = url })
+  const lancer = () => urls.forEach((url) => {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+    if (img.decode) img.decode().catch(() => {})
+  })
   if ('requestIdleCallback' in window) window.requestIdleCallback(lancer, { timeout: 1500 })
   else window.setTimeout(lancer, 300)
 }
-watch(cardEvents, prechargerImagesCartes)
+watch([cartes, evenements], prechargerImages)
 
 const nextEvents = computed(() => {
   // Vue "Prochain" : seule vue non bornée à un mois/semaine précis — doit
@@ -502,12 +561,14 @@ const nextEvents = computed(() => {
   return Object.values(groups).sort((a, b) => a.date - b.date)
 })
 
+// Vue « Ordre du jour » : les mêmes événements que les cartes (tout l'avenir,
+// un récurrent une seule fois), rangés jour après jour d'après leur prochaine date.
 const groupedByDate = computed(() => {
   const map = {}
-  filteredEvents.value.forEach(evt => {
-    const key = toDate(evt.date).toDateString()
-    if (!map[key]) map[key] = { date: toDate(evt.date), events: [] }
-    map[key].events.push(evt)
+  cartes.value.forEach(c => {
+    const key = toDate(c.evt.date).toDateString()
+    if (!map[key]) map[key] = { date: toDate(c.evt.date), cartes: [] }
+    map[key].cartes.push(c)
   })
   return Object.values(map)
 })
@@ -528,6 +589,12 @@ const eventColors = ['color-blue', 'color-red', 'color-orange', 'color-purple', 
 function getEventColor(evt) {
   const idx = (evt.titre || '').charCodeAt(0) % eventColors.length
   return eventColors[idx]
+}
+
+// Événement mis en évidence dans l'admin (Noël, baptême…) : sa couleur
+// remplace la couleur automatique et sert de liseré dans les listes.
+function styleSpecial(evt) {
+  return evt.couleur ? { '--evt-couleur': evt.couleur } : null
 }
 
 function prev() {
@@ -571,6 +638,14 @@ function formatMonth(ts) {
   return toDate(ts).toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()
 }
 
+function formatDateCourte(date) {
+  return toDate(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function majuscule(txt) {
+  return txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : ''
+}
+
 function formatDayLabel(date) {
   return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
@@ -608,6 +683,15 @@ function formatDayModalDate(date) {
 .event-pill { font-size: 0.75em; padding: 1px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; display: block; }
 
 /* Événements du membre connecté : surbrillance */
+.event-pill.event-special { background: var(--evt-couleur); font-weight: 700; box-shadow: 0 0 0 2px color-mix(in srgb, var(--evt-couleur) 35%, transparent); }
+.next-event-item.event-special { border-left: 4px solid var(--evt-couleur); padding-left: 10px; }
+.next-event-item.event-special strong,
+.agenda-event.event-special strong,
+.event-card.event-special .event-title { color: var(--evt-couleur); font-weight: 800; }
+.event-card.event-special { box-shadow: 0 0 0 3px var(--evt-couleur), 0 6px 18px color-mix(in srgb, var(--evt-couleur) 30%, transparent); }
+.event-card.event-special .event-date-badge { background: var(--evt-couleur); color: #fff; }
+.event-card.event-special .event-date-badge * { color: #fff; }
+.agenda-event.event-special { border-left: 4px solid var(--evt-couleur); padding-left: 10px; background: color-mix(in srgb, var(--evt-couleur) 7%, transparent); border-radius: 6px; }
 .event-pill.event-mine { outline: 2px solid #f6b93b; outline-offset: 1px; font-weight: 700; }
 .event-card.event-mine { box-shadow: 0 0 0 2px #f6b93b, 0 2px 8px rgba(0,0,0,0.07); }
 .agenda-event.event-mine { box-shadow: 0 0 0 2px #f6b93b; border-radius: 8px; }
@@ -688,9 +772,35 @@ function formatDayModalDate(date) {
 .agenda-event-body strong { font-size: 0.95em; color: #111827; }
 .agenda-lieu { font-size: 0.82em; color: #6b7280; }
 .agenda-desc { font-size: 0.85em; color: #4b5563; margin: 2px 0 0; }
+/* Tout l'avenir est listé : extrait de 3 lignes, le texte complet est dans la fenêtre de l'événement. */
+.agenda-event .agenda-desc { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .empty-msg { text-align: center; color: #6b7280; padding: 40px; font-size: 1em; }
 .loading-msg { text-align: center; padding: 40px; color: #6b7280; font-size: 1em; }
-.event-card-img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #f3f4f6; display: block; cursor: pointer; }
+.event-card-img { width: 100%; display: block; cursor: pointer; }
+
+/* Ce que montre la vue choisie */
+.view-hint { margin: 10px 0 4px; font-size: 0.85em; color: #4b5563; line-height: 1.5; }
+.view-hint strong { color: #064886; }
+.nav-btn:disabled { opacity: 0.35; cursor: default; }
+.nav-btn:disabled:hover { background: none; }
+
+/* Calendrier : ce qui est terminé reste visible, mais en retrait */
+.event-pill.event-passe { opacity: 0.4; }
+.day-modal-event.event-passe { opacity: 0.6; }
+
+/* Cartes : rythme et dates d'un événement à plusieurs sessions */
+.event-recurrence { margin: 0; font-size: 0.85em; font-weight: 600; color: #064886; }
+.event-dates { display: flex; flex-direction: column; gap: 6px; }
+.event-dates-label { font-size: 0.8em; font-weight: 600; color: #374151; }
+.event-dates-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.event-date-chip { font-size: 0.78em; padding: 3px 9px; border-radius: 999px; background: #eff6ff; color: #1e3a8a; white-space: nowrap; }
+.event-date-chip.prochaine { background: #064886; color: #fff; font-weight: 600; }
+.event-modal-dates { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; font-size: 0.9em; }
+
+/* Fenêtre du jour : l'affiche de chaque événement, bord à bord */
+.day-modal-event { overflow: hidden; }
+.day-modal-event-img { width: calc(100% + 32px); margin: -14px -16px 12px; border-radius: 10px 10px 0 0; }
+.day-modal-event-more { display: block; margin-top: 8px; font-size: 0.82em; font-weight: 600; color: #2563eb; }
 
 /* Day modal */
 .day-modal-overlay {
@@ -754,7 +864,7 @@ function formatDayModalDate(date) {
   .day-number { width: 22px; height: 22px; font-size: 0.72em; }
   .day-header { font-size: 0.7em; padding: 6px 2px; }
   .calendar-footer { flex-direction: column; gap: 8px; align-items: flex-start; }
-  .day-modal { padding: 20px 16px 24px; }
+  .day-modal { padding: 20px 16px 24px; max-height: 88vh; }
   .day-modal-title { font-size: 1em; }
 }
 </style>

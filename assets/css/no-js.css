@@ -220,3 +220,11 @@ html.no-js .rp-recherche,
 html.no-js .rp-sous-titre {
   display: none;
 }
+
+/* Diaporama d'affiches : sans JS, la piste se fait défiler à la main
+   (scroll-snap) ; flèches, pause et points, qui ont besoin du script, sont
+   retirés plutôt que laissés inertes. */
+.no-js .block-diaporama .dia-fleche,
+.no-js .block-diaporama .dia-commandes {
+  display: none;
+}

@@ -56,6 +56,10 @@ export default defineNuxtConfig({
       // Application installable (PWA) : manifeste + service worker
       // (public/sw.js, enregistré par plugins/pwa.client.ts).
       link: [
+        // Logo du menu demandé avant la centaine de modulepreload JS : sinon,
+        // à la première visite (rien en cache), il n'arrivait qu'après eux,
+        // plusieurs secondes après le reste de la page.
+        { rel: 'preload', as: 'image', href: '/logo-nav.png', fetchpriority: 'high', tagPriority: 'critical' },
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
         { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/favicon-192.png' },

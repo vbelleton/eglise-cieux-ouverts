@@ -149,6 +149,15 @@
               </div>
             </div>
             <label>Emoji <input v-model="form.emoji" type="text" maxlength="5" /></label>
+            <label>Mise en évidence
+              <select v-model="form.color" data-testid="event-couleur">
+                <option v-for="c in COULEURS_EVENEMENT" :key="c.valeur" :value="c.valeur">{{ c.libelle }}</option>
+              </select>
+            </label>
+            <p v-if="form.color" class="event-aide-fin">
+              <span class="event-couleur-apercu" :style="{ background: form.color }"></span>
+              L'événement ressort dans cette couleur dans l'agenda et sur l'accueil.
+            </p>
             <div class="event-image-section">
               <label class="event-image-label">Image</label>
               <div class="event-image-controls">
@@ -156,12 +165,30 @@
                 <input ref="eventFileInput" type="file" accept="image/*" class="file-input-hidden" @change="onFileSelected" />
                 <button class="event-btn-sec" type="button" :disabled="uploadSaving" @click="eventFileInput?.click()">{{ uploadSaving ? 'Envoi…' : 'Téléverser' }}</button>
                 <button v-if="uploadedImages.length" class="event-btn-sec" type="button" @click="toggleUploadedList">Uploadées ({{ uploadedImages.length }})</button>
+                <button class="event-btn-sec" type="button" data-testid="event-affiche-auto" @click="showAfficheAuto = !showAfficheAuto">Affiche automatique</button>
+              </div>
+              <div v-if="showAfficheAuto" class="event-affiche-auto" data-testid="affiche-auto-panneau">
+                <label>Modèle
+                  <select v-model="modeleAfficheId" data-testid="affiche-auto-modele">
+                    <option v-for="m in MODELES_AFFICHES" :key="m.id" :value="m.id">{{ m.libelle }}</option>
+                  </select>
+                </label>
+                <p class="event-affiche-auto-aide">La date et l'heure de chaque séance s'écrivent toutes seules sur l'affiche, d'après la fiche. Rien à refaire chaque mois.</p>
+                <ImageAgenda v-if="modeleAffiche" :src="modeleAffiche.fond" :date="dateAffiche" :heure="form.start_time" alt="Aperçu de l'affiche automatique" class="event-image-preview-auto" />
+                <div class="event-affiche-auto-actions">
+                  <button type="button" class="event-btn-sec" data-testid="affiche-auto-utiliser" @click="utiliserAfficheAuto">Utiliser cette affiche</button>
+                  <button type="button" class="event-btn-sec" @click="showAfficheAuto = false">Annuler</button>
+                </div>
               </div>
               <p v-if="uploadSaving && estImageDistante(form.image_url)" class="event-image-distante">Allègement de l'image…</p>
               <p v-else-if="imageNonAllegee && estImageDistante(form.image_url)" class="event-image-distante">
                 Image hébergée ailleurs, pas pu être allégée : elle peut ralentir l'agenda. Mieux vaut la téléverser.
               </p>
-              <img v-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
+              <template v-if="form.image_url && afficheAutoActive">
+                <p class="event-affiche-auto-aide" data-testid="affiche-auto-active">Affiche automatique « {{ afficheAutoActive.libelle }} » : chaque séance affiche sa propre date et son heure. Aperçu de la prochaine :</p>
+                <ImageAgenda :src="form.image_url" :date="dateAffiche" :heure="form.start_time" alt="" class="event-image-preview-auto" />
+              </template>
+              <img v-else-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
               <div v-if="showUploadedList" class="event-uploaded-list">
                 <div v-if="imagesLoading" class="event-status">Chargement...</div>
                 <div v-else class="event-uploaded-grid">
@@ -221,8 +248,10 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX } from '~/utils/churchEvents.js'
+import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX, COULEURS_EVENEMENT, couleurEvenement } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
+import ImageAgenda from '~/components/ImageAgenda.vue'
+import { MODELES_AFFICHES, modelePourImage, modelePourEvenement, modeleParId } from '~/utils/posterTemplates.js'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -443,10 +472,32 @@ const nextOccurrences = computed(() => {
   return expandRecurring({ ...form.value, id: editing.value }, now, 8).map(o => o.date)
 })
 
+// Affiche automatique (utils/posterTemplates.js) : l'image de la fiche
+// devient le fond d'un modèle ; le site écrit la date et l'heure de chaque
+// séance à l'affichage. Aperçu : prochaine occurrence d'une série, sinon la
+// date de début.
+const showAfficheAuto = ref(false)
+const modeleAfficheId = ref(MODELES_AFFICHES[0]?.id || '')
+const modeleAffiche = computed(() => modeleParId(modeleAfficheId.value))
+const afficheAutoActive = computed(() => modelePourImage(form.value.image_url))
+const dateAffiche = computed(() => {
+  const prochaine = nextOccurrences.value[0]
+  return prochaine ? isoDay(prochaine) : (form.value.start_date || '')
+})
+watch(showAfficheAuto, (ouvert) => {
+  if (ouvert) modeleAfficheId.value = (afficheAutoActive.value || modelePourEvenement(form.value.title)).id
+})
+function utiliserAfficheAuto() {
+  if (!modeleAffiche.value) return
+  form.value.image_url = modeleAffiche.value.fond
+  imageNonAllegee.value = false
+  showAfficheAuto.value = false
+}
+
 const form = ref({
   title: '', description: '', start_date: '', end_date: '',
   start_time: '', end_time: '', location: '', repeat_period: '',
-  emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
+  emoji: '', color: '', image_url: '', link: '', ticket_url: '', status: 'active',
   agenda: AGENDA_CIEUX_OUVERTS, exceptions: []
 })
 
@@ -455,11 +506,12 @@ const imageNonAllegee = ref(false)
 function resetForm() {
   form.value = { title: '', description: '', start_date: '', end_date: '',
     start_time: '', end_time: '', location: '', repeat_period: '',
-    emoji: '', image_url: '', link: '', ticket_url: '', status: 'active',
+    emoji: '', color: '', image_url: '', link: '', ticket_url: '', status: 'active',
     agenda: agendaFilter.value === AGENDA_BRAS_OUVERTS ? AGENDA_BRAS_OUVERTS : AGENDA_CIEUX_OUVERTS,
     exceptions: [] }
   formError.value = ''
   imageNonAllegee.value = false
+  showAfficheAuto.value = false
 }
 
 // Snapshot du formulaire pris à l'ouverture (édition/création) — permet de
@@ -496,6 +548,7 @@ function onKeydown(e) {
 
 function startEdit(evt) {
   editing.value = evt.id; creating.value = false; deleting.value = null
+  showAfficheAuto.value = false
   const d = evt.date instanceof Date ? evt.date : new Date(evt.date + 'T00:00:00')
   form.value = {
     title: evt.titre || '', description: evt.description || '',
@@ -506,6 +559,7 @@ function startEdit(evt) {
     end_date: evt.end_date && !(evt.repeat_period && evt.end_date <= isoDay(d)) ? evt.end_date : '',
     start_time: evt.heure || '', end_time: evt.fin || '', location: evt.lieu || '',
     repeat_period: evt.repeat_period || '', emoji: evt.emoji || '',
+    color: evt.couleur || '',
     image_url: evt.image_url || '', link: evt.lien || '',
     ticket_url: evt.billetterie || '', status: evt.statut || 'active',
     agenda: evt.agenda,
@@ -565,6 +619,7 @@ async function fetchEvents() {
       end_date: e.end_date || null, lieu: e.location || null,
       description: e.description || null, image_url: e.image_url || null,
       repeat_period: e.repeat_period || null, emoji: e.emoji || null,
+      couleur: couleurEvenement(e.color),
       lien: e.link || null, billetterie: e.ticket_url || null,
       statut: e.status || 'active',
       source: e.source || null, agenda: agendaDe(e),
@@ -616,6 +671,9 @@ function eventPayload() {
     start_time: form.value.start_time || null, end_time: form.value.end_time || null,
     location: form.value.location || null, repeat_period: form.value.repeat_period || null,
     emoji: form.value.emoji || null, image_url: form.value.image_url || null,
+    // Chaîne vide (et non null) pour « aucune » : c'est la valeur que le
+    // Worker stocke par défaut sur les événements existants.
+    color: couleurEvenement(form.value.color) || '',
     link: form.value.link || null, ticket_url: form.value.ticket_url || null,
     status: form.value.status || 'active',
     ...sourcePourAgenda(),
@@ -844,6 +902,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 .event-alerte-fin { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.85em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .event-alerte-fin button { padding: 5px 10px; border: none; border-radius: 6px; background: #92400e; color: #fff; font-weight: 600; cursor: pointer; }
 .event-badge.event-badge-bras-ouverts { background: #e0f2f0; color: #0d5e57; }
+.event-couleur-apercu { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
 .event-badge.event-badge-terminee { background: #fee2e2; color: #991b1b; }
 .event-form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .event-btn {
@@ -874,6 +933,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 .event-image-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .event-image-controls input[type="url"] { flex: 1; min-width: 120px; }
 .event-image-controls input[type="url"] { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9em; }
+.event-affiche-auto { border: 1px dashed #93c5fd; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #f8fbff; }
+.event-affiche-auto label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; font-weight: 600; color: #374151; }
+.event-affiche-auto-aide { margin: 0; font-size: 0.8em; color: #4b5563; }
+.event-affiche-auto-actions { display: flex; gap: 8px; }
+.event-image-preview-auto { max-width: 400px; width: 100%; margin: 0 auto; border-radius: 6px; overflow: hidden; }
 .event-image-preview { max-width: 100%; max-height: 220px; width: auto; object-fit: contain; border-radius: 6px; background: #f3f4f6; display: block; margin: 0 auto; }
 .file-input-hidden { display: none; }
 .event-uploaded-list { max-height: 180px; overflow-y: auto; }

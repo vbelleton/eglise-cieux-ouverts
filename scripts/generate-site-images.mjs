@@ -4,6 +4,8 @@
 // utils/siteImages.json. À relancer après tout ajout d'image dans public/ :
 //   node scripts/generate-site-images.mjs
 // (tests/unit/image-library.spec.ts échoue si le fichier est périmé.)
+// Les fonds de modèles d'affiches (public/affiches/modeles/, sans date ni
+// heure) sont exclus : seul le générateur d'affiches de l'agenda s'en sert.
 import { readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,7 +24,7 @@ function parcourir(dossier) {
 export function listerImagesDuSite() {
   return parcourir(publicDir)
     .map(f => '/' + relative(publicDir, f).split('\\').join('/'))
-    .filter(f => EXT.test(f) && !/^\/favicon/.test(f) && !/^\/test-/.test(f))
+    .filter(f => EXT.test(f) && !/^\/favicon/.test(f) && !/^\/test-/.test(f) && !/^\/affiches\/modeles\//.test(f))
     // Pages du magazine : gérées par scripts/ajouter-magazine.mjs, pas des
     // images à réutiliser dans les blocs.
     .filter(f => !f.startsWith('/magazines/'))

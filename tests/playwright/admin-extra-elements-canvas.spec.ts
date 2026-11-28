@@ -495,7 +495,7 @@ test.describe('« Rendre déplaçable » — promouvoir un champ existant en él
     await page.locator('.block-wrapper[data-block-type="richText"]').click()
     await page.waitForTimeout(300)
 
-    const contentField = page.locator('.auto-field').filter({ has: page.locator('.field-label', { hasText: /^Contenu HTML$/ }) })
+    const contentField = page.locator('.auto-field').filter({ has: page.locator('.field-label', { hasText: /^Contenu$/ }) })
     await expect(contentField.locator('.field-promote-btn')).toBeVisible()
     await contentField.locator('.field-promote-btn').click()
     await page.waitForTimeout(200)

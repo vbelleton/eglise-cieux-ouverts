@@ -58,6 +58,7 @@ export const BLOCK_MAP: Record<string, () => Promise<any>> = {
   callToAction: () => import('../../components/blocks/BlockCallToAction.vue'),
   infosPratiques: () => import('../../components/blocks/BlockInfosPratiques.vue'),
   temoignages: () => import('../../components/blocks/BlockTemoignages.vue'),
+  diaporama: () => import('../../components/blocks/BlockDiaporama.vue'),
   colonnes: () => import('../../components/blocks/BlockColonnes.vue'),
   compteARebours: () => import('../../components/blocks/BlockCompteARebours.vue'),
   don: () => import('../../components/blocks/BlockDon.vue'),

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { buildEventList, expandRecurring, isoDay, lastDay, isPast, estTermine, agendaDe } from '../../utils/churchEvents.js'
+import { buildEventList, expandRecurring, isoDay, lastDay, isPast, estTermine, agendaDe, cleEvenement, numeroSession, titreSansSession, sansDoublons, regrouperCartes, libelleRecurrence, fusionnerRecurrences } from '../../utils/churchEvents.js'
 
 // Le site est consulté en France : les bugs de jour décalé n'apparaissent
 // qu'avec un fuseau en avance sur UTC. Node relit TZ à chaque changement.
@@ -169,5 +169,64 @@ test.describe('utils/churchEvents — agendas Cieux Ouverts et Bras Ouverts', ()
     const f = (agenda?: string) => buildEventList(liste, { now: NOW, agenda }).map(e => e.titre)
     expect(f()).toContain('Fête')
     expect(f('bras-ouverts')).toContain('Fête')
+  })
+})
+
+// Agenda public, vue « Cartes » : des événements passés s'affichaient, et deux
+// fiches du même événement (deux jours de la semaine, ou sessions #1, #2, #3
+// saisies séparément) donnaient deux cartes identiques en apparence.
+test.describe('utils/churchEvents — cartes sans doublons ni passé', () => {
+  test('même événement malgré emoji, numéro de session ou espaces', () => {
+    expect(cleEvenement('Chemin de Liberté 🕊️ #1')).toBe(cleEvenement('Chemin de Liberté 🕊️ #3'))
+    expect(cleEvenement('Ecole du Disciple 👣  Session 2')).toBe(cleEvenement('Ecole du Disciple 👣'))
+    expect(cleEvenement('Autel de Louange 🙌')).not.toBe(cleEvenement('Réunion de Prières 🙏'))
+    expect(numeroSession('Chemin de Liberté 🕊️ #2')).toBe(2)
+    expect(numeroSession('Ecole du Disciple 👣  Session 2')).toBe(2)
+    expect(numeroSession('Fête de l\'Eté - 2ème édition')).toBeNull()
+    expect(titreSansSession('Chemin de Liberté 🕊️ #2')).toBe('Chemin de Liberté 🕊️')
+  })
+
+  test('vrai doublon (même événement, même jour, même heure) : un seul, le plus complet', () => {
+    const list = buildEventList([
+      ev({ id: 1, title: 'Soirée jeunes', start_date: '2026-12-04', start_time: '19:00' }),
+      ev({ id: 2, title: 'Soirée jeunes 🎉', start_date: '2026-12-04', start_time: '19:00', image_url: '/a.jpg' }),
+      ev({ id: 3, title: 'Soirée jeunes', start_date: '2026-12-04', start_time: '21:00' }),
+    ], { now: NOW })
+    expect(list.map(e => e.id)).toEqual([2, 3])
+    expect(sansDoublons([])).toEqual([])
+  })
+
+  test('deux séries du même événement : une carte, toutes les dates, rien de terminé', () => {
+    // Cas réel : « Autel de Louange » le mardi (série terminée le 17/11) et le jeudi.
+    const mardi = ev({ id: 26, title: 'Autel de Louange 🙌', start_date: '2026-01-06', end_date: '2026-11-17', start_time: '21:00', end_time: '22:30', repeat_period: 'week' })
+    const jeudi = ev({ id: 19, title: 'Autel de Louange 🙌', start_date: '2026-01-08', start_time: '21:00', end_time: '22:30', repeat_period: 'week', image_url: '/autel.jpg' })
+    const now = new Date('2026-11-26T12:00:00')
+    const novembre = buildEventList([mardi, jeudi], { now, futureOnly: false })
+      .filter(e => e.date.getMonth() === 10 && e.date.getFullYear() === 2026)
+    const cartes = regrouperCartes(novembre, now)
+    expect(cartes).toHaveLength(1)
+    expect(cartes[0].dates.map(d => isoDay(d.date))).toEqual(['2026-11-26'])
+    expect(cartes[0].evt.images).toEqual(['/autel.jpg'])
+    // Fin de soirée passée : la carte disparaît.
+    expect(regrouperCartes(novembre, new Date('2026-11-26T23:00:00'))).toHaveLength(0)
+  })
+
+  test('sessions saisies séparément : une carte numérotée, titre sans le numéro', () => {
+    const sessions = [1, 2, 3].map(n => ev({ id: n, title: `Chemin de Liberté 🕊️ #${n}`, start_date: `2026-12-0${n * 2}`, start_time: '20:00' }))
+    const cartes = regrouperCartes(buildEventList(sessions, { now: NOW }), new Date(NOW))
+    expect(cartes).toHaveLength(1)
+    expect(cartes[0].titre).toBe('Chemin de Liberté 🕊️')
+    expect(cartes[0].dates.map(d => d.session)).toEqual([1, 2, 3])
+  })
+
+  test('rythme lisible d\'une série', () => {
+    expect(libelleRecurrence({ repeat_period: 'week', debutSerie: '2026-01-06' })).toBe('chaque mardi')
+    expect(libelleRecurrence({ repeat_period: 'biweek', debutSerie: '2026-11-12' })).toBe('un jeudi sur deux')
+    expect(libelleRecurrence({ repeat_period: 'weekly:0' })).toBe('chaque dimanche')
+    expect(libelleRecurrence({ repeat_period: 'weekly:0,3' })).toBe('chaque mercredi et dimanche')
+    expect(libelleRecurrence({ repeat_period: 'monthly_weekday:-1:0' })).toBe('le dernier dimanche du mois')
+    expect(libelleRecurrence({ repeat_period: null })).toBeNull()
+    expect(fusionnerRecurrences(['chaque jeudi', 'chaque mardi'])).toEqual(['chaque mardi et jeudi'])
+    expect(fusionnerRecurrences(['un jeudi sur deux', 'chaque mardi'])).toEqual(['chaque mardi', 'un jeudi sur deux'])
   })
 })

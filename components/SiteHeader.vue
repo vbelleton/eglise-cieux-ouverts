@@ -8,7 +8,7 @@
             <NuxtLink to="/" class="brand" aria-label="Accueil — Cieux Ouverts" @click="onLogoClick">
                 <!-- Dimensions réelles du fichier : la place du logo est réservée avant son
                      arrivée, sinon tout le menu glissait de 110 px vers la droite. -->
-                <img src="/logo-nav.png" alt="Cieux Ouverts" class="logo" width="240" height="113" />
+                <img src="/logo-nav.png" alt="Cieux Ouverts" class="logo" width="240" height="113" fetchpriority="high" />
             </NuxtLink>
 
             <nav class="nav-desktop" aria-label="Navigation principale">

@@ -28,9 +28,9 @@
         >
           <div
             v-for="(slide, i) in slides"
-            :key="slide.image + i"
+            :key="(slide.agenda ? 'agenda:' : '') + slide.image + i"
             class="dia-slide"
-            :class="{ 'dia-slide-perimee': isAdmin && estPerimee(slide, jour) }"
+            :class="{ 'dia-slide-perimee': isAdmin && !slide.agenda && estPerimee(slide, jour), 'dia-slide-agenda': slide.agenda }"
             role="group"
             aria-roledescription="diapositive"
             :aria-label="`${slideLabel} ${i + 1} / ${slides.length}`"
@@ -45,7 +45,23 @@
               class="dia-lien"
               @click="onClick"
             >
+              <!-- Affiche venue de l'agenda : ImageAgenda écrit la date et
+                   l'heure de la séance sur une affiche automatique. -->
+              <ImageAgenda
+                v-if="slide.agenda"
+                :src="image(slide)"
+                :alt="slide.alt"
+                :date="slide.date"
+                :heure="slide.heure"
+                :prioritaire="i === 0"
+                class="dia-image-agenda"
+              />
+              <span v-if="slide.agenda && !modelePourImage(slide.image)" class="dia-legende">
+                <strong>{{ slide.titre }}</strong>
+                <span>{{ slide.jourLisible }}<template v-if="slide.heureLisible"> · {{ slide.heureLisible }}</template></span>
+              </span>
               <img
+                v-if="!slide.agenda"
                 :src="image(slide)"
                 :alt="slide.alt || ''"
                 class="dia-image"
@@ -57,7 +73,9 @@
                 draggable="false"
               />
             </component>
-            <span v-if="isAdmin && estPerimee(slide, jour)" class="dia-badge">{{ expiredLabel }}</span>
+            <span v-if="isAdmin && slide.agenda" class="dia-badge dia-badge-agenda">{{ ADMIN.badgeAgenda }}</span>
+            <span v-else-if="isAdmin && estPerimee(slide, jour)" class="dia-badge">{{ expiredLabel }}</span>
+            <span v-else-if="isAdmin && alertesParSlide.get(slide)?.length" class="dia-badge dia-badge-alerte">{{ ADMIN.badgeAlerte }}</span>
           </div>
         </div>
         <template v-if="slides.length > 1">
@@ -95,6 +113,14 @@
           ></button>
         </div>
       </div>
+      <!-- Admin : l'état de l'alignement avec l'agenda, visible sans faire
+           défiler les affiches une à une. -->
+      <div v-if="isAdmin" class="dia-verif" data-testid="diaporama-verif" :class="{ 'dia-verif-ok': !alertesAdmin.length }">
+        <p class="dia-verif-titre">{{ titreVerif }}</p>
+        <ul v-if="alertesAdmin.length">
+          <li v-for="(a, k) in alertesAdmin" :key="k">{{ a }}</li>
+        </ul>
+      </div>
     </div>
   </section>
 </template>
@@ -103,7 +129,18 @@
 import { computed, inject, onMounted, onUnmounted, ref, resolveComponent, watch } from 'vue'
 import { fieldFontStyle } from '~/utils/fonts.js'
 import { sourceSure } from '~/utils/safeLink.js'
-import { estPerimee, jourParis, slidesAffichees } from '~/utils/diaporama.js'
+import {
+  estPerimee,
+  fusionnerSlides,
+  jourLisible,
+  jourParis,
+  slidesAffichees,
+  slidesAgenda,
+  titreNet,
+  verifierSlide,
+} from '~/utils/diaporama.js'
+import { modelePourImage } from '~/utils/posterTemplates.js'
+import ImageAgenda from '~/components/ImageAgenda.vue'
 
 const NuxtLink = resolveComponent('NuxtLink')
 
@@ -118,6 +155,8 @@ const props = defineProps({
   playLabel: { type: String, default: 'Relancer le diaporama' },
   slideLabel: { type: String, default: 'Affiche' },
   expiredLabel: { type: String, default: 'Date passée : masquée sur le site' },
+  agenda: { type: Boolean, default: true },
+  agendaJours: { type: Number, default: 30 },
   backgroundColor: { type: String, default: '#0b2440' },
   textColor: { type: String, default: '#ffffff' },
   animation: { type: String, default: 'none' },
@@ -135,11 +174,68 @@ const isAdmin = inject('isAdmin', ref(false))
 // si la page vient d'un cache. Le vrai jour du visiteur est repris au montage.
 const jour = useState('diaporama-jour', () => jourParis())
 
+// Agenda (Worker événements) : chargé côté client seulement, comme partout
+// sur le site ; la requête est partagée avec l'en-tête (lien Événements),
+// donc aucun appel de plus. Au rendu serveur, seules les affiches posées à la
+// main sont dans le HTML ; celles de l'agenda arrivent au montage.
+const { evenements, loading: evenementsEnCours, erreur: evenementsErreur } = useChurchEvents()
+
+const agendaCalcule = computed(() => {
+  if (!props.agenda || evenementsErreur.value) return { ajoutees: [], ecartees: [] }
+  return slidesAgenda(evenements.value, props.items, { aujourdhui: jour.value, jours: props.agendaJours })
+})
+const nbAgenda = computed(() => agendaCalcule.value.ajoutees.length)
+
 // En admin, les affiches périmées restent visibles (signalées) pour qu'on
 // puisse les retrouver et les retirer ; sur le site, elles disparaissent.
-const slides = computed(() => {
+const manuelles = computed(() => {
   if (isAdmin.value) return (props.items || []).filter((s) => s && String(s.image || '').trim())
   return slidesAffichees(props.items, jour.value)
+})
+const slides = computed(() => fusionnerSlides(manuelles.value, agendaCalcule.value.ajoutees))
+
+// ─── Alertes (admin) ──────────────────────────────────────────────────────
+// Messages vus seulement dans l'admin : écrits ici, pas dans les réglages
+// du bloc (rien de visible pour les visiteurs).
+const ADMIN = {
+  badgeAgenda: "📅 Depuis l'agenda (à modifier dans Événements)",
+  badgeAlerte: "⚠ À vérifier : ne correspond plus à l'agenda",
+}
+const alertesParSlide = computed(() => {
+  const m = new Map()
+  if (!isAdmin.value || evenementsEnCours.value || evenementsErreur.value) return m
+  for (const s of manuelles.value) m.set(s, verifierSlide(s, evenements.value, jour.value))
+  return m
+})
+
+function nomAffiche(s) {
+  const n = manuelles.value.indexOf(s) + 1
+  const texte = String(s.alt || '').split(/[.:,]/)[0].trim()
+  return `Affiche ${n}${texte ? ` (« ${texte.slice(0, 50)} »)` : ''}`
+}
+
+const alertesAdmin = computed(() => {
+  if (!isAdmin.value || evenementsEnCours.value) return []
+  if (evenementsErreur.value) return ["Agenda injoignable pour l'instant : impossible de vérifier les affiches. Recharge la page dans un moment."]
+  const sortie = []
+  for (const [s, alertes] of alertesParSlide.value) for (const a of alertes) sortie.push(`${nomAffiche(s)} : ${a}`)
+  if (props.agenda) {
+    for (const e of agendaCalcule.value.ecartees) {
+      sortie.push(
+        `« ${titreNet(e.evt.titre)} » du ${jourLisible(e.jour)} n'est pas ajoutée au diaporama : son image dans l'agenda est l'affiche du ${jourLisible(e.dateImage)}. ` +
+          'Dans 📅 Événements, choisis « Affiche automatique » ou mets la bonne affiche.',
+      )
+    }
+  }
+  return sortie
+})
+
+const titreVerif = computed(() => {
+  if (evenementsEnCours.value) return "Vérification avec l'agenda…"
+  const n = alertesAdmin.value.length
+  if (n) return `⚠ ${n} point${n > 1 ? 's' : ''} à vérifier avec l'agenda`
+  const a = nbAgenda.value
+  return `✓ Diaporama aligné sur l'agenda${a ? ` (${a} affiche${a > 1 ? 's' : ''} ajoutée${a > 1 ? 's' : ''} d'office depuis l'agenda)` : ''}.`
 })
 
 const animClass = computed(() => {
@@ -299,6 +395,28 @@ onUnmounted(() => {
   user-select: none;
 }
 .dia-slide-perimee .dia-image { opacity: 0.45; filter: grayscale(0.7); }
+/* Affiche de l'agenda : cadre 16:9 d'ImageAgenda, sur le fond du diaporama
+   (une image d'un autre format est montrée en entier, sans recadrage). */
+.dia-slide :deep(.dia-image-agenda) {
+  height: 100%;
+  background: transparent;
+}
+.dia-legende {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 28px 20px 14px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  color: #fff;
+  font-size: clamp(0.95em, 2.4vw, 1.25em);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.dia-legende span::first-letter { text-transform: uppercase; }
 .dia-badge {
   position: absolute;
   top: 12px;
@@ -310,6 +428,26 @@ onUnmounted(() => {
   font-size: 0.85em;
   font-weight: 700;
 }
+.dia-badge-agenda { background: #1f5fa8; }
+.dia-badge-alerte { background: #d35400; }
+.dia-verif {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #fff4e5;
+  color: #5a3200;
+  border: 2px solid #e67e22;
+  font-size: 0.92em;
+  text-align: left;
+}
+.dia-verif-ok {
+  background: #eaf7ee;
+  color: #1d5b2e;
+  border-color: #2e8b57;
+}
+.dia-verif-titre { margin: 0; font-weight: 700; }
+.dia-verif ul { margin: 8px 0 0; padding-left: 20px; }
+.dia-verif li + li { margin-top: 6px; }
 .dia-fleche {
   position: absolute;
   top: 50%;

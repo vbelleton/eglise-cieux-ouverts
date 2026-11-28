@@ -138,6 +138,7 @@ function defaultPages() {
       { id: 'tb-don', type: 'don', props: {} },
       { id: 'tb-virement', type: 'virement', props: {} },
       { id: 'tb-audio', type: 'audio', props: {} },
+      { id: 'tb-diaporama', type: 'diaporama', props: { agenda: false, items: [{ image: '/test-img.gif', alt: 'Affiche de test', fin: '' }] } },
       { id: 'tb-footer', type: 'footer', props: {} },
     ],
   },

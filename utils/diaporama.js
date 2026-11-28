@@ -7,6 +7,9 @@
 // celui d'UTC ni du serveur : un événement du jeudi reste affiché jusqu'à
 // jeudi minuit heure française.
 
+import { libelleRecurrence } from './churchEvents.js'
+import { modelePourImage } from './posterTemplates.js'
+
 const FORMAT_JOUR = /^\d{4}-\d{2}-\d{2}$/
 
 // Jour calendaire à Paris au format AAAA-MM-JJ. Jamais toISOString() : il
@@ -187,7 +190,7 @@ function occurrencesAnnoncees(slide, evenements) {
  * Renvoie aussi `ecartees` : séances qui auraient dû figurer mais dont
  * l'image de l'agenda porte une autre date (affiche périmée à l'agenda).
  */
-export function slidesAgenda(evenements, manuelles, { aujourdhui, jours = 30, max = 6 } = {}) {
+export function slidesAgenda(evenements, manuelles, { aujourdhui, jours = 30, max = 8, hebdo = true } = {}) {
   const limite = (() => {
     const [a, m, j] = String(aujourdhui).split('-').map(Number)
     const d = new Date(a, m - 1, j + Math.max(0, Number(jours) || 0))
@@ -200,12 +203,21 @@ export function slidesAgenda(evenements, manuelles, { aujourdhui, jours = 30, ma
   for (const evt of evenements || []) {
     const jour = jourOccurrence(evt)
     if (!jour || jour < aujourdhui || jour > limite) continue
-    if (estHebdomadaire(evt)) continue
     const image = imageEvenement(evt)
     if (!image) continue
+    // Affiche automatique (utils/posterTemplates.js) : la fiche a choisi d'être
+    // projetée avec sa propre date et son heure, chaque séance a son affiche.
+    // C'est un choix explicite : même une réunion de chaque semaine y figure
+    // (une seule fois, à sa prochaine séance). Les autres réunions
+    // hebdomadaires qui ont leur propre image y figurent aussi, sauf si le
+    // réglage « réunions de chaque semaine » est coupé (`hebdo`).
+    const auto = Boolean(modelePourImage(image))
+    if (estHebdomadaire(evt) && !auto && !hebdo) continue
     const cle = motsCles(evt.titre).join(' ') || `id-${evt.id}`
     if (vues.has(cle)) continue
-    const couverte = affichees.some((s) => {
+    // Une affiche posée à la main n'empêche pas l'affiche automatique de
+    // l'agenda : c'est elle qui la remplace (voir `remplacees`).
+    const couverte = !auto && affichees.some((s) => {
       if (!slideAnnonce(s, evt)) return false
       const fin = String(s.fin || '').trim()
       return !FORMAT_JOUR.test(fin) || fin >= jour
@@ -230,10 +242,20 @@ export function slidesAgenda(evenements, manuelles, { aujourdhui, jours = 30, ma
       heure: evt.heure || '',
       jourLisible: jourLisible(jour),
       heureLisible: heure,
+      rythme: libelleRecurrence(evt) || '',
+      auto,
+      evt,
     })
     if (ajoutees.length >= max) break
   }
-  return { ajoutees, ecartees }
+  // Affiches posées à la main que remplace une affiche automatique de la même
+  // fiche : l'ancienne image (souvent périmée, avec une heure figée) cède la
+  // place à celle de l'agenda, toujours à jour.
+  const remplacees = affichees.filter((s) => {
+    const annoncees = occurrencesAnnoncees(s, evenements)
+    return ajoutees.some((a) => a.auto && annoncees.some((e) => e.id === a.evt.id))
+  })
+  return { ajoutees, ecartees, remplacees }
 }
 
 // Fusion : affiches à la main et affiches de l'agenda, par date (celles sans
@@ -262,6 +284,9 @@ export function verifierSlide(slide, evenements, aujourdhui) {
     if (!aFin) alertes.push("Aucune date de fin et aucun événement de l'agenda ne correspond : cette affiche restera en ligne sans limite.")
     return alertes
   }
+  // Fiche en affiche automatique : c'est elle qui est projetée (voir
+  // slidesAgenda), l'affiche posée à la main n'a plus rien à signaler.
+  if (occ.some((e) => modelePourImage(imageEvenement(e)))) return []
   const titre = titreNet(occ[0].titre)
   // Séance visée : celle du jour de fin de l'affiche, sinon la prochaine.
   let cible = occ[0]
@@ -285,4 +310,34 @@ export function verifierSlide(slide, evenements, aujourdhui) {
     )
   }
   return alertes
+}
+
+// Début d'un texte alternatif : sa première phrase, sans le point final et
+// raccourcie à `max` caractères (au dernier mot entier).
+export function debutTexte(texte, max = 110) {
+  const t = String(texte || '').replace(/\s+/g, ' ').trim()
+  if (!t) return ''
+  const phrase = t.split(/\.(?:\s|$)/)[0].trim()
+  if (phrase.length <= max) return phrase
+  const coupe = phrase.slice(0, max).replace(/\s+\S*$/, '').replace(/[\s,;:–-]+$/, '')
+  return `${coupe}…`
+}
+
+/**
+ * Texte affiché sous une affiche : `titre` (en gras) et `detail`.
+ * - affiche venue de l'agenda : titre de la fiche ; rythme, jour et heure de la séance ;
+ * - affiche posée à la main : son champ « texte sous l'affiche », sinon le
+ *   début de son texte alternatif.
+ */
+export function legendeDe(slide) {
+  if (!slide) return { titre: '', detail: '' }
+  if (slide.agenda) {
+    const rythme = String(slide.rythme || '').trim()
+    const prochaine = [slide.jourLisible, slide.heureLisible].filter(Boolean).join(' · ')
+    // La séance d'abord, le rythme ensuite : si la place manque, c'est lui qui est coupé.
+    const detail = [prochaine, rythme ? rythme.charAt(0).toLowerCase() + rythme.slice(1) : ''].filter(Boolean).join(' · ')
+    return { titre: slide.titre || '', detail }
+  }
+  const propre = String(slide.legende || '').trim()
+  return { titre: propre || debutTexte(slide.alt), detail: '' }
 }

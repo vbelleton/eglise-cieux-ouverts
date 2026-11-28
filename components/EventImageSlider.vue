@@ -13,7 +13,7 @@
     >
       <swiper-slide v-for="(img, idx) in images" :key="idx">
         <ImageAgenda :src="img" :alt="altPrefix + (idx+1)" class="event-img" :prioritaire="idx === (initialIndex || 0)"
-          :date="date" :heure="heure"
+          :date="date" :heure="heure" :titre="titre" :rythme="rythme"
           @click.stop="$emit('slideClick', idx)"
           style="cursor:pointer" />
       </swiper-slide>
@@ -41,6 +41,8 @@ const props = defineProps({
   // Séance montrée : pour une affiche automatique (voir ImageAgenda).
   date: { type: [Date, String], default: null },
   heure: { type: String, default: '' },
+  titre: { type: String, default: '' },
+  rythme: { type: String, default: '' },
 })
 
 const modules = [Autoplay, Pagination, Navigation]

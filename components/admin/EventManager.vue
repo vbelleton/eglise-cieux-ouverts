@@ -173,8 +173,8 @@
                     <option v-for="m in MODELES_AFFICHES" :key="m.id" :value="m.id">{{ m.libelle }}</option>
                   </select>
                 </label>
-                <p class="event-affiche-auto-aide">La date et l'heure de chaque séance s'écrivent toutes seules sur l'affiche, d'après la fiche. Rien à refaire chaque mois.</p>
-                <ImageAgenda v-if="modeleAffiche" :src="modeleAffiche.fond" :date="dateAffiche" :heure="form.start_time" alt="Aperçu de l'affiche automatique" class="event-image-preview-auto" />
+                <p class="event-affiche-auto-aide">Le titre, le rythme (« Chaque mardi »), la date et l'heure de chaque séance s'écrivent tout seuls sur l'affiche, d'après la fiche, et le diaporama de l'accueil la reprend. Rien à refaire chaque semaine ou chaque mois.</p>
+                <ImageAgenda v-if="modeleAffiche" :src="modeleAffiche.fond" :date="dateAffiche" :heure="form.start_time" :titre="form.title" :rythme="rythmeAffiche" alt="Aperçu de l'affiche automatique" class="event-image-preview-auto" />
                 <div class="event-affiche-auto-actions">
                   <button type="button" class="event-btn-sec" data-testid="affiche-auto-utiliser" @click="utiliserAfficheAuto">Utiliser cette affiche</button>
                   <button type="button" class="event-btn-sec" @click="showAfficheAuto = false">Annuler</button>
@@ -186,7 +186,7 @@
               </p>
               <template v-if="form.image_url && afficheAutoActive">
                 <p class="event-affiche-auto-aide" data-testid="affiche-auto-active">Affiche automatique « {{ afficheAutoActive.libelle }} » : chaque séance affiche sa propre date et son heure. Aperçu de la prochaine :</p>
-                <ImageAgenda :src="form.image_url" :date="dateAffiche" :heure="form.start_time" alt="" class="event-image-preview-auto" />
+                <ImageAgenda :src="form.image_url" :date="dateAffiche" :heure="form.start_time" :titre="form.title" :rythme="rythmeAffiche" alt="" class="event-image-preview-auto" />
               </template>
               <img v-else-if="form.image_url" :src="form.image_url" class="event-image-preview" alt="" />
               <div v-if="showUploadedList" class="event-uploaded-list">
@@ -248,7 +248,7 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX, COULEURS_EVENEMENT, couleurEvenement } from '~/utils/churchEvents.js'
+import { expandRecurring, isoDay, agendaDe, visibleSur, AGENDA_CIEUX_OUVERTS, AGENDA_BRAS_OUVERTS, AGENDA_LES_DEUX, SOURCE_LES_DEUX, COULEURS_EVENEMENT, couleurEvenement, libelleRecurrence } from '~/utils/churchEvents.js'
 import { uploadImage, listUploadedImages, estImageDistante, importerImageDistante } from '~/utils/imageUpload.js'
 import ImageAgenda from '~/components/ImageAgenda.vue'
 import { MODELES_AFFICHES, modelePourImage, modelePourEvenement, modeleParId } from '~/utils/posterTemplates.js'
@@ -480,6 +480,7 @@ const showAfficheAuto = ref(false)
 const modeleAfficheId = ref(MODELES_AFFICHES[0]?.id || '')
 const modeleAffiche = computed(() => modeleParId(modeleAfficheId.value))
 const afficheAutoActive = computed(() => modelePourImage(form.value.image_url))
+const rythmeAffiche = computed(() => libelleRecurrence({ repeat_period: form.value.repeat_period, debutSerie: form.value.start_date }) || '')
 const dateAffiche = computed(() => {
   const prochaine = nextOccurrences.value[0]
   return prochaine ? isoDay(prochaine) : (form.value.start_date || '')

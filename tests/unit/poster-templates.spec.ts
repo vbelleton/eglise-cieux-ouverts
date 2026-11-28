@@ -26,7 +26,16 @@ test.describe('Affiches : textes par défaut', () => {
     const m = modelePourEvenement('Soirée Cieux Ouverts ❤️‍🔥')
     expect(m.id).toBe('soiree-cieux-ouverts')
     expect(textesParDefaut(m, { date: '2026-12-25', heure: '19:30' })).toEqual({ date: 'Vendredi 25 décembre', heure: '19H30' })
-    expect(modelePourEvenement('Autre chose')).toBe(MODELES_AFFICHES[0])
+    // Sans modèle à lui : le modèle « Tout événement », qui écrit aussi titre et rythme.
+    const g = modelePourEvenement('Réunion de Prières 🙏')
+    expect(g.id).toBe('evenement')
+    expect(textesParDefaut(g, { date: '2026-12-02', heure: '19:30', titre: 'Réunion de Prières 🙏', rythme: 'chaque mercredi' })).toEqual({
+      titre: 'Réunion de Prières',
+      rythme: 'Chaque mercredi',
+      date: 'Mercredi 2 décembre',
+      heure: '19H30',
+    })
+    expect(modelePourImage('/affiches/modeles/evenement.jpg')?.id).toBe('evenement')
   })
 })
 

@@ -14,7 +14,7 @@
   >
     <div class="dia-inner">
       <h2 v-if="title" class="dia-title" data-field-key="title" :style="fieldFontStyle(fieldFonts, 'title', fieldFontSizes)">{{ title }}</h2>
-      <div class="dia-cadre">
+      <div class="dia-cadre" :style="legendes ? undefined : { '--dia-leg': '0px' }">
         <!-- Piste à défilement natif (scroll-snap) : sans JavaScript, on fait
              toujours défiler les affiches au doigt, à la molette ou au
              clavier ; le script n'ajoute que le défilement automatique, les
@@ -30,7 +30,7 @@
             v-for="(slide, i) in slides"
             :key="(slide.agenda ? 'agenda:' : '') + slide.image + i"
             class="dia-slide"
-            :class="{ 'dia-slide-perimee': isAdmin && !slide.agenda && estPerimee(slide, jour), 'dia-slide-agenda': slide.agenda }"
+            :class="{ 'dia-slide-agenda': slide.agenda }"
             role="group"
             aria-roledescription="diapositive"
             :aria-label="`${slideLabel} ${i + 1} / ${slides.length}`"
@@ -53,13 +53,11 @@
                 :alt="slide.alt"
                 :date="slide.date"
                 :heure="slide.heure"
+                :titre="slide.titre"
+                :rythme="slide.rythme"
                 :prioritaire="i === 0"
                 class="dia-image-agenda"
               />
-              <span v-if="slide.agenda && !modelePourImage(slide.image)" class="dia-legende">
-                <strong>{{ slide.titre }}</strong>
-                <span>{{ slide.jourLisible }}<template v-if="slide.heureLisible"> · {{ slide.heureLisible }}</template></span>
-              </span>
               <img
                 v-if="!slide.agenda"
                 :src="image(slide)"
@@ -73,8 +71,13 @@
                 draggable="false"
               />
             </component>
+            <!-- Texte sous chaque affiche : sous l'image plutôt que dessus, pour
+                 ne jamais cacher la date, l'heure ou le logo d'une affiche. -->
+            <p v-if="legendes" class="dia-legende">
+              <strong v-if="legendeDe(slide).titre" class="dia-legende-titre">{{ legendeDe(slide).titre }}</strong>
+              <span v-if="legendeDe(slide).detail" class="dia-legende-detail">{{ legendeDe(slide).detail }}</span>
+            </p>
             <span v-if="isAdmin && slide.agenda" class="dia-badge dia-badge-agenda">{{ ADMIN.badgeAgenda }}</span>
-            <span v-else-if="isAdmin && estPerimee(slide, jour)" class="dia-badge">{{ expiredLabel }}</span>
             <span v-else-if="isAdmin && alertesParSlide.get(slide)?.length" class="dia-badge dia-badge-alerte">{{ ADMIN.badgeAlerte }}</span>
           </div>
         </div>
@@ -120,6 +123,7 @@
         <ul v-if="alertesAdmin.length">
           <li v-for="(a, k) in alertesAdmin" :key="k">{{ a }}</li>
         </ul>
+        <p v-if="masquees.length" class="dia-verif-note">{{ noteMasquees }}</p>
       </div>
     </div>
   </section>
@@ -136,6 +140,7 @@ import {
   jourParis,
   slidesAffichees,
   slidesAgenda,
+  legendeDe,
   titreNet,
   verifierSlide,
 } from '~/utils/diaporama.js'
@@ -154,8 +159,9 @@ const props = defineProps({
   pauseLabel: { type: String, default: 'Mettre le diaporama en pause' },
   playLabel: { type: String, default: 'Relancer le diaporama' },
   slideLabel: { type: String, default: 'Affiche' },
-  expiredLabel: { type: String, default: 'Date passée : masquée sur le site' },
   agenda: { type: Boolean, default: true },
+  agendaHebdo: { type: Boolean, default: true },
+  legendes: { type: Boolean, default: true },
   agendaJours: { type: Number, default: 30 },
   backgroundColor: { type: String, default: '#0b2440' },
   textColor: { type: String, default: '#ffffff' },
@@ -181,18 +187,24 @@ const jour = useState('diaporama-jour', () => jourParis())
 const { evenements, loading: evenementsEnCours, erreur: evenementsErreur } = useChurchEvents()
 
 const agendaCalcule = computed(() => {
-  if (!props.agenda || evenementsErreur.value) return { ajoutees: [], ecartees: [] }
-  return slidesAgenda(evenements.value, props.items, { aujourdhui: jour.value, jours: props.agendaJours })
+  if (!props.agenda || evenementsErreur.value) return { ajoutees: [], ecartees: [], remplacees: [] }
+  return slidesAgenda(evenements.value, props.items, { aujourdhui: jour.value, jours: props.agendaJours, hebdo: props.agendaHebdo })
 })
 const nbAgenda = computed(() => agendaCalcule.value.ajoutees.length)
 
 // En admin, les affiches périmées restent visibles (signalées) pour qu'on
 // puisse les retrouver et les retirer ; sur le site, elles disparaissent.
-const manuelles = computed(() => {
-  if (isAdmin.value) return (props.items || []).filter((s) => s && String(s.image || '').trim())
-  return slidesAffichees(props.items, jour.value)
-})
+// Une affiche dépassée, ou remplacée par l'affiche à jour de l'agenda, n'est
+// montrée nulle part, admin compris : seule la liste du bloc (menu latéral)
+// la garde, pour qu'on puisse la retirer.
+const remplacees = computed(() => new Set(agendaCalcule.value.remplacees))
+const manuelles = computed(() => slidesAffichees(props.items, jour.value).filter((s) => !remplacees.value.has(s)))
 const slides = computed(() => fusionnerSlides(manuelles.value, agendaCalcule.value.ajoutees))
+// Affiches de la liste qui ne sont plus montrées : à retirer du bloc.
+const masquees = computed(() => {
+  const avec = (props.items || []).filter((s) => s && String(s.image || '').trim())
+  return avec.filter((s) => estPerimee(s, jour.value) || remplacees.value.has(s))
+})
 
 // ─── Alertes (admin) ──────────────────────────────────────────────────────
 // Messages vus seulement dans l'admin : écrits ici, pas dans les réglages
@@ -209,7 +221,7 @@ const alertesParSlide = computed(() => {
 })
 
 function nomAffiche(s) {
-  const n = manuelles.value.indexOf(s) + 1
+  const n = (props.items || []).indexOf(s) + 1
   const texte = String(s.alt || '').split(/[.:,]/)[0].trim()
   return `Affiche ${n}${texte ? ` (« ${texte.slice(0, 50)} »)` : ''}`
 }
@@ -236,6 +248,10 @@ const titreVerif = computed(() => {
   if (n) return `⚠ ${n} point${n > 1 ? 's' : ''} à vérifier avec l'agenda`
   const a = nbAgenda.value
   return `✓ Diaporama aligné sur l'agenda${a ? ` (${a} affiche${a > 1 ? 's' : ''} ajoutée${a > 1 ? 's' : ''} d'office depuis l'agenda)` : ''}.`
+})
+const noteMasquees = computed(() => {
+  const m = masquees.value.length
+  return `${m} affiche${m > 1 ? 's' : ''} dépassée${m > 1 ? 's' : ''} ou remplacée${m > 1 ? 's' : ''} par celle de l'agenda ne s'affiche${m > 1 ? 'nt' : ''} plus : tu peux ${m > 1 ? 'les' : 'la'} retirer de la liste du bloc.`
 })
 
 const animClass = computed(() => {
@@ -363,6 +379,7 @@ onUnmounted(() => {
 }
 .dia-cadre {
   position: relative;
+  --dia-leg: 76px;
 }
 .dia-piste {
   display: flex;
@@ -371,7 +388,6 @@ onUnmounted(() => {
   scrollbar-width: none;
   border-radius: 14px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-  aspect-ratio: 16 / 9;
   background: rgba(0, 0, 0, 0.2);
 }
 .dia-piste::-webkit-scrollbar { display: none; }
@@ -379,13 +395,16 @@ onUnmounted(() => {
 .dia-slide {
   position: relative;
   flex: 0 0 100%;
+  min-width: 0;
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
 .dia-lien {
   display: block;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 16 / 9;
+  color: inherit;
+  text-decoration: none;
 }
 .dia-image {
   display: block;
@@ -394,29 +413,45 @@ onUnmounted(() => {
   object-fit: cover;
   user-select: none;
 }
-.dia-slide-perimee .dia-image { opacity: 0.45; filter: grayscale(0.7); }
 /* Affiche de l'agenda : cadre 16:9 d'ImageAgenda, sur le fond du diaporama
    (une image d'un autre format est montrée en entier, sans recadrage). */
 .dia-slide :deep(.dia-image-agenda) {
   height: 100%;
   background: transparent;
 }
+/* Hauteur réservée (deux lignes) : le cadre ne saute pas d'une affiche à l'autre. */
 .dia-legende {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  margin: 0;
+  height: var(--dia-leg);
+  box-sizing: border-box;
+  padding: 10px 20px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-  padding: 28px 20px 14px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
-  color: #fff;
-  font-size: clamp(0.95em, 2.4vw, 1.25em);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.18);
+  text-align: left;
 }
-.dia-legende span::first-letter { text-transform: uppercase; }
+.dia-legende-titre {
+  font-size: clamp(1em, 2.6vw, 1.3em);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dia-legende-detail {
+  font-size: clamp(0.85em, 2.1vw, 1.02em);
+  opacity: 0.88;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dia-legende-detail::first-letter { text-transform: uppercase; }
 .dia-badge {
   position: absolute;
   top: 12px;
@@ -446,11 +481,12 @@ onUnmounted(() => {
   border-color: #2e8b57;
 }
 .dia-verif-titre { margin: 0; font-weight: 700; }
+.dia-verif-note { margin: 8px 0 0; }
 .dia-verif ul { margin: 8px 0 0; padding-left: 20px; }
 .dia-verif li + li { margin-top: 6px; }
 .dia-fleche {
   position: absolute;
-  top: 50%;
+  top: calc((100% - var(--dia-leg, 76px)) / 2);
   transform: translateY(-50%);
   width: 44px;
   height: 44px;
@@ -518,5 +554,7 @@ onUnmounted(() => {
   /* Au doigt, on fait glisser les affiches : les flèches masqueraient le
      texte de l'image. Points et pause restent dessous. */
   .dia-fleche { display: none; }
+  .dia-cadre { --dia-leg: 68px; }
+  .dia-legende { padding: 8px 14px; }
 }
 </style>

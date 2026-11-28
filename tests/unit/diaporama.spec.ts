@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
   jourParis, estPerimee, slidesAffichees, slidesAgenda, verifierSlide, slideAnnonce,
-  heuresDansTexte, dateDansNomImage, fusionnerSlides, titreNet,
+  heuresDansTexte, dateDansNomImage, fusionnerSlides, titreNet, legendeDe, debutTexte,
 } from '../../utils/diaporama.js'
 import { buildEventList } from '../../utils/churchEvents.js'
 import { BLOCK_TYPES } from '../../utils/blockTypes.js'
@@ -103,16 +103,19 @@ test.describe('utils/diaporama — alignement sur l\'agenda', () => {
   })
 
   test('alerte quand l\'heure de l\'affiche diffère de l\'agenda (cas du 27/11 : affiche 19 h 30, agenda 20 h)', () => {
-    const fiches = FICHES.map((f) => (f.id === 23 ? { ...f, start_time: '20:00' } : f))
+    // Fiche à image ordinaire (affiche figée) : l'heure de l'agenda est comparée.
+    const fiches = FICHES.map((f) => (f.id === 23 ? { ...f, start_time: '20:00', image_url: '/u/soiree.jpg' } : f))
     const alertes = verifierSlide(SOIREE, evenements(fiches), '2026-11-20')
     expect(alertes).toHaveLength(1)
     expect(alertes[0]).toContain("l'affiche dit 19 h 30, l'agenda dit 20 h")
     expect(verifierSlide(SOIREE, evenements(), '2026-11-20')).toEqual([])
+    // Fiche en affiche automatique : c'est elle qui est projetée, rien à signaler.
+    expect(verifierSlide(SOIREE, evenements(FICHES.map((f) => (f.id === 23 ? { ...f, start_time: '20:00' } : f))), '2026-11-20')).toEqual([])
   })
 
   test('alerte quand l\'agenda n\'a pas l\'événement au jour de l\'affiche', () => {
     const decalee = { ...SOIREE, fin: '2026-11-28' }
-    const alertes = verifierSlide(decalee, evenements(), '2026-11-20')
+    const alertes = verifierSlide(decalee, evenements(FICHES.map((f) => (f.id === 23 ? { ...f, image_url: '/u/soiree.jpg' } : f))), '2026-11-20')
     expect(alertes[0]).toContain("L'agenda n'a pas « Soirée Cieux Ouverts » le samedi 28 novembre")
     expect(alertes[0]).toContain('prochaine date le vendredi 27 novembre')
   })
@@ -124,8 +127,8 @@ test.describe('utils/diaporama — alignement sur l\'agenda', () => {
     expect(verifierSlide(SOIREE, evenements(), '2026-11-28')).toEqual([])
   })
 
-  test('ajoute d\'office les prochains événements à affiche, sans hebdomadaires ni doublons', () => {
-    const { ajoutees } = slidesAgenda(evenements(), [NOEL, LIBRAIRIE], { aujourdhui: '2026-11-20', jours: 30 })
+  test('ajoute d\'office les prochains événements à affiche, sans hebdomadaires (réglage coupé) ni doublons', () => {
+    const { ajoutees } = slidesAgenda(evenements(), [NOEL, LIBRAIRIE], { aujourdhui: '2026-11-20', jours: 30, hebdo: false })
     const titres = ajoutees.map((s: any) => `${s.titre} ${s.fin}`)
     // Agape (mensuel, une seule fois), Soirée Cieux Ouverts (affiche automatique) ;
     // Noël est déjà affichée à la main ; Célébration et Réunion de prières sont
@@ -153,5 +156,54 @@ test.describe('utils/diaporama — alignement sur l\'agenda', () => {
     const b = { image: '/b' }
     const c = { image: '/c', fin: '2026-11-29', agenda: true }
     expect(fusionnerSlides([a, b], [c]).map((s: any) => s.image)).toEqual(['/c', '/a', '/b'])
+  })
+
+  test('fiche en affiche automatique : remplace l\'affiche posée à la main, même pour une réunion hebdomadaire', () => {
+    const fiches = FICHES.map((f) => (f.id === 2 ? { ...f, image_url: '/affiches/modeles/evenement.jpg' } : f))
+      .map((f) => (f.id === 31 ? { ...f, image_url: '/affiches/modeles/evenement.jpg' } : f))
+    const ev = evenements(fiches, '2026-11-26T08:00:00')
+    const { ajoutees, remplacees } = slidesAgenda(ev, [NOEL, LIBRAIRIE], { aujourdhui: '2026-11-26', jours: 30 })
+    const titres = ajoutees.map((s: any) => s.titre)
+    // La Célébration du dimanche (hebdomadaire) est là, une seule fois, avec son rythme.
+    expect(titres.filter((t: string) => t.startsWith('Célébration')).sort()).toEqual(['Célébration', 'Célébration de Noël'])
+    const celebration = ajoutees.find((s: any) => s.titre === 'Célébration')
+    expect(celebration).toMatchObject({ auto: true, fin: '2026-11-29', rythme: 'chaque dimanche' })
+    // L'affiche de Noël posée à la main est remplacée par celle de l'agenda ; la librairie reste.
+    expect(remplacees).toEqual([NOEL])
+    // Sans cela, les hebdomadaires restent à l'écart.
+    const sansAuto = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30, hebdo: false })
+    expect(sansAuto.ajoutees.some((s: any) => s.titre === 'Célébration')).toBe(false)
+    // Par défaut, une réunion de chaque semaine qui a sa propre image y figure aussi (une fois).
+    const parDefaut = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30 })
+    expect(parDefaut.ajoutees.filter((s: any) => s.titre === 'Célébration')).toHaveLength(1)
+    expect(parDefaut.ajoutees.filter((s: any) => s.titre === 'Réunion de Prières')).toHaveLength(1)
+    // …mais pas une fiche sans image.
+    expect(parDefaut.ajoutees.some((s: any) => s.titre === 'Soirée jeunes')).toBe(false)
+  })
+
+  test('texte sous l\'affiche : champ propre, sinon début du texte alternatif, sinon titre de la fiche', () => {
+    expect(legendeDe({ image: '/a', alt: 'Célébration de Noël, dimanche 13 décembre. Les enfants seront mis à l\'honneur !' }))
+      .toEqual({ titre: 'Célébration de Noël, dimanche 13 décembre', detail: '' })
+    expect(legendeDe({ image: '/a', alt: 'Long texte', legende: '  Venez nombreux  ' })).toEqual({ titre: 'Venez nombreux', detail: '' })
+    const { ajoutees } = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30 })
+    const celeb = ajoutees.find((s: any) => s.titre === 'Célébration')
+    expect(legendeDe(celeb)).toEqual({ titre: 'Célébration', detail: 'dimanche 29 novembre · 10 h · chaque dimanche' })
+    expect(legendeDe(null)).toEqual({ titre: '', detail: '' })
+  })
+
+  test('début de texte : première phrase, raccourcie au dernier mot entier', () => {
+    expect(debutTexte('Une phrase. Une autre.')).toBe('Une phrase')
+    expect(debutTexte('')).toBe('')
+    const long = 'mot '.repeat(60)
+    const d = debutTexte(long, 40)
+    expect(d.endsWith('…')).toBe(true)
+    expect(d.length).toBeLessThanOrEqual(41)
+  })
+
+  test('« Célébration de Noël » à la main n\'est pas remplacée par la Célébration du dimanche en affiche automatique', () => {
+    const fiches = FICHES.map((f) => (f.id === 2 ? { ...f, image_url: '/affiches/modeles/evenement.jpg' } : f))
+    const { remplacees } = slidesAgenda(evenements(fiches, '2026-11-26T08:00:00'), [NOEL], { aujourdhui: '2026-11-26', jours: 30 })
+    expect(remplacees).toEqual([])
+    expect(verifierSlide(NOEL, evenements(fiches, '2026-11-26T08:00:00'), '2026-11-26')).toEqual([])
   })
 })

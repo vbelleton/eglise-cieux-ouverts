@@ -25,6 +25,9 @@ export function listerImagesDuSite() {
   return parcourir(publicDir)
     .map(f => '/' + relative(publicDir, f).split('\\').join('/'))
     .filter(f => EXT.test(f) && !/^\/favicon/.test(f) && !/^\/test-/.test(f) && !/^\/affiches\/modeles\//.test(f))
+    // Pages du magazine : gérées par scripts/ajouter-magazine.mjs, pas des
+    // images à réutiliser dans les blocs.
+    .filter(f => !f.startsWith('/magazines/'))
     .sort()
 }
 

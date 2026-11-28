@@ -99,9 +99,12 @@ export default defineNuxtConfig({
     // appel de la fonction compte dans le quota quotidien de Cloudflare).
     // Nitro liste un fichier par règle et coupe à 100 règles : la Bible de la
     // salle VR (66 fichiers) en dépassait. Des dossiers entiers d'abord.
+    // `/magazines/*` : pages du magazine (trois images par page, des dizaines
+    // par numéro) — dossier volontairement distinct de la route /magazine,
+    // qui doit, elle, rester servie par la fonction.
     cloudflare: {
       pages: {
-        routes: { exclude: ['/bible/*', '/images/*', '/photos/*'] },
+        routes: { exclude: ['/bible/*', '/images/*', '/photos/*', '/magazines/*'] },
       },
     },
   },

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "exemple",
+    "titre": "Hiver 2026-2027 (exemple fictif)",
+    "parution": "2026-11-21",
+    "description": "Numéro d'exemple aux sujets inventés, pour découvrir la liseuse : l'accueil à Noël, le Parcours Alpha, la marche et prière, une méditation et des mots mêlés.",
+    "pages": 12,
+    "largeur": 1600,
+    "hauteur": 2263,
+    "exemple": true
+  }
+]

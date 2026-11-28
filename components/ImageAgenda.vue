@@ -10,9 +10,9 @@
   <div class="image-agenda" :class="{ 'est-prete': prete, 'en-erreur': erreur, 'sans-fondu': sansFondu }" :style="{ aspectRatio: ratio }">
     <span v-if="erreur || !prete" class="image-agenda-fond" aria-hidden="true">{{ erreur ? (emoji || '✝️') : '' }}</span>
     <img
-      v-if="!erreur"
+      v-if="!erreur && srcAffichee"
       ref="img"
-      :src="src"
+      :src="srcAffichee"
       :alt="alt"
       :loading="prioritaire ? 'eager' : 'lazy'"
       :fetchpriority="prioritaire ? 'high' : 'auto'"
@@ -26,6 +26,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { modelePourImage, afficheSeance } from '~/utils/posterTemplates.js'
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -37,7 +38,28 @@ const props = defineProps({
   // Image visible dès l'ouverture (fenêtre du jour, première carte) : pas de
   // chargement différé.
   prioritaire: { type: Boolean, default: false },
+  // Séance montrée (Date ou AAAA-MM-JJ) et son heure de début : servent quand
+  // l'image est une affiche automatique.
+  date: { type: [Date, String], default: null },
+  heure: { type: String, default: '' },
 })
+
+// Adresse réellement affichée : `src`, ou l'affiche générée pour la séance.
+// Vide pendant la génération (et au rendu serveur) : cadre réservé, pas de
+// fond sans date qui clignote.
+const srcAffichee = ref(modelePourImage(props.src) ? '' : props.src)
+let demande = 0
+async function preparerSource() {
+  const modele = modelePourImage(props.src)
+  if (!modele) { srcAffichee.value = props.src; return }
+  const n = ++demande
+  try {
+    const url = await afficheSeance(modele, { date: props.date, heure: props.heure })
+    if (n === demande) srcAffichee.value = url
+  } catch {
+    if (n === demande) erreur.value = true
+  }
+}
 
 const img = ref(null)
 const prete = ref(false)
@@ -62,11 +84,19 @@ function verifierCache() {
   }
 }
 
-onMounted(verifierCache)
+onMounted(() => {
+  verifierCache()
+  if (modelePourImage(props.src)) preparerSource()
+})
 
-watch(() => props.src, () => {
-  prete.value = false
+// Clé texte : un nouvel objet Date pour le même jour ne relance rien.
+const cleSeance = () => `${props.src}|${props.date instanceof Date ? props.date.toDateString() : props.date || ''}|${props.heure}`
+watch(cleSeance, async () => {
+  const avant = srcAffichee.value
   erreur.value = false
+  await preparerSource()
+  if (srcAffichee.value === avant) return
+  prete.value = false
   sansFondu.value = false
   // Le nouvel élément <img> est en place au tick suivant.
   queueMicrotask(verifierCache)

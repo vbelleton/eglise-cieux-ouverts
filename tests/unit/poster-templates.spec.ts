@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
-import { MODELES_AFFICHES, POLICES_AFFICHES, dateEnToutesLettres, heureAffiche, modelePourEvenement, textesParDefaut, nomFichierAffiche } from '../../utils/posterTemplates.js'
+import { MODELES_AFFICHES, POLICES_AFFICHES, dateEnToutesLettres, heureAffiche, modelePourEvenement, textesParDefaut, modelePourImage } from '../../utils/posterTemplates.js'
 
-// Générateur d'affiches d'agenda (components/admin/PosterGenerator.vue).
+// Affiches automatiques de l'agenda (utils/posterTemplates.js).
 const racine = resolve(__dirname, '../..')
 
 test.describe('Affiches : textes par défaut', () => {
@@ -27,7 +27,20 @@ test.describe('Affiches : textes par défaut', () => {
     expect(m.id).toBe('soiree-cieux-ouverts')
     expect(textesParDefaut(m, { date: '2026-12-25', heure: '19:30' })).toEqual({ date: 'Vendredi 25 décembre', heure: '19H30' })
     expect(modelePourEvenement('Autre chose')).toBe(MODELES_AFFICHES[0])
-    expect(nomFichierAffiche(m, '2026-12-25')).toBe('affiche-soiree-cieux-ouverts-2026-12-25.jpg')
+  })
+})
+
+test.describe('Affiches automatiques : reconnaissance du fond', () => {
+  test('le fond d\'un modèle est reconnu, en adresse relative ou absolue', () => {
+    expect(modelePourImage('/affiches/modeles/soiree-cieux-ouverts.jpg')?.id).toBe('soiree-cieux-ouverts')
+    expect(modelePourImage('https://www.cieuxouverts.bzh/affiches/modeles/soiree-cieux-ouverts.jpg')?.id).toBe('soiree-cieux-ouverts')
+  })
+
+  test('une image ordinaire n\'est pas une affiche automatique', () => {
+    expect(modelePourImage('/api/media/uploads/123_affiche.jpg')).toBeNull()
+    expect(modelePourImage('/images/slides/soiree-cieux-ouverts-2026-11-27.jpg')).toBeNull()
+    expect(modelePourImage('')).toBeNull()
+    expect(modelePourImage(null)).toBeNull()
   })
 })
 

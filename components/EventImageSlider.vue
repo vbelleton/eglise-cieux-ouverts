@@ -13,6 +13,7 @@
     >
       <swiper-slide v-for="(img, idx) in images" :key="idx">
         <ImageAgenda :src="img" :alt="altPrefix + (idx+1)" class="event-img" :prioritaire="idx === (initialIndex || 0)"
+          :date="date" :heure="heure"
           @click.stop="$emit('slideClick', idx)"
           style="cursor:pointer" />
       </swiper-slide>
@@ -36,7 +37,10 @@ import 'swiper/css/navigation'
 const props = defineProps({
   images: { type: Array, required: true },
   altPrefix: { type: String, default: 'Image ' },
-  initialIndex: { type: Number, default: 0 }
+  initialIndex: { type: Number, default: 0 },
+  // Séance montrée : pour une affiche automatique (voir ImageAgenda).
+  date: { type: [Date, String], default: null },
+  heure: { type: String, default: '' },
 })
 
 const modules = [Autoplay, Pagination, Navigation]

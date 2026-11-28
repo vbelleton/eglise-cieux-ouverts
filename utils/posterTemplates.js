@@ -1,5 +1,7 @@
 // Modèles d'affiches d'agenda : un fond sans les textes variables (date,
-// heure…) + des zones de texte réécrites dans le style d'origine.
+// heure…) + des zones de texte réécrites dans le style d'origine. Une fiche
+// d'agenda dont l'image est le fond d'un modèle a une affiche par séance,
+// générée à l'affichage (voir « Affiche automatique » plus bas).
 //
 // Les fonds viennent du PowerPoint exporté de Canva (« Annonces
 // Présentation.pptx ») : chaque affiche y est en calques séparés, on empile
@@ -170,15 +172,45 @@ export async function dessinerAffiche(canvas, modele, textes) {
   return canvas
 }
 
-export function nomFichierAffiche(modele, date) {
-  return `affiche-${modele.id}${date ? '-' + date : ''}.jpg`
+// ── Affiche automatique ─────────────────────────────────────────────
+// Une fiche d'agenda dont l'image est le FOND d'un modèle (image_url =
+// "/affiches/modeles/<id>.jpg", choisi dans l'admin) a une affiche par
+// séance : la date et l'heure de chaque occurrence sont écrites à
+// l'affichage, dans le navigateur. Rien à refaire chaque mois, et un
+// changement d'heure dans la fiche se répercute tout seul. Un site qui ne
+// connaît pas ce mécanisme (Bras Ouverts, ancien cache) montre le fond seul :
+// titre et logo restent lisibles.
+
+// Modèle dont `url` est le fond (adresse relative ou absolue), sinon null.
+export function modelePourImage(url) {
+  if (!url || typeof url !== 'string') return null
+  let chemin = url
+  try { chemin = new URL(url, 'https://x.invalid').pathname } catch { return null }
+  return MODELES_AFFICHES.find(m => m.fond === chemin) || null
 }
 
-export function canvasEnFichier(canvas, nom) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return reject(new Error('Impossible de créer l\'image'))
-      resolve(new File([blob], nom, { type: 'image/jpeg' }))
-    }, 'image/jpeg', 0.9)
-  })
+// Date AAAA-MM-JJ d'une occurrence (Date ou chaîne), en heure locale.
+function jourIso(date) {
+  if (!date) return ''
+  if (typeof date === 'string') return date.slice(0, 10)
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const affichesGenerees = new Map()
+// Adresse (blob:) de l'affiche de cette séance, générée une seule fois par
+// modèle + date + heure. Client uniquement.
+export function afficheSeance(modele, { date, heure } = {}) {
+  const jour = jourIso(date)
+  const cle = `${modele.id}|${jour}|${heure || ''}`
+  if (!affichesGenerees.has(cle)) {
+    affichesGenerees.set(cle, (async () => {
+      const canvas = document.createElement('canvas')
+      await dessinerAffiche(canvas, modele, textesParDefaut(modele, { date: jour, heure }))
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Affiche impossible'))), 'image/jpeg', 0.88))
+      return URL.createObjectURL(blob)
+    })().catch((err) => { affichesGenerees.delete(cle); throw err }))
+  }
+  return affichesGenerees.get(cle)
 }

@@ -51,6 +51,15 @@ test.describe('Diaporama d\'affiches en page d\'accueil', () => {
     await expect(bloc.locator('a.dia-lien[href="/agenda"]')).toHaveCount(1)
   })
 
+  test('admin : une affiche dépassée n\'est plus affichée, l\'encadré dit de la retirer', async ({ page }) => {
+    await page.goto('/?admin=true')
+    const bloc = page.locator('.block-diaporama')
+    await expect(bloc).toBeVisible({ timeout: 15000 })
+    await expect(bloc.locator('img.dia-image')).toHaveCount(3)
+    await expect(bloc.getByAltText('Affiche périmée')).toHaveCount(0)
+    await expect(page.getByTestId('diaporama-verif')).toContainText('1 affiche dépassée ou remplacée', { timeout: 15000 })
+  })
+
   test('flèches, points et pause', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')

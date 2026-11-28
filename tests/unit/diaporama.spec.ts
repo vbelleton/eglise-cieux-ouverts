@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
   jourParis, estPerimee, slidesAffichees, slidesAgenda, verifierSlide, slideAnnonce,
-  heuresDansTexte, dateDansNomImage, fusionnerSlides, titreNet,
+  heuresDansTexte, dateDansNomImage, fusionnerSlides, titreNet, legendeDe, debutTexte,
 } from '../../utils/diaporama.js'
 import { buildEventList } from '../../utils/churchEvents.js'
 import { BLOCK_TYPES } from '../../utils/blockTypes.js'
@@ -127,8 +127,8 @@ test.describe('utils/diaporama — alignement sur l\'agenda', () => {
     expect(verifierSlide(SOIREE, evenements(), '2026-11-28')).toEqual([])
   })
 
-  test('ajoute d\'office les prochains événements à affiche, sans hebdomadaires ni doublons', () => {
-    const { ajoutees } = slidesAgenda(evenements(), [NOEL, LIBRAIRIE], { aujourdhui: '2026-11-20', jours: 30 })
+  test('ajoute d\'office les prochains événements à affiche, sans hebdomadaires (réglage coupé) ni doublons', () => {
+    const { ajoutees } = slidesAgenda(evenements(), [NOEL, LIBRAIRIE], { aujourdhui: '2026-11-20', jours: 30, hebdo: false })
     const titres = ajoutees.map((s: any) => `${s.titre} ${s.fin}`)
     // Agape (mensuel, une seule fois), Soirée Cieux Ouverts (affiche automatique) ;
     // Noël est déjà affichée à la main ; Célébration et Réunion de prières sont
@@ -171,8 +171,33 @@ test.describe('utils/diaporama — alignement sur l\'agenda', () => {
     // L'affiche de Noël posée à la main est remplacée par celle de l'agenda ; la librairie reste.
     expect(remplacees).toEqual([NOEL])
     // Sans cela, les hebdomadaires restent à l'écart.
-    const sansAuto = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30 })
+    const sansAuto = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30, hebdo: false })
     expect(sansAuto.ajoutees.some((s: any) => s.titre === 'Célébration')).toBe(false)
+    // Par défaut, une réunion de chaque semaine qui a sa propre image y figure aussi (une fois).
+    const parDefaut = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30 })
+    expect(parDefaut.ajoutees.filter((s: any) => s.titre === 'Célébration')).toHaveLength(1)
+    expect(parDefaut.ajoutees.filter((s: any) => s.titre === 'Réunion de Prières')).toHaveLength(1)
+    // …mais pas une fiche sans image.
+    expect(parDefaut.ajoutees.some((s: any) => s.titre === 'Soirée jeunes')).toBe(false)
+  })
+
+  test('texte sous l\'affiche : champ propre, sinon début du texte alternatif, sinon titre de la fiche', () => {
+    expect(legendeDe({ image: '/a', alt: 'Célébration de Noël, dimanche 13 décembre. Les enfants seront mis à l\'honneur !' }))
+      .toEqual({ titre: 'Célébration de Noël, dimanche 13 décembre', detail: '' })
+    expect(legendeDe({ image: '/a', alt: 'Long texte', legende: '  Venez nombreux  ' })).toEqual({ titre: 'Venez nombreux', detail: '' })
+    const { ajoutees } = slidesAgenda(evenements(FICHES, '2026-11-26T08:00:00'), [], { aujourdhui: '2026-11-26', jours: 30 })
+    const celeb = ajoutees.find((s: any) => s.titre === 'Célébration')
+    expect(legendeDe(celeb)).toEqual({ titre: 'Célébration', detail: 'dimanche 29 novembre · 10 h · chaque dimanche' })
+    expect(legendeDe(null)).toEqual({ titre: '', detail: '' })
+  })
+
+  test('début de texte : première phrase, raccourcie au dernier mot entier', () => {
+    expect(debutTexte('Une phrase. Une autre.')).toBe('Une phrase')
+    expect(debutTexte('')).toBe('')
+    const long = 'mot '.repeat(60)
+    const d = debutTexte(long, 40)
+    expect(d.endsWith('…')).toBe(true)
+    expect(d.length).toBeLessThanOrEqual(41)
   })
 
   test('« Célébration de Noël » à la main n\'est pas remplacée par la Célébration du dimanche en affiche automatique', () => {

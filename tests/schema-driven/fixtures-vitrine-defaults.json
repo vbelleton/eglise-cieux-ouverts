@@ -324,9 +324,10 @@
     "pauseLabel": "Mettre le diaporama en pause",
     "playLabel": "Relancer le diaporama",
     "slideLabel": "Affiche",
-    "expiredLabel": "Date passée : masquée sur le site",
     "agenda": true,
     "agendaJours": 30,
+    "agendaHebdo": true,
+    "legendes": true,
     "backgroundColor": "#0b2440",
     "textColor": "#ffffff",
     "animation": "none"

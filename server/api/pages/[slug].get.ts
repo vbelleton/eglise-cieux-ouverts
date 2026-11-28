@@ -1,4 +1,4 @@
-import { reponsePageDepuisDoc } from '../../../utils/adresseDons.js'
+import { reponsePageDepuisDoc } from '../../../utils/adressePage.js'
 export default defineEventHandler(async (event) => {
   // En mode test (CI ou local), le mock prime TOUJOURS sur Firestore :
   // sinon les tests locaux (où .env a de vrais credentials) tapent la
@@ -31,7 +31,6 @@ export default defineEventHandler(async (event) => {
     const doc = await getFirestoreDoc(projectId, accessToken, 'pages', slug)
 
     if (!doc) {
-      // Adresse de la page de dons : contenu de départ, ou redirection si elle a été déplacée
       // Jamais de null pour blocks ! ⇒ fallback neutre, UI toujours fonctionnelle
       // exists:false -> pages/[slug].vue peut renvoyer une vraie 404 pour
       // un slug réellement inconnu (les pages statiques comme /contact ne
@@ -41,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
     // Une page soft-deleted (_deleted, cf. DELETE /api/pages/:slug) compte
     // comme inexistante pour le routage public ; un document déplacé renvoie
-    // sa nouvelle adresse (voir utils/adresseDons.js).
+    // sa nouvelle adresse (voir utils/adressePage.js).
     return reponsePageDepuisDoc(slug, parseFirestoreDoc(doc))
   } catch (err) {
     console.error('Page API error:', err)

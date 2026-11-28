@@ -1,3 +1,5 @@
+import { ADRESSE_DONS_DEFAUT } from '../../../utils/adressePage.js'
+
 import { getFirestoreConfig, getAccessToken, listFirestoreCollection, parseFirestoreDoc } from '../../utils/firebase'
 
 export default defineEventHandler(async (event) => {
@@ -13,7 +15,7 @@ export default defineEventHandler(async (event) => {
       blockCount: data.blocks?.length || 0,
       _deleted: data._deleted || false,
     }))
-    return { pages }
+    return { pages: avecPageDons(pages) }
   }
 
   const config = getFirestoreConfig(event)
@@ -38,9 +40,16 @@ export default defineEventHandler(async (event) => {
         }
       })
       .filter(Boolean)
-    return { pages }
+    return { pages: avecPageDons(pages) }
   } catch (err: any) {
     console.error('List pages error:', err)
     return { pages: [] }
   }
 })
+
+// La page de dons existe (contenu de départ) avant d'être enregistrée : on la
+// liste pour qu'elle apparaisse dans l'éditeur de menu et le sélecteur de pages.
+function avecPageDons(pages: any[]) {
+  if (pages.some((p) => p.slug === ADRESSE_DONS_DEFAUT)) return pages
+  return [...pages, { slug: ADRESSE_DONS_DEFAUT, title: 'Dons', updatedAt: null, updatedBy: null, blockCount: 0, _deleted: false }]
+}

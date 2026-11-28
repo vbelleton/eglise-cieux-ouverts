@@ -30,7 +30,7 @@
             v-for="(slide, i) in slides"
             :key="(slide.agenda ? 'agenda:' : '') + slide.image + i"
             class="dia-slide"
-            :class="{ 'dia-slide-perimee': isAdmin && !slide.agenda && estPerimee(slide, jour), 'dia-slide-agenda': slide.agenda }"
+            :class="{ 'dia-slide-perimee': isAdmin && !slide.agenda && (estPerimee(slide, jour) || remplacees.has(slide)), 'dia-slide-agenda': slide.agenda }"
             role="group"
             aria-roledescription="diapositive"
             :aria-label="`${slideLabel} ${i + 1} / ${slides.length}`"
@@ -53,6 +53,8 @@
                 :alt="slide.alt"
                 :date="slide.date"
                 :heure="slide.heure"
+                :titre="slide.titre"
+                :rythme="slide.rythme"
                 :prioritaire="i === 0"
                 class="dia-image-agenda"
               />
@@ -74,6 +76,7 @@
               />
             </component>
             <span v-if="isAdmin && slide.agenda" class="dia-badge dia-badge-agenda">{{ ADMIN.badgeAgenda }}</span>
+            <span v-else-if="isAdmin && remplacees.has(slide)" class="dia-badge dia-badge-agenda">{{ ADMIN.badgeRemplacee }}</span>
             <span v-else-if="isAdmin && estPerimee(slide, jour)" class="dia-badge">{{ expiredLabel }}</span>
             <span v-else-if="isAdmin && alertesParSlide.get(slide)?.length" class="dia-badge dia-badge-alerte">{{ ADMIN.badgeAlerte }}</span>
           </div>
@@ -181,7 +184,7 @@ const jour = useState('diaporama-jour', () => jourParis())
 const { evenements, loading: evenementsEnCours, erreur: evenementsErreur } = useChurchEvents()
 
 const agendaCalcule = computed(() => {
-  if (!props.agenda || evenementsErreur.value) return { ajoutees: [], ecartees: [] }
+  if (!props.agenda || evenementsErreur.value) return { ajoutees: [], ecartees: [], remplacees: [] }
   return slidesAgenda(evenements.value, props.items, { aujourdhui: jour.value, jours: props.agendaJours })
 })
 const nbAgenda = computed(() => agendaCalcule.value.ajoutees.length)
@@ -192,13 +195,20 @@ const manuelles = computed(() => {
   if (isAdmin.value) return (props.items || []).filter((s) => s && String(s.image || '').trim())
   return slidesAffichees(props.items, jour.value)
 })
-const slides = computed(() => fusionnerSlides(manuelles.value, agendaCalcule.value.ajoutees))
+// Affiches posées à la main que remplace l'affiche automatique de l'agenda :
+// masquées sur le site, gardées (et signalées) en admin.
+const remplacees = computed(() => new Set(agendaCalcule.value.remplacees))
+const slides = computed(() => {
+  const gardees = isAdmin.value ? manuelles.value : manuelles.value.filter((s) => !remplacees.value.has(s))
+  return fusionnerSlides(gardees, agendaCalcule.value.ajoutees)
+})
 
 // ─── Alertes (admin) ──────────────────────────────────────────────────────
 // Messages vus seulement dans l'admin : écrits ici, pas dans les réglages
 // du bloc (rien de visible pour les visiteurs).
 const ADMIN = {
   badgeAgenda: "📅 Depuis l'agenda (à modifier dans Événements)",
+  badgeRemplacee: "📅 Remplacée par l'affiche automatique de l'agenda (masquée sur le site)",
   badgeAlerte: "⚠ À vérifier : ne correspond plus à l'agenda",
 }
 const alertesParSlide = computed(() => {

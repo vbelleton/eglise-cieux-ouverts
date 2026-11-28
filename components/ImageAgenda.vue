@@ -42,6 +42,10 @@ const props = defineProps({
   // l'image est une affiche automatique.
   date: { type: [Date, String], default: null },
   heure: { type: String, default: '' },
+  // Titre et rythme de la fiche (« Chaque mardi ») : écrits sur les modèles
+  // d'affiche qui les prévoient (modèle « Tout événement »).
+  titre: { type: String, default: '' },
+  rythme: { type: String, default: '' },
 })
 
 // Adresse réellement affichée : `src`, ou l'affiche générée pour la séance.
@@ -54,7 +58,7 @@ async function preparerSource() {
   if (!modele) { srcAffichee.value = props.src; return }
   const n = ++demande
   try {
-    const url = await afficheSeance(modele, { date: props.date, heure: props.heure })
+    const url = await afficheSeance(modele, { date: props.date, heure: props.heure, titre: props.titre, rythme: props.rythme })
     if (n === demande) srcAffichee.value = url
   } catch {
     if (n === demande) erreur.value = true
@@ -90,7 +94,7 @@ onMounted(() => {
 })
 
 // Clé texte : un nouvel objet Date pour le même jour ne relance rien.
-const cleSeance = () => `${props.src}|${props.date instanceof Date ? props.date.toDateString() : props.date || ''}|${props.heure}`
+const cleSeance = () => `${props.src}|${props.date instanceof Date ? props.date.toDateString() : props.date || ''}|${props.heure}|${props.titre}|${props.rythme}`
 watch(cleSeance, async () => {
   const avant = srcAffichee.value
   erreur.value = false

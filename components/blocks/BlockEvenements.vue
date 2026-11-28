@@ -55,7 +55,7 @@
 
 <script setup>
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { estTermine } from '~/utils/churchEvents.js'
+import { estTermine, libelleRecurrence } from '~/utils/churchEvents.js'
 import { modelePourImage, afficheSeance } from '~/utils/posterTemplates.js'
 import { fieldFontStyle } from '~/utils/fonts.js'
 
@@ -113,7 +113,7 @@ const liste = computed(() => {
 // générée dans le navigateur avec la date et l'heure de la séance montrée.
 // En attendant (et au rendu serveur), cadre vide plutôt que le fond sans date.
 const affiches = ref({})
-const cleAffiche = evt => `${evt.images[0]}|${evt.date.toDateString()}|${evt.heure || ''}`
+const cleAffiche = evt => `${evt.images[0]}|${evt.date.toDateString()}|${evt.heure || ''}|${evt.titre || ''}`
 function imageCarte(evt) {
   const url = evt.images[0]
   return modelePourImage(url) ? affiches.value[cleAffiche(evt)] || '' : url
@@ -124,7 +124,7 @@ watch(liste, (evts) => {
     const modele = evt.images?.length ? modelePourImage(evt.images[0]) : null
     const cle = modele && cleAffiche(evt)
     if (!modele || affiches.value[cle]) continue
-    afficheSeance(modele, { date: evt.date, heure: evt.heure })
+    afficheSeance(modele, { date: evt.date, heure: evt.heure, titre: evt.titre, rythme: libelleRecurrence(evt) || '' })
       .then((url) => { affiches.value = { ...affiches.value, [cle]: url } })
       .catch(() => {})
   }

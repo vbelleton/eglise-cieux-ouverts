@@ -82,6 +82,85 @@ export const MODELES_AFFICHES = [
   },
 ]
 
+// Titre sans emoji ni pictogramme : les polices des affiches n'en ont pas.
+function titreAffiche(titre) {
+  return String(titre || '')
+    .replace(/[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// « chaque mardi » → « Chaque mardi ».
+function rythmeAffiche(rythme) {
+  const r = String(rythme || '').trim()
+  return r ? r.charAt(0).toUpperCase() + r.slice(1) : ''
+}
+
+// Modèle pour tout événement : le titre, le rythme (« Chaque mardi »), la
+// date et l'heure viennent de la fiche. Sert à tous les événements sans
+// modèle à eux, y compris les rendez-vous récurrents.
+MODELES_AFFICHES.push({
+  id: 'evenement',
+  libelle: 'Tout événement (titre, rythme, date et heure de la fiche)',
+  motsCles: [],
+  fond: '/affiches/modeles/evenement.jpg',
+  largeur: 1600,
+  hauteur: 900,
+  zones: [
+    {
+      cle: 'titre',
+      libelle: 'Titre',
+      valeur: ({ titre }) => titreAffiche(titre),
+      x: 90,
+      haut: 96,
+      largeurMax: 1420,
+      lignesMax: 3,
+      interligne: 1.08,
+      famille: 'DM Sans Affiche',
+      graisse: '700',
+      taille: 132,
+      couleur: '#104770',
+    },
+    {
+      cle: 'rythme',
+      libelle: 'Rythme',
+      valeur: ({ rythme }) => rythmeAffiche(rythme),
+      x: 94,
+      haut: 538,
+      largeurMax: 1300,
+      famille: 'DM Sans Affiche',
+      graisse: '700',
+      taille: 58,
+      couleur: '#c2455a',
+    },
+    {
+      cle: 'date',
+      libelle: 'Date',
+      valeur: ({ date }) => dateEnToutesLettres(date),
+      x: 94,
+      haut: 700,
+      largeurMax: 1000,
+      famille: 'DM Sans Affiche',
+      graisse: '700',
+      taille: 62,
+      couleur: '#104770',
+    },
+    {
+      cle: 'heure',
+      libelle: 'Heure',
+      valeur: ({ heure }) => heureAffiche(heure),
+      x: 98,
+      haut: 780,
+      largeurMax: 700,
+      famille: 'Lexend Affiche',
+      graisse: '800',
+      taille: 91,
+      espacement: -0.04,
+      couleur: '#104770',
+    },
+  ],
+})
+
 export function modeleParId(id) {
   return MODELES_AFFICHES.find(m => m.id === id) || null
 }
@@ -89,11 +168,11 @@ export function modeleParId(id) {
 // Modèle le plus probable pour une fiche d'agenda (par son titre), sinon le premier.
 export function modelePourEvenement(titre) {
   const t = (titre || '').toLowerCase()
-  return MODELES_AFFICHES.find(m => m.motsCles.some(k => t.includes(k))) || MODELES_AFFICHES[0]
+  return MODELES_AFFICHES.find(m => m.motsCles.some(k => t.includes(k))) || modeleParId('evenement') || MODELES_AFFICHES[0]
 }
 
-export function textesParDefaut(modele, { date, heure } = {}) {
-  return Object.fromEntries(modele.zones.map(z => [z.cle, z.valeur({ date, heure })]))
+export function textesParDefaut(modele, { date, heure, titre, rythme } = {}) {
+  return Object.fromEntries(modele.zones.map(z => [z.cle, z.valeur({ date, heure, titre, rythme })]))
 }
 
 let policesChargees = null
@@ -128,8 +207,49 @@ function largeurTexte(ctx, texte, espacementPx) {
   return [...texte].reduce((w, c) => w + ctx.measureText(c).width + espacementPx, 0) - espacementPx
 }
 
+// Coupe un texte en lignes de `largeurMax` au plus (aux espaces).
+function decouper(ctx, texte, largeurMax) {
+  const lignes = []
+  let courante = ''
+  for (const mot of texte.split(/\s+/)) {
+    const essai = courante ? `${courante} ${mot}` : mot
+    if (courante && ctx.measureText(essai).width > largeurMax) { lignes.push(courante); courante = mot } else courante = essai
+  }
+  if (courante) lignes.push(courante)
+  return lignes
+}
+
+// Zone sur plusieurs lignes (titre) : la plus grande taille, au plus la taille
+// de départ, pour laquelle le texte tient en `lignesMax` lignes dans la
+// largeur ET dans la hauteur prévues.
+function dessinerZoneLignes(ctx, zone, texte) {
+  const police = t => `${zone.graisse} ${t}px "${zone.famille}"`
+  const interligne = zone.interligne || 1.1
+  const hauteurMax = zone.hauteurMax || 430
+  let taille = zone.taille
+  let lignes = []
+  for (; taille >= 24; taille -= 2) {
+    ctx.font = police(taille)
+    lignes = decouper(ctx, texte, zone.largeurMax)
+    const largeurOk = lignes.every(l => ctx.measureText(l).width <= zone.largeurMax)
+    const hauteur = taille * interligne * (lignes.length - 1) + taille
+    if (lignes.length <= (zone.lignesMax || 1) && largeurOk && hauteur <= hauteurMax) break
+  }
+  ctx.font = police(taille)
+  ctx.save()
+  ctx.fillStyle = zone.couleur
+  ctx.textBaseline = 'alphabetic'
+  const m0 = ctx.measureText(lignes[0] || 'H')
+  lignes.forEach((l, i) => {
+    const m = ctx.measureText(l)
+    ctx.fillText(l, zone.x + m.actualBoundingBoxLeft, zone.haut + m0.actualBoundingBoxAscent + i * taille * interligne)
+  })
+  ctx.restore()
+}
+
 function dessinerZone(ctx, zone, texte) {
   if (!texte) return
+  if (zone.lignesMax) return dessinerZoneLignes(ctx, zone, texte)
   let taille = zone.taille
   const police = t => `${zone.graisse} ${t}px "${zone.famille}"`
   ctx.font = police(taille)
@@ -201,13 +321,13 @@ function jourIso(date) {
 const affichesGenerees = new Map()
 // Adresse (blob:) de l'affiche de cette séance, générée une seule fois par
 // modèle + date + heure. Client uniquement.
-export function afficheSeance(modele, { date, heure } = {}) {
+export function afficheSeance(modele, { date, heure, titre, rythme } = {}) {
   const jour = jourIso(date)
-  const cle = `${modele.id}|${jour}|${heure || ''}`
+  const cle = `${modele.id}|${jour}|${heure || ''}|${titre || ''}|${rythme || ''}`
   if (!affichesGenerees.has(cle)) {
     affichesGenerees.set(cle, (async () => {
       const canvas = document.createElement('canvas')
-      await dessinerAffiche(canvas, modele, textesParDefaut(modele, { date: jour, heure }))
+      await dessinerAffiche(canvas, modele, textesParDefaut(modele, { date: jour, heure, titre, rythme }))
       const blob = await new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Affiche impossible'))), 'image/jpeg', 0.88))
       return URL.createObjectURL(blob)
     })().catch((err) => { affichesGenerees.delete(cle); throw err }))

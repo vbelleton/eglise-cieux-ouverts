@@ -119,6 +119,8 @@
       :altPrefix="'Photo '"
       :date="carte.evt.date"
       :heure="carte.evt.heure || ''"
+      :titre="carte.titre"
+      :rythme="carte.recurrences.join(' et ')"
       mini
       @click="(e) => e.stopPropagation()"
       @slideClick="idx => openCarte(carte, idx)"
@@ -128,6 +130,8 @@
       :src="carte.evt.images[0]"
       :date="carte.evt.date"
       :heure="carte.evt.heure || ''"
+      :titre="carte.titre"
+      :rythme="carte.recurrences.join(' et ')"
       :alt="carte.titre"
       :emoji="carte.evt.emoji || ''"
       :prioritaire="cIdx < 3"
@@ -210,6 +214,8 @@
                     :images="eventModal.event.images"
                     :date="eventModal.event.date"
                     :heure="eventModal.event.heure || ''"
+                    :titre="eventModal.event.titre"
+                    :rythme="libelleRecurrence(eventModal.event) || ''"
                     :altPrefix="'Photo '"
                     :initialIndex="eventModal.imageIndex || 0"
   />
@@ -276,6 +282,8 @@
               :src="evt.images[0]"
               :date="evt.date"
               :heure="evt.heure || ''"
+              :titre="evt.titre"
+              :rythme="libelleRecurrence(evt) || ''"
               :alt="evt.titre"
               :emoji="evt.emoji || ''"
               prioritaire
@@ -306,7 +314,7 @@ import EventImageSlider from '~/components/EventImageSlider.vue'
 import ImageAgenda from '~/components/ImageAgenda.vue'
 import { modelePourImage } from '~/utils/posterTemplates.js'
 import { sanitizeHtml as sanitizeHtmlXss } from '~/utils/sanitize'
-import { estTermine, regrouperCartes } from '~/utils/churchEvents.js'
+import { estTermine, libelleRecurrence, regrouperCartes } from '~/utils/churchEvents.js'
 
 
 usePageSeo({
